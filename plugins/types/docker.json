@@ -1,0 +1,9 @@
+{"types": [
+    {
+        "id": "docker_image",
+        "display_name": "Docker Image",
+        "description": "Docker Image",
+        "unit_key": ["image_id"],
+        "search_indexes": []
+    }
+]}
