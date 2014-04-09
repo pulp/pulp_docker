@@ -14,6 +14,7 @@ PACKAGES = ['pulp_docker', ]
 
 TESTS = [
     'common/test/unit/',
+    'extensions_admin/test/unit/',
 ]
 
 PLUGIN_TESTS = ['plugins/test/unit/',]

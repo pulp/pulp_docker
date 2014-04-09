@@ -12,6 +12,8 @@ setup(
     entry_points = {
         'pulp.importers': [
             'importer = pulp_docker.plugins.importers.importer:entry_point',
+        ],
+        'pulp.distributors': [
             'distributor = pulp_docker.plugins.distributors.distributor:entry_point',
         ]
     }

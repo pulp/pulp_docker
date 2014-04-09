@@ -15,3 +15,15 @@ class TestBasics(unittest.TestCase):
         image = models.DockerImage('abc', 'xyz', 1024)
 
         self.assertEqual(image.unit_key, {'image_id': 'abc'})
+
+    def test_relative_path(self):
+        image = models.DockerImage('abc', 'xyz', 1024)
+
+        self.assertEqual(image.relative_path, 'docker_image/abc')
+
+    def test_metadata(self):
+        image = models.DockerImage('abc', 'xyz', 1024)
+        metadata = image.unit_metadata
+
+        self.assertEqual(metadata.get('parent_id'), 'xyz')
+        self.assertEqual(metadata.get('size'), 1024)
