@@ -9,7 +9,7 @@ setup(
     author='Pulp Team',
     author_email='pulp-list@redhat.com',
     description='plugins for docker image support in pulp',
-    entry_points = {
+    entry_points={
         'pulp.importers': [
             'importer = pulp_docker.plugins.importers.importer:entry_point',
         ],

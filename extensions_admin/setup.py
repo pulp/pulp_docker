@@ -9,7 +9,7 @@ setup(
     author='Pulp Team',
     author_email='pulp-list@redhat.com',
     description='pulp-admin extensions for docker image support',
-    entry_points = {
+    entry_points={
         'pulp.extensions.admin': [
             'repo_admin = pulp_docker.extensions.admin.pulp_cli:initialize',
         ]

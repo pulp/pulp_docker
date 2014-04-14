@@ -30,7 +30,7 @@ class TestGetMetadata(unittest.TestCase):
                 self.assertTrue(data['parent'] is None)
             else:
                 # make sure all other layers have the correct parent
-                self.assertEqual(data['parent'], busybox_ids[i+1])
+                self.assertEqual(data['parent'], busybox_ids[i + 1])
 
             self.assertTrue(isinstance(data['size'], int))
 

@@ -29,4 +29,3 @@ class TestInitialize(unittest.TestCase):
 
         upload_section = repo_section.subsections['uploads']
         self.assertTrue(isinstance(upload_section.commands['upload'], UploadCommand))
-

@@ -3,7 +3,6 @@ import logging
 
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
-from pulp.server.managers import factory
 
 from pulp_docker.common import constants, tarutils
 from pulp_docker.plugins.importers import upload
@@ -84,7 +83,6 @@ class DockerImporter(Importer):
         # save those models as units in pulp
         upload.save_models(conduit, models, ancestry, file_path)
         upload.update_tags(repo.id, file_path)
-
 
     def validate_config(self, repo, config):
         """

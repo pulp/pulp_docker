@@ -10,6 +10,8 @@ from pulp.devel.test_runner import run_tests
 PROJECT_DIR = os.path.dirname(__file__)
 subprocess.call(['find', PROJECT_DIR, '-name', '*.pyc', '-delete'])
 
+subprocess.call(['flake8', '--config=./flake8.cfg', PROJECT_DIR])
+
 PACKAGES = ['pulp_docker', ]
 
 TESTS = [
@@ -17,7 +19,7 @@ TESTS = [
     'extensions_admin/test/unit/',
 ]
 
-PLUGIN_TESTS = ['plugins/test/unit/',]
+PLUGIN_TESTS = ['plugins/test/unit/']
 
 dir_safe_all_platforms = [os.path.join(os.path.dirname(__file__), x) for x in TESTS]
 dir_safe_non_rhel5 = [os.path.join(os.path.dirname(__file__), x) for x in PLUGIN_TESTS]

@@ -71,7 +71,8 @@ class TestSaveModels(unittest.TestCase):
         try:
             # prepare some state
             model_dest = os.path.join(dest, models[0].relative_path)
-            unit = Unit(DockerImage.TYPE_ID, models[0].unit_key, models[0].unit_metadata, model_dest)
+            unit = Unit(DockerImage.TYPE_ID, models[0].unit_key,
+                        models[0].unit_metadata, model_dest)
             self.conduit.init_unit.return_value = unit
 
             # call the save, letting it write files to disk
