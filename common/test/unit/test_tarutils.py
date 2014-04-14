@@ -1,6 +1,8 @@
 import os
 import unittest
 
+import mock
+
 from pulp_docker.common import tarutils
 
 
@@ -33,6 +35,19 @@ class TestGetMetadata(unittest.TestCase):
                 self.assertEqual(data['parent'], busybox_ids[i + 1])
 
             self.assertTrue(isinstance(data['size'], int))
+
+
+class TestGetTags(unittest.TestCase):
+    def test_normal(self):
+        tags = tarutils.get_tags(busybox_tar_path)
+
+        self.assertEqual(tags, {'latest': busybox_ids[0]})
+
+    @mock.patch('json.load', spec_set=True)
+    def test_no_repos(self, mock_load):
+        mock_load.return_value = {}
+
+        self.assertRaises(ValueError, tarutils.get_tags, busybox_tar_path)
 
 
 class TestGetAncestry(unittest.TestCase):
