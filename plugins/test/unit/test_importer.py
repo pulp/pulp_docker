@@ -4,12 +4,12 @@ import mock
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.importer import Importer
 from pulp.plugins.model import Repository
-from pulp.server.managers.repo.cud import RepoManager
 
 import data
 from pulp_docker.common import constants
 from pulp_docker.common.models import DockerImage
 from pulp_docker.plugins.importers.importer import DockerImporter, entry_point
+from pulp_docker.plugins.importers import upload
 
 
 class TestEntryPoint(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestBasics(unittest.TestCase):
         self.assertTrue(len(metadata['display_name']) > 0)
 
 
-@mock.patch.object(RepoManager, 'update_repo_scratchpad', spec_set=True)
+@mock.patch.object(upload, 'update_tags', spec_set=True)
 class TestUploadUnit(unittest.TestCase):
     def setUp(self):
         self.unit_key = {'image_id': data.busybox_ids[0]}
@@ -43,7 +43,7 @@ class TestUploadUnit(unittest.TestCase):
         self.config = PluginCallConfiguration({}, {})
 
     @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_save_conduit(self, mock_save, mock_update):
+    def test_save_conduit(self, mock_save, mock_update_tags):
         DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
                                      {}, data.busybox_tar_path, self.conduit, self.config)
 
@@ -52,7 +52,7 @@ class TestUploadUnit(unittest.TestCase):
         self.assertTrue(conduit is self.conduit)
 
     @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_saved_models(self, mock_save, mock_update):
+    def test_saved_models(self, mock_save, mock_update_tags):
         DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
                                      {}, data.busybox_tar_path, self.conduit, self.config)
 
@@ -66,7 +66,7 @@ class TestUploadUnit(unittest.TestCase):
         self.assertEqual(tuple(ids), data.busybox_ids)
 
     @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_saved_ancestry(self, mock_save, mock_update):
+    def test_saved_ancestry(self, mock_save, mock_update_tags):
         DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
                                      {}, data.busybox_tar_path, self.conduit, self.config)
 
@@ -75,7 +75,7 @@ class TestUploadUnit(unittest.TestCase):
         self.assertEqual(tuple(ancestry), data.busybox_ids)
 
     @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_saved_filepath(self, mock_save, mock_update):
+    def test_saved_filepath(self, mock_save, mock_update_tags):
         DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
                                      {}, data.busybox_tar_path, self.conduit, self.config)
 
@@ -84,11 +84,11 @@ class TestUploadUnit(unittest.TestCase):
         self.assertEqual(path, data.busybox_tar_path)
 
     @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_added_tags(self, mock_save, mock_update):
+    def test_added_tags(self, mock_save, mock_update_tags):
         DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
                                      {}, data.busybox_tar_path, self.conduit, self.config)
 
-        mock_update.assert_called_once_with(self.repo.id, {'tags': {'latest': data.busybox_ids[0]}})
+        mock_update_tags.assert_called_once_with(self.repo.id, data.busybox_tar_path)
 
 
 class TestValidateConfig(unittest.TestCase):

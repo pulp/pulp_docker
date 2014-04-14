@@ -5,7 +5,9 @@ import json
 import os
 import tarfile
 
-from pulp_docker.common import models
+from pulp.server.managers import factory
+
+from pulp_docker.common import models, tarutils
 
 
 def get_models(metadata, unit_key, mask_id=''):
@@ -90,3 +92,23 @@ def save_models(conduit, models, ancestry, tarfile_path):
                             layer_dest.write(chunk)
 
             conduit.save_unit(unit)
+
+
+def update_tags(repo_id, tarfile_path):
+    """
+    Gets the current scratchpad's tags and updates them with the tags contained
+    in the tarfile.
+
+    :param repo_id:         unique ID of a repository
+    :type  repo_id:         basestring
+    :param tarfile_path:    full path to a tarfile that is the product
+                            of "docker save"
+    :type  tarfile_path:    basestring
+    """
+    repo_manager = factory.repo_manager()
+    new_tags = tarutils.get_tags(tarfile_path)
+
+    scratchpad = repo_manager.get_repo_scratchpad(repo_id)
+    tags = scratchpad.get('tags', {})
+    tags.update(new_tags)
+    repo_manager.update_repo_scratchpad(repo_id, {'tags': tags})

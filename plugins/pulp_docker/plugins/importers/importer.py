@@ -83,9 +83,8 @@ class DockerImporter(Importer):
         ancestry = tarutils.get_ancestry(models[0].image_id, metadata)
         # save those models as units in pulp
         upload.save_models(conduit, models, ancestry, file_path)
+        upload.update_tags(repo.id, file_path)
 
-        tags = tarutils.get_tags(file_path)
-        factory.repo_manager().update_repo_scratchpad(repo.id, {'tags': tags})
 
     def validate_config(self, repo, config):
         """
