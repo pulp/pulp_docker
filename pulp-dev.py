@@ -8,7 +8,7 @@ import sys
 WARNING_COLOR = '\033[31m'
 WARNING_RESET = '\033[0m'
 
-DIRS = ()
+DIRS = ('/var/lib/pulp/published/docker/web',)
 
 #
 # Str entry assumes same src and dst relative path.
@@ -20,8 +20,10 @@ DIRS = ()
 DIR_PLUGINS = '/usr/lib/pulp/plugins'
 
 LINKS = (
+    ('plugins/etc/httpd/conf.d/pulp_docker.conf', '/etc/httpd/conf.d/pulp_docker.conf'),
     ('plugins/types/docker.json', DIR_PLUGINS + '/types/docker.json'),
 )
+
 
 def parse_cmdline():
     """
@@ -89,9 +91,12 @@ def getlinks():
 def install(opts):
     warnings = []
     create_dirs(opts)
+    # Ensure the directory is owned by apache
+    os.system('chown -R apache:apache /var/lib/pulp/published/docker')
+
     currdir = os.path.abspath(os.path.dirname(__file__))
     for src, dst in getlinks():
-        warning_msg = create_link(opts, os.path.join(currdir,src), dst)
+        warning_msg = create_link(opts, os.path.join(currdir, src), dst)
         if warning_msg:
             warnings.append(warning_msg)
 
@@ -118,7 +123,8 @@ def create_link(opts, src, dst):
         return _create_link(opts, src, dst)
 
     if not os.path.islink(dst):
-        return "[%s] is not a symbolic link as we expected, please adjust if this is not what you intended." % (dst)
+        return "[%s] is not a symbolic link as we expected, please adjust if this is not what " \
+               "you intended." % (dst)
 
     if not os.path.exists(os.readlink(dst)):
         warning('BROKEN LINK: [%s] attempting to delete and fix it to point to %s.' % (dst, src))
@@ -126,14 +132,16 @@ def create_link(opts, src, dst):
             os.unlink(dst)
             return _create_link(opts, src, dst)
         except:
-            msg = "[%s] was a broken symlink, failed to delete and relink to [%s], please fix this manually" % (dst, src)
+            msg = "[%s] was a broken symlink, failed to delete and relink to [%s], " \
+                  "please fix this manually" % (dst, src)
             return msg
 
     debug(opts, 'verifying link: %s points to %s' % (dst, src))
     dst_stat = os.stat(dst)
     src_stat = os.stat(src)
     if dst_stat.st_ino != src_stat.st_ino:
-        msg = "[%s] is pointing to [%s] which is different than the intended target [%s]" % (dst, os.readlink(dst), src)
+        msg = "[%s] is pointing to [%s] which is different than the intended target [%s]" % \
+              (dst, os.readlink(dst), src)
         return msg
 
 
@@ -142,7 +150,8 @@ def _create_link(opts, src, dst):
         try:
             os.symlink(src, dst)
         except OSError, e:
-            msg = "Unable to create symlink for [%s] pointing to [%s], received error: <%s>" % (dst, src, e)
+            msg = "Unable to create symlink for [%s] pointing to [%s], received error: <%s>" % \
+                  (dst, src, e)
             return msg
 
 # -----------------------------------------------------------------------------

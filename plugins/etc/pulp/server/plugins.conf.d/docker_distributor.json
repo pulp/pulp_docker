@@ -1,0 +1,3 @@
+{
+    "HTTP_PUBLISH_DIRECTORY": "/var/lib/pulp/published/docker"
+}
