@@ -2,9 +2,9 @@ import unittest
 
 import mock
 
-import data
 from pulp_docker.common import constants
 from pulp_docker.extensions.admin.upload import UploadDockerImageCommand
+import data
 
 
 class TestDetermineID(unittest.TestCase):

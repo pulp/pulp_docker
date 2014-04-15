@@ -8,7 +8,7 @@ import sys
 WARNING_COLOR = '\033[31m'
 WARNING_RESET = '\033[0m'
 
-DIRS = ()
+DIRS = ('/var/lib/pulp/published/docker/web',)
 
 #
 # Str entry assumes same src and dst relative path.
@@ -20,6 +20,9 @@ DIRS = ()
 DIR_PLUGINS = '/usr/lib/pulp/plugins'
 
 LINKS = (
+    ('plugins/etc/httpd/conf.d/pulp_docker.conf', '/etc/httpd/conf.d/pulp_docker.conf'),
+    ('plugins/etc/pulp/server/plugins.conf.d/docker_distributor.json',
+     '/etc/pulp/server/plugins.conf.d/docker_distributor.json'),
     ('plugins/types/docker.json', DIR_PLUGINS + '/types/docker.json'),
 )
 
@@ -90,6 +93,9 @@ def getlinks():
 def install(opts):
     warnings = []
     create_dirs(opts)
+    # Ensure the directory is owned by apache
+    os.system('chown -R apache:apache /var/lib/pulp/published/docker')
+
     currdir = os.path.abspath(os.path.dirname(__file__))
     for src, dst in getlinks():
         warning_msg = create_link(opts, os.path.join(currdir, src), dst)

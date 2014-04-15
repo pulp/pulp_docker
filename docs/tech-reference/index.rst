@@ -12,6 +12,7 @@ Contents:
    :maxdepth: 2
 
    importer
+   distributor
 
 
 Indices and tables
