@@ -9,10 +9,10 @@ from pulp.plugins.model import Unit
 from pulp.server.managers import factory
 from pulp.server.managers.repo.cud import RepoManager
 
+import data
 from pulp_docker.common import constants
 from pulp_docker.common.models import DockerImage
 from pulp_docker.plugins.importers import upload
-import data
 
 
 factory.initialize()
