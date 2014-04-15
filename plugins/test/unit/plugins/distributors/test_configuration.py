@@ -100,15 +100,5 @@ class TestConfigurationGetters(unittest.TestCase):
         self.assertEquals(directory, os.path.join(self.publish_dir, 'web', self.repo.id))
 
     def test_get_repo_relative_path(self):
-        self.config[constants.CONFIG_KEY_SERVER_URL] = 'baz/bar'
-        directory = configuration.get_repo_relative_path(self.repo, self.config)
-        self.assertEquals(directory, 'baz/bar')
-
-    def test_get_repo_relative_path_leading_slash(self):
-        self.config[constants.CONFIG_KEY_SERVER_URL] = '/baz/bar'
-        directory = configuration.get_repo_relative_path(self.repo, self.config)
-        self.assertEquals(directory, 'baz/bar')
-
-    def test_get_repo_relative_path_not_specified(self):
         directory = configuration.get_repo_relative_path(self.repo, self.config)
         self.assertEquals(directory, self.repo.id)

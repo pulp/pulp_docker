@@ -101,9 +101,4 @@ def get_repo_relative_path(repo, config):
     :return: relative path for the repository
     :rtype:  str
     """
-    relative_path = config.get(constants.CONFIG_KEY_SERVER_URL, repo.id) or repo.id
-
-    if relative_path.startswith('/'):
-        relative_path = relative_path[1:]
-
-    return relative_path
+    return repo.id
