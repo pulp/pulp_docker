@@ -54,6 +54,7 @@ class DockerDistributor(Distributor):
         }
 
     def __init__(self):
+        super(DockerDistributor, self).__init__()
         self._publisher = None
         self.canceled = False
 
@@ -104,19 +105,19 @@ class DockerDistributor(Distributor):
         is not the responsibility of the distributor to rollback any changes
         that have been made.
 
-        @param repo: metadata describing the repository
-        @type  repo: pulp.plugins.model.Repository
+        :param repo: metadata describing the repository
+        :type  repo: pulp.plugins.model.Repository
 
-        @param publish_conduit: provides access to relevant Pulp functionality
-        @type  publish_conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
+        :param publish_conduit: provides access to relevant Pulp functionality
+        :type  publish_conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
 
-        @param config: plugin configuration
-        @type  config: pulp.plugins.config.PluginConfiguration
+        :param config: plugin configuration
+        :type  config: pulp.plugins.config.PluginConfiguration
 
-        @return: report describing the publish run
-        @rtype:  pulp.plugins.model.PublishReport
+        :return: report describing the publish run
+        :rtype:  pulp.plugins.model.PublishReport
         """
-        _logger.debug('Publishing yum repository: %s' % repo.id)
+        _logger.debug('Publishing docker repository: %s' % repo.id)
         self._publisher = WebPublisher(repo, publish_conduit, config)
         return self._publisher.publish()
 
@@ -124,7 +125,7 @@ class DockerDistributor(Distributor):
         """
         Call cancellation control hook.
         """
-        _logger.debug('Canceling yum repository publish')
+        _logger.debug('Canceling docker repository publish')
         self.canceled = True
         if self._publisher is not None:
             self._publisher.cancel()
@@ -143,11 +144,11 @@ class DockerDistributor(Distributor):
         from the repository and the working directory contents will still be
         wiped by Pulp.
 
-        @param repo: metadata describing the repository
-        @type  repo: pulp.plugins.model.Repository
+        :param repo: metadata describing the repository
+        :type  repo: pulp.plugins.model.Repository
 
-        @param config: plugin configuration
-        @type  config: pulp.plugins.config.PluginCallConfiguration
+        :param config: plugin configuration
+        :type  config: pulp.plugins.config.PluginCallConfiguration
         """
         # remove the directories that might have been created for this repo/distributor
         dir_list = [repo.working_dir,

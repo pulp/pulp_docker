@@ -12,12 +12,10 @@ CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY = 'docker_publish_directory'
 CONFIG_VALUE_DOCKER_PUBLISH_DIRECTORY = '/var/lib/pulp/published/docker'
 
 # Config keys for a distributor instance in the database
-CONFIG_KEY_SERVER_URL = 'server-url'
+CONFIG_KEY_REDIRECT_URL = 'redirect-url'
 CONFIG_KEY_PROTECTED = 'protected'
 
 #Keys that are specified on the repo config
-REPO_CONFIG_KEY_REPO_RELATIVE_DIRECTORY = 'repo_relative_directory'
-
 PUBLISH_STEP_IMAGES = 'publish_images'
 PUBLISH_STEP_OVER_HTTP = 'publish_images_over_http'
 PUBLISH_STEP_DIRECTORY = 'publish_directory'

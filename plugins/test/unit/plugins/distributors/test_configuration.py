@@ -16,19 +16,19 @@ class TestValidateConfig(unittest.TestCase):
 
     def test_server_url_fully_qualified(self):
         config = {
-            constants.CONFIG_KEY_SERVER_URL: 'http://www.pulpproject.org/foo'
+            constants.CONFIG_KEY_REDIRECT_URL: 'http://www.pulpproject.org/foo'
         }
         self.assertEquals((True, None), configuration.validate_config(config))
 
     def test_server_url_fully_qualified_with_port(self):
         config = {
-            constants.CONFIG_KEY_SERVER_URL: 'http://www.pulpproject.org:440/foo'
+            constants.CONFIG_KEY_REDIRECT_URL: 'http://www.pulpproject.org:440/foo'
         }
         self.assertEquals((True, None), configuration.validate_config(config))
 
     def test_server_url_empty(self):
         config = {
-            constants.CONFIG_KEY_SERVER_URL: ''
+            constants.CONFIG_KEY_REDIRECT_URL: ''
         }
         # This is valid as the default server should be used
 
@@ -36,7 +36,7 @@ class TestValidateConfig(unittest.TestCase):
 
     def test_server_url_missing_host_and_path(self):
         config = {
-            constants.CONFIG_KEY_SERVER_URL: 'http://'
+            constants.CONFIG_KEY_REDIRECT_URL: 'http://'
         }
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1002,
@@ -44,7 +44,7 @@ class TestValidateConfig(unittest.TestCase):
 
     def test_server_url_missing_scheme(self):
         config = {
-            constants.CONFIG_KEY_SERVER_URL: 'www.pulpproject.org/foo'
+            constants.CONFIG_KEY_REDIRECT_URL: 'www.pulpproject.org/foo'
         }
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1001,

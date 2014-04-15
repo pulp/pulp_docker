@@ -13,14 +13,14 @@ d = _('if "true", on each successful sync the repository will automatically be '
 OPT_AUTO_PUBLISH = PulpCliOption('--auto-publish', d, required=False,
                                  parse_func=parsers.parse_boolean)
 
-d = _('The server URL that will be used when generating the redirect map for connecting the docker '
+d = _('The URL that will be used when generating the redirect map for connecting the docker '
       'API to the location the content is stored. '
       'The value defaults to https://<server_name_from_pulp_server.conf>/pulp/docker/<repo_name>.')
-OPT_SERVER_URL = PulpCliOption('--server-url', d, required=False)
+OPT_REDIRECT_URL = PulpCliOption('--redirect-url', d, required=False)
 
-d = _('if "true" requests for this repo will be checked for an entitlement certificate authorizing'
+d = _('if "true" requests for this repo will be checked for an entitlement certificate authorizing '
       'the server url for this repository; if "false" no authorization checking will be done.')
-OPT_PROTECTED = PulpCliOption('--protected', d, required=False)
+OPT_PROTECTED = PulpCliOption('--protected', d, required=False, parse_func=parsers.parse_boolean)
 
 
 class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
@@ -30,7 +30,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
     def __init__(self, context):
         super(CreateDockerRepositoryCommand, self).__init__(context)
         self.add_option(OPT_AUTO_PUBLISH)
-        self.add_option(OPT_SERVER_URL)
+        self.add_option(OPT_REDIRECT_URL)
         self.add_option(OPT_PROTECTED)
 
     def _describe_distributors(self, user_input):
@@ -47,18 +47,18 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
         :rtype:     list of dict
         """
         config = {}
-        value = user_input.get(constants.CONFIG_KEY_PROTECTED)
+        value = user_input.get(OPT_PROTECTED.keyword)
         if value is not None:
             config[constants.CONFIG_KEY_PROTECTED] = value
 
-        value = user_input.get(constants.CONFIG_KEY_SERVER_URL)
+        value = user_input.get(OPT_REDIRECT_URL.keyword)
         if value is not None:
-            config[constants.CONFIG_KEY_SERVER_URL] = value
+            config[constants.CONFIG_KEY_REDIRECT_URL] = value
 
         auto_publish = user_input.get('auto-publish', True)
-        data = {"distributor_type": constants.DISTRIBUTOR_TYPE_ID,
-                "distributor_config": config,
-                "auto_publish": auto_publish,
-                "distributor_id": constants.CLI_WEB_DISTRIBUTOR_ID}
+        data = {'distributor_type': constants.DISTRIBUTOR_TYPE_ID,
+                'distributor_config': config,
+                'auto_publish': auto_publish,
+                'distributor_id': constants.CLI_WEB_DISTRIBUTOR_ID}
 
         return [data]

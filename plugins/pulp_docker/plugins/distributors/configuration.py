@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 from urlparse import urlparse
 
 from pulp.server.exceptions import PulpCodedValidationException
@@ -18,20 +18,20 @@ def validate_config(config):
     :raises: PulpCodedValidationException if any validations failed
     """
     errors = []
-    server_url = config.get(constants.CONFIG_KEY_SERVER_URL)
+    server_url = config.get(constants.CONFIG_KEY_REDIRECT_URL)
     if server_url:
         parsed = urlparse(server_url)
         if not parsed.scheme:
             errors.append(PulpCodedValidationException(error_code=error_codes.DKR1001,
-                                                       field=constants.CONFIG_KEY_SERVER_URL,
+                                                       field=constants.CONFIG_KEY_REDIRECT_URL,
                                                        url=server_url))
         if not parsed.netloc:
             errors.append(PulpCodedValidationException(error_code=error_codes.DKR1002,
-                                                       field=constants.CONFIG_KEY_SERVER_URL,
+                                                       field=constants.CONFIG_KEY_REDIRECT_URL,
                                                        url=server_url))
         if not parsed.path:
             errors.append(PulpCodedValidationException(error_code=error_codes.DKR1003,
-                                                       field=constants.CONFIG_KEY_SERVER_URL,
+                                                       field=constants.CONFIG_KEY_REDIRECT_URL,
                                                        url=server_url))
     protected = config.get(constants.CONFIG_KEY_PROTECTED)
     if protected:
@@ -67,6 +67,8 @@ def get_master_publish_dir(repo, config):
 
     :param repo: repository to get the master publishing directory for
     :type  repo: pulp.plugins.model.Repository
+    :param config: configuration instance
+    :type  config: pulp.plugins.config.PluginCallConfiguration or None
     :return: master publishing directory for the given repository
     :rtype:  str
     """
@@ -78,6 +80,8 @@ def get_web_publish_dir(repo, config):
     Get the configured HTTP publication directory.
     Returns the global default if not configured.
 
+    :param repo: repository to get relative path for
+    :type  repo: pulp.plugins.model.Repository
     :param config: configuration instance
     :type  config: pulp.plugins.config.PluginCallConfiguration or None
 
@@ -94,10 +98,10 @@ def get_repo_relative_path(repo, config):
     """
     Get the configured relative path for the given repository.
 
-    :param repo: repository to get relative path for
-    :type  repo: pulp.plugins.model.Repository
     :param config: configuration instance for the repository
     :type  config: pulp.plugins.config.PluginCallConfiguration or dict
+    :param repo: repository to get relative path for
+    :type  repo: pulp.plugins.model.Repository
     :return: relative path for the repository
     :rtype:  str
     """

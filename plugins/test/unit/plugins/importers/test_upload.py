@@ -12,7 +12,7 @@ from pulp.server.managers.repo.cud import RepoManager
 from pulp_docker.common import constants
 from pulp_docker.common.models import DockerImage
 from pulp_docker.plugins.importers import upload
-from test.unit.plugins.importers import data
+import data
 
 
 factory.initialize()

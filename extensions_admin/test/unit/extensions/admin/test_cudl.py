@@ -21,12 +21,12 @@ class TestCreateDockerRepositoryCommand(unittest.TestCase):
 
     def test_describe_distributors(self):
         command = cudl.CreateDockerRepositoryCommand(Mock())
-        user_input = {'server-url': 'foo',
+        user_input = {'redirect-url': 'foo',
                       'protected': False}
         result = command._describe_distributors(user_input)
         target_result = {
             "distributor_type": constants.DISTRIBUTOR_TYPE_ID,
-            "distributor_config": {'server-url': 'foo', 'protected': False},
+            "distributor_config": {'redirect-url': 'foo', 'protected': False},
             "auto_publish": True,
             "distributor_id": constants.CLI_WEB_DISTRIBUTOR_ID
         }
