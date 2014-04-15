@@ -1,4 +1,5 @@
 from gettext import gettext as _
+import copy
 import logging
 import shutil
 
@@ -12,6 +13,10 @@ from pulp_docker.plugins.distributors import configuration
 
 _logger = logging.getLogger(__name__)
 
+PLUGIN_DEFAULT_CONFIG = {
+    constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: constants.CONFIG_VALUE_DOCKER_PUBLISH_DIRECTORY
+}
+
 
 def entry_point():
     """
@@ -19,7 +24,10 @@ def entry_point():
     :return: distributor class and its config
     :rtype:  Distributor, dict
     """
-    plugin_config = read_json_config(constants.DISTRIBUTOR_CONFIG_FILE_NAME)
+    plugin_config = copy.deepcopy(PLUGIN_DEFAULT_CONFIG)
+    edited_config = read_json_config(constants.DISTRIBUTOR_CONFIG_FILE_NAME)
+
+    plugin_config.update(edited_config)
     return DockerDistributor, plugin_config
 
 
@@ -143,8 +151,8 @@ class DockerDistributor(Distributor):
         """
         # remove the directories that might have been created for this repo/distributor
         dir_list = [repo.working_dir,
-                    configuration.get_master_publish_dir(repo),
-                    configuration.get_web_publish_dir(config)]
+                    configuration.get_master_publish_dir(repo, config),
+                    configuration.get_web_publish_dir(repo, config)]
 
         for repo_dir in dir_list:
             shutil.rmtree(repo_dir, ignore_errors=True)

@@ -1,10 +1,10 @@
 import os
 import logging
+from urlparse import urlparse
 
-from pulp.common import error_codes
 from pulp.server.exceptions import PulpCodedValidationException
-from pulp_docker.common import constants
 
+from pulp_docker.common import constants, error_codes
 
 _LOG = logging.getLogger(__name__)
 
@@ -18,28 +18,28 @@ def validate_config(config):
     :raises: PulpCodedValidationException if any validations failed
     """
     errors = []
-    relative_url = config.get(constants.CONFIG_KEY_RELATIVE_URL)
-    if relative_url:
-        # Make sure the relative url doesn't start with a path separator
-        if relative_url.startswith(os.path.sep):
-            errors.append(PulpCodedValidationException(error_code=error_codes.PLP1006,
-                                                       field=constants.CONFIG_KEY_RELATIVE_URL,
-                                                       value=relative_url))
-        else:
-            # Make sure a relative url is sandboxed to the parent directory.
-            prefix = '/tmp/foo/bar'
-            result = os.path.normpath(os.path.join(prefix, relative_url))
-            if not result.startswith(prefix):
-                errors.append(PulpCodedValidationException(error_code=error_codes.PLP1007,
-                                                           path=relative_url))
-            else:
-                # Validate a second path to ensure that this still breaks if they relative
-                # path override went to /tmp/foo/bar
-                prefix = '/baz/flux'
-                result = os.path.normpath(os.path.join(prefix, relative_url))
-                if not result.startswith(prefix):
-                    errors.append(PulpCodedValidationException(error_code=error_codes.PLP1007,
-                                                               path=relative_url))
+    server_url = config.get(constants.CONFIG_KEY_SERVER_URL)
+    if server_url:
+        parsed = urlparse(server_url)
+        if not parsed.scheme:
+            errors.append(PulpCodedValidationException(error_code=error_codes.DKR1001,
+                                                       field=constants.CONFIG_KEY_SERVER_URL,
+                                                       url=server_url))
+        if not parsed.netloc:
+            errors.append(PulpCodedValidationException(error_code=error_codes.DKR1002,
+                                                       field=constants.CONFIG_KEY_SERVER_URL,
+                                                       url=server_url))
+        if not parsed.path:
+            errors.append(PulpCodedValidationException(error_code=error_codes.DKR1003,
+                                                       field=constants.CONFIG_KEY_SERVER_URL,
+                                                       url=server_url))
+    protected = config.get(constants.CONFIG_KEY_PROTECTED)
+    if protected:
+        protected_parsed = config.get_boolean(constants.CONFIG_KEY_PROTECTED)
+        if protected_parsed is None:
+            errors.append(PulpCodedValidationException(error_code=error_codes.DKR1004,
+                                                       field=constants.CONFIG_KEY_PROTECTED,
+                                                       value=protected))
 
     if errors:
         raise PulpCodedValidationException(validation_exceptions=errors)
@@ -101,7 +101,7 @@ def get_repo_relative_path(repo, config):
     :return: relative path for the repository
     :rtype:  str
     """
-    relative_path = config.get(constants.CONFIG_KEY_RELATIVE_URL, repo.id) or repo.id
+    relative_path = config.get(constants.CONFIG_KEY_SERVER_URL, repo.id) or repo.id
 
     if relative_path.startswith('/'):
         relative_path = relative_path[1:]

@@ -4,34 +4,72 @@ import tempfile
 import unittest
 
 from mock import Mock
-from pulp.common import error_codes
-from pulp.devel.unit.server.util import assert_validation_exception
 
-from pulp_docker.common import constants
+from pulp.devel.unit.server.util import assert_validation_exception
+from pulp.plugins.config import PluginCallConfiguration
+
+from pulp_docker.common import constants, error_codes
 from pulp_docker.plugins.distributors import configuration
 
 
 class TestValidateConfig(unittest.TestCase):
 
-    def test_relative_url_is_valid(self):
+    def test_server_url_fully_qualified(self):
         config = {
-            constants.CONFIG_KEY_RELATIVE_URL: 'foo'
+            constants.CONFIG_KEY_SERVER_URL: 'http://www.pulpproject.org/foo'
         }
         self.assertEquals((True, None), configuration.validate_config(config))
 
-    def test_relative_url_is_absolute(self):
+    def test_server_url_fully_qualified_with_port(self):
         config = {
-            constants.CONFIG_KEY_RELATIVE_URL: '/foo'
+            constants.CONFIG_KEY_SERVER_URL: 'http://www.pulpproject.org:440/foo'
         }
-        assert_validation_exception(configuration.validate_config,
-                                    [error_codes.PLP1006], config)
+        self.assertEquals((True, None), configuration.validate_config(config))
 
-    def test_relative_url_references_parent_is_absolute(self):
+    def test_server_url_empty(self):
         config = {
-            constants.CONFIG_KEY_RELATIVE_URL: 'foo/../../quux'
+            constants.CONFIG_KEY_SERVER_URL: ''
+        }
+        # This is valid as the default server should be used
+
+        self.assertEquals((True, None), configuration.validate_config(config))
+
+    def test_server_url_missing_host_and_path(self):
+        config = {
+            constants.CONFIG_KEY_SERVER_URL: 'http://'
         }
         assert_validation_exception(configuration.validate_config,
-                                    [error_codes.PLP1007], config)
+                                    [error_codes.DKR1002,
+                                     error_codes.DKR1003], config)
+
+    def test_server_url_missing_scheme(self):
+        config = {
+            constants.CONFIG_KEY_SERVER_URL: 'www.pulpproject.org/foo'
+        }
+        assert_validation_exception(configuration.validate_config,
+                                    [error_codes.DKR1001,
+                                     error_codes.DKR1002], config)
+
+    def test_configuration_protected_true(self):
+        config = PluginCallConfiguration({
+            constants.CONFIG_KEY_PROTECTED: True
+        }, {})
+
+        self.assertEquals((True, None), configuration.validate_config(config))
+
+    def test_configuration_protected_false_str(self):
+        config = PluginCallConfiguration({
+            constants.CONFIG_KEY_PROTECTED: 'false'
+        }, {})
+
+        self.assertEquals((True, None), configuration.validate_config(config))
+
+    def test_configuration_protected_bad_str(self):
+        config = PluginCallConfiguration({
+            constants.CONFIG_KEY_PROTECTED: 'apple'
+        }, {})
+        assert_validation_exception(configuration.validate_config,
+                                    [error_codes.DKR1004], config)
 
 
 class TestConfigurationGetters(unittest.TestCase):
@@ -62,12 +100,12 @@ class TestConfigurationGetters(unittest.TestCase):
         self.assertEquals(directory, os.path.join(self.publish_dir, 'web', self.repo.id))
 
     def test_get_repo_relative_path(self):
-        self.config[constants.CONFIG_KEY_RELATIVE_URL] = 'baz/bar'
+        self.config[constants.CONFIG_KEY_SERVER_URL] = 'baz/bar'
         directory = configuration.get_repo_relative_path(self.repo, self.config)
         self.assertEquals(directory, 'baz/bar')
 
     def test_get_repo_relative_path_leading_slash(self):
-        self.config[constants.CONFIG_KEY_RELATIVE_URL] = '/baz/bar'
+        self.config[constants.CONFIG_KEY_SERVER_URL] = '/baz/bar'
         directory = configuration.get_repo_relative_path(self.repo, self.config)
         self.assertEquals(directory, 'baz/bar')
 

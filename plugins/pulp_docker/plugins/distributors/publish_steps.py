@@ -55,7 +55,7 @@ class PublishImagesStep(UnitPublishStep):
         """
         Initialize the images file
         """
-        self.context = ImagesFileContext(self.get_working_dir(), self.get_repo())
+        self.context = ImagesFileContext(self.get_working_dir(), self.get_conduit())
         self.context.initialize()
 
     def process_unit(self, unit):
@@ -63,10 +63,14 @@ class PublishImagesStep(UnitPublishStep):
         Link the unit to the image content directory and the package_dir
 
         :param unit: The unit to process
-        :type unit: pulp.plugins.model.Unit
+        :type unit: pulp_docker.common.models.DockerImage
         """
         self.context.add_unit_metadata(unit)
-        # TODO symlink the unit files into place
+        target_base = os.path.join(self.get_working_dir(), unit.unit_key['image_id'])
+        files = ['ancestry', 'json', 'layer']
+        for file_name in files:
+            self._create_symlink(os.path.join(unit.storage_path, file_name),
+                                 os.path.join(target_base, file_name))
 
     def finalize(self):
         """

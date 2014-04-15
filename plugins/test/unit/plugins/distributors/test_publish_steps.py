@@ -48,7 +48,13 @@ class TestAtomicDirectoryPublishStep(unittest.TestCase):
 
 class TestPublishImagesStep(unittest.TestCase):
     def setUp(self):
-        self.working_directory = tempfile.mkdtemp()
+        self.temp_dir = tempfile.mkdtemp()
+        self.working_directory = os.path.join(self.temp_dir, 'working')
+        self.publish_directory = os.path.join(self.temp_dir, 'publish')
+        self.content_directory = os.path.join(self.temp_dir, 'content')
+        os.makedirs(self.working_directory)
+        os.makedirs(self.publish_directory)
+        os.makedirs(self.content_directory)
 
     def tearDown(self):
         shutil.rmtree(self.working_directory)
@@ -64,8 +70,16 @@ class TestPublishImagesStep(unittest.TestCase):
         step = publish_steps.PublishImagesStep()
         step.parent = Mock()
         step.context = Mock()
-        step.process_unit('foo')
-        step.context.add_unit_metadata.asser_called_once_with('foo')
+        file_list = ['ancestry', 'layer', 'json']
+        for file_name in file_list:
+            touch(os.path.join(self.content_directory, file_name))
+        unit = Mock(unit_key={'image_id': 'foo_image'}, storage_path=self.content_directory)
+        step.get_working_dir = Mock(return_value=self.publish_directory)
+        step.process_unit(unit)
+        step.context.add_unit_metadata.assert_called_once_with(unit)
+        for file_name in file_list:
+            self.assertTrue(os.path.exists(os.path.join(self.publish_directory,
+                                                        'foo_image', file_name)))
 
     def test_finalize(self):
         step = publish_steps.PublishImagesStep()
