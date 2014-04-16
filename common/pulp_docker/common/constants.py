@@ -15,7 +15,7 @@ CONFIG_VALUE_DOCKER_PUBLISH_DIRECTORY = '/var/lib/pulp/published/docker'
 CONFIG_KEY_REDIRECT_URL = 'redirect-url'
 CONFIG_KEY_PROTECTED = 'protected'
 
-#Keys that are specified on the repo config
+# Keys that are specified on the repo config
 PUBLISH_STEP_IMAGES = 'publish_images'
 PUBLISH_STEP_OVER_HTTP = 'publish_images_over_http'
 PUBLISH_STEP_DIRECTORY = 'publish_directory'
