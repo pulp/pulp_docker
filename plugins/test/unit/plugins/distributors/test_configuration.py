@@ -3,7 +3,7 @@ import shutil
 import tempfile
 import unittest
 
-from mock import Mock
+from mock import Mock, patch
 
 from pulp.devel.unit.server.util import assert_validation_exception
 from pulp.plugins.config import PluginCallConfiguration
@@ -102,3 +102,24 @@ class TestConfigurationGetters(unittest.TestCase):
     def test_get_repo_relative_path(self):
         directory = configuration.get_repo_relative_path(self.repo, self.config)
         self.assertEquals(directory, self.repo.id)
+
+    def test_get_redirect_url_from_config(self):
+        sample_url = 'http://www.pulpproject.org/'
+        conduit = Mock(repo_id=sample_url)
+        url = configuration.get_redirect_url({constants.CONFIG_KEY_REDIRECT_URL: sample_url},
+                                             conduit)
+        self.assertEquals(sample_url, url)
+
+    def test_get_redirect_url_from_config_trailing_slash(self):
+        sample_url = 'http://www.pulpproject.org'
+        conduit = Mock(repo_id=sample_url)
+        url = configuration.get_redirect_url({constants.CONFIG_KEY_REDIRECT_URL: sample_url},
+                                             conduit)
+        self.assertEquals(sample_url + '/', url)
+
+    @patch('pulp_docker.plugins.distributors.configuration.server_config')
+    def test_get_redirect_url_generated(self, mock_server_config):
+        mock_server_config.get.return_value = 'www.foo.bar'
+        computed_result = 'https://www.foo.bar/pulp/docker/baz/'
+        self.assertEquals(computed_result, configuration.get_redirect_url({},
+                                                                          Mock(repo_id='baz')))

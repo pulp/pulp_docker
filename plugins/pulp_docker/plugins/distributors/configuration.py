@@ -2,6 +2,7 @@ import logging
 import os
 from urlparse import urlparse
 
+from pulp.server.config import config as server_config
 from pulp.server.exceptions import PulpCodedValidationException
 
 from pulp_docker.common import constants, error_codes
@@ -92,6 +93,54 @@ def get_web_publish_dir(repo, config):
     return os.path.join(get_root_publish_directory(config),
                         'web',
                         get_repo_relative_path(repo, config))
+
+
+def get_app_publish_dir(config):
+    """
+    Get the configured directory where the application redirect files should be stored
+
+    :param config: configuration instance
+    :type  config: pulp.plugins.config.PluginCallConfiguration or None
+
+    :returns: the name to use for the redirect file
+    :rtype:  str
+    """
+    return os.path.join(get_root_publish_directory(config), 'app',)
+
+
+def get_redirect_file_name(repo):
+    """
+    Get the name a repos redirect file
+
+    :param repo: the repository to get the app file name for
+    :type  repo: pulp.plugins.model.Repository
+
+    :returns: the name to use for the redirect file
+    :rtype:  str
+    """
+    return "%s.json" % repo.id
+
+
+def get_redirect_url(config, conduit):
+    """
+    Get the redirect URL for a given repo & configuration
+
+    :param config: configuration instance for the repository
+    :type  config: pulp.plugins.config.PluginCallConfiguration or dict
+    :param repo: repository to get relative path for
+    :type  repo: pulp.plugins.model.Repository
+
+    """
+    redirect_url = config.get(constants.CONFIG_KEY_REDIRECT_URL)
+    if redirect_url:
+        if not redirect_url.endswith('/'):
+            redirect_url += '/'
+    else:
+        # build the redirect URL from the server config
+        server_name = server_config.get('server', 'server_name')
+        redirect_url = 'https://%s/pulp/docker/%s/' % (server_name, conduit.repo_id)
+
+    return redirect_url
 
 
 def get_repo_relative_path(repo, config):

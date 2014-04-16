@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from mock import Mock, MagicMock, patch
+from pulp.devel.unit.util import touch
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.model import Repository
@@ -48,10 +49,12 @@ class TestBasics(unittest.TestCase):
         mock_validate.assert_called_once_with('foo')
         self.assertEquals(value, mock_validate.return_value)
 
+    @patch('pulp_docker.plugins.distributors.distributor.configuration.get_app_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor.configuration.get_master_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor.configuration.get_web_publish_dir')
-    def test_distributor_removed(self, mock_web, mock_master):
+    def test_distributor_removed(self, mock_web, mock_master, mock_app):
 
+        mock_app.return_value = os.path.join(self.working_dir)
         mock_web.return_value = os.path.join(self.working_dir, 'web')
         mock_master.return_value = os.path.join(self.working_dir, 'master')
         working_dir = os.path.join(self.working_dir, 'working')
@@ -59,8 +62,23 @@ class TestBasics(unittest.TestCase):
         os.makedirs(mock_master.return_value)
         repo = Mock(id='bar', working_dir=working_dir)
         config = {}
+        touch(os.path.join(self.working_dir, 'bar.json'))
         self.distributor.distributor_removed(repo, config)
 
+        self.assertEquals(0, len(os.listdir(self.working_dir)))
+
+    @patch('pulp_docker.plugins.distributors.distributor.configuration.get_app_publish_dir')
+    @patch('pulp_docker.plugins.distributors.distributor.configuration.get_master_publish_dir')
+    @patch('pulp_docker.plugins.distributors.distributor.configuration.get_web_publish_dir')
+    def test_distributor_removed_files_missing(self, mock_web, mock_master, mock_app):
+
+        mock_app.return_value = os.path.join(self.working_dir)
+        mock_web.return_value = os.path.join(self.working_dir, 'web')
+        mock_master.return_value = os.path.join(self.working_dir, 'master')
+        working_dir = os.path.join(self.working_dir, 'working')
+        repo = Mock(id='bar', working_dir=working_dir)
+        config = {}
+        self.distributor.distributor_removed(repo, config)
         self.assertEquals(0, len(os.listdir(self.working_dir)))
 
     @patch('pulp_docker.plugins.distributors.distributor.WebPublisher')
