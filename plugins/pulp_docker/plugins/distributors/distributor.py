@@ -1,6 +1,7 @@
 from gettext import gettext as _
 import copy
 import logging
+import os
 import shutil
 
 from pulp.common.config import read_json_config
@@ -157,3 +158,15 @@ class DockerDistributor(Distributor):
 
         for repo_dir in dir_list:
             shutil.rmtree(repo_dir, ignore_errors=True)
+
+        # Remove the published app file & directory links
+        dir_list = [configuration.get_web_publish_dir(repo, config),
+                    os.path.join(configuration.get_app_publish_dir(config),
+                                 configuration.get_redirect_file_name(repo))]
+
+        for repo_dir in dir_list:
+            try:
+                os.unlink(repo_dir)
+            except OSError:
+                # It's fine if this file doesn't exist
+                pass
