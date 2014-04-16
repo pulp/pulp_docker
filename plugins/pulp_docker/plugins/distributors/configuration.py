@@ -110,7 +110,7 @@ def get_app_publish_dir(config):
 
 def get_redirect_file_name(repo):
     """
-    Get the name a repos redirect file
+    Get the name to use when generating the redirect file for a repository
 
     :param repo: the repository to get the app file name for
     :type  repo: pulp.plugins.model.Repository
@@ -118,16 +118,16 @@ def get_redirect_file_name(repo):
     :returns: the name to use for the redirect file
     :rtype:  str
     """
-    return "%s.json" % repo.id
+    return '%s.json' % repo.id
 
 
-def get_redirect_url(config, conduit):
+def get_redirect_url(config, repo):
     """
     Get the redirect URL for a given repo & configuration
 
     :param config: configuration instance for the repository
     :type  config: pulp.plugins.config.PluginCallConfiguration or dict
-    :param repo: repository to get relative path for
+    :param repo: repository to get url for
     :type  repo: pulp.plugins.model.Repository
 
     """
@@ -138,7 +138,7 @@ def get_redirect_url(config, conduit):
     else:
         # build the redirect URL from the server config
         server_name = server_config.get('server', 'server_name')
-        redirect_url = 'https://%s/pulp/docker/%s/' % (server_name, conduit.repo_id)
+        redirect_url = 'https://%s/pulp/docker/%s/' % (server_name, repo.id)
 
     return redirect_url
 
@@ -147,10 +147,10 @@ def get_repo_relative_path(repo, config):
     """
     Get the configured relative path for the given repository.
 
-    :param config: configuration instance for the repository
-    :type  config: pulp.plugins.config.PluginCallConfiguration or dict
     :param repo: repository to get relative path for
     :type  repo: pulp.plugins.model.Repository
+    :param config: configuration instance for the repository
+    :type  config: pulp.plugins.config.PluginCallConfiguration or dict
     :return: relative path for the repository
     :rtype:  str
     """

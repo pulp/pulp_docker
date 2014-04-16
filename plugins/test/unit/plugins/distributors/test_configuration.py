@@ -122,4 +122,4 @@ class TestConfigurationGetters(unittest.TestCase):
         mock_server_config.get.return_value = 'www.foo.bar'
         computed_result = 'https://www.foo.bar/pulp/docker/baz/'
         self.assertEquals(computed_result, configuration.get_redirect_url({},
-                                                                          Mock(repo_id='baz')))
+                                                                          Mock(id='baz')))

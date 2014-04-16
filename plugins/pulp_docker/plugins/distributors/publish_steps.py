@@ -107,7 +107,7 @@ class AtomicDirectoryPublishStep(PublishStep):
 
     :param source_dir: The source directory to be copied
     :type source_dir: str
-    :param publish_locations: The directory target directory or locationsthat is being updated
+    :param publish_locations: The target locations that are being updated
     :type publish_locations: list of tuples (relative_directory_in_source_dir, publish location)
     :param master_publish_dir: The directory that will contain the master_publish_directories
     :type master_publish_dir: str
@@ -145,15 +145,13 @@ class AtomicDirectoryPublishStep(PublishStep):
                 source_relative_location = source_relative_location[1::]
 
             timestamp_master_location = os.path.join(timestamp_master_dir, source_relative_location)
-            if timestamp_master_location.endswith('/'):
-                timestamp_master_location = timestamp_master_location[:-1]
+            timestamp_master_location = timestamp_master_location.rstrip('/')
 
             # Without the trailing '/'
-            if publish_location.endswith('/'):
-                publish_location = publish_location[:-1]
+            publish_location = publish_location.rstrip('/')
 
             # Create the parent directory of the published repository tree, if needed
-            publish_dir_parent = publish_location.rsplit('/', 1)[0]
+            publish_dir_parent = os.path.dirname(publish_location)
             if not os.path.exists(publish_dir_parent):
                 os.makedirs(publish_dir_parent, 0750)
 

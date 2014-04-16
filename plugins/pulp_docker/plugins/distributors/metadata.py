@@ -12,6 +12,25 @@ _LOG = logging.getLogger(__name__)
 IMAGES_FILE_NAME = 'images.json'
 
 
+def build_tag_dict(conduit):
+    """
+    Build the mapping for image id to tags
+
+    :param conduit: The conduit to get api calls
+    :type conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
+    """
+    scratchpad = conduit.get_repo_scratchpad()
+    tags = scratchpad[u'tags']
+    labels = {}
+    for tag_name, image_name in tags.iteritems():
+        tag_list = labels.get(image_name)
+        if not tag_list:
+            tag_list = []
+            labels[image_name] = tag_list
+        tag_list.append(tag_name)
+    return labels
+
+
 class ImagesFileContext(JSONArrayFileContext):
     """
     Context manager for generating the docker images file.
@@ -26,11 +45,6 @@ class ImagesFileContext(JSONArrayFileContext):
         """
         metadata_file_path = os.path.join(working_dir, IMAGES_FILE_NAME)
         super(ImagesFileContext, self).__init__(metadata_file_path)
-        scratchpad = conduit.get_repo_scratchpad()
-        tags = scratchpad[u'tags']
-        self.labels = {}
-        for tag_name, image_name in tags.iteritems():
-            self.labels[image_name] = tag_name
 
     def add_unit_metadata(self, unit):
         """
@@ -44,8 +58,6 @@ class ImagesFileContext(JSONArrayFileContext):
         unit_data = {
             'id': image_id
         }
-        if self.labels.get(image_id):
-            unit_data.update({'Tag': self.labels.get(image_id)})
 
         string_representation = json.dumps(unit_data)
         self.metadata_file_handle.write(string_representation)
@@ -64,20 +76,16 @@ class RedirectFileContext(JSONArrayFileContext):
         :type conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
-        :param repo: Pulp managed Yum repository
+        :param repo: Pulp managed repository
         :type  repo: pulp.plugins.model.Repository
         """
 
-        self.repo_id = conduit.repo_id
+        self.repo_id = repo.id
         metadata_file_path = os.path.join(working_dir,
                                           configuration.get_redirect_file_name(repo))
         super(RedirectFileContext, self).__init__(metadata_file_path)
-        scratchpad = conduit.get_repo_scratchpad()
-        tags = scratchpad[u'tags']
-        self.labels = {}
-        for tag_name, image_name in tags.iteritems():
-            self.labels[image_name] = tag_name
-        self.redirect_url = configuration.get_redirect_url(config, conduit)
+        self.labels = build_tag_dict(conduit)
+        self.redirect_url = configuration.get_redirect_url(config, repo)
 
     def _write_file_header(self):
         """
@@ -107,7 +115,7 @@ class RedirectFileContext(JSONArrayFileContext):
             'url': self.redirect_url + image_id + '/'
         }
         if self.labels.get(image_id):
-            unit_data.update({'tag': self.labels.get(image_id)})
+            unit_data.update({'tags': self.labels.get(image_id)})
 
         string_representation = json.dumps(unit_data)
         self.metadata_file_handle.write(string_representation)
