@@ -10,7 +10,8 @@ from pulp.devel.test_runner import run_tests
 PROJECT_DIR = os.path.dirname(__file__)
 subprocess.call(['find', PROJECT_DIR, '-name', '*.pyc', '-delete'])
 
-subprocess.call(['flake8', '--config=./flake8.cfg', PROJECT_DIR])
+config_file = os.path.join(PROJECT_DIR, 'flake8.cfg')
+subprocess.call(['flake8', '--config', config_file, PROJECT_DIR])
 
 PACKAGES = ['pulp_docker', ]
 
