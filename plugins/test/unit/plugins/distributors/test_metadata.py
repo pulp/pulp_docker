@@ -60,16 +60,14 @@ class TestRedirectFileContext(unittest.TestCase):
 
     def test_add_unit_metadata(self):
         unit = DockerImage('foo_image', 'foo_parent', 2048)
-        test_result = {'id': 'foo_image', 'url': 'http://www.pulpproject.org/foo/foo_image/'}
+        test_result = {'id': 'foo_image'}
         result_json = json.dumps(test_result)
-        self.context.redirect_url = 'http://www.pulpproject.org/foo/'
         self.context.add_unit_metadata(unit)
         self.context.metadata_file_handle.write.assert_called_once_with(result_json)
 
     def test_add_unit_metadata_with_tag(self):
         unit = DockerImage('foo_image', 'foo_parent', 2048)
-        test_result = {'id': 'foo_image', 'url': 'http://www.pulpproject.org/foo/foo_image/',
-                       'tags': ['bar']}
+        test_result = {'id': 'foo_image', 'tags': ['bar']}
         result_json = json.dumps(test_result)
         self.context.labels['foo_image'] = ['bar']
         self.context.redirect_url = 'http://www.pulpproject.org/foo/'
@@ -78,8 +76,11 @@ class TestRedirectFileContext(unittest.TestCase):
 
     def test_write_file_header(self):
         self.context.repo_id = 'bar'
+        self.context.redirect_url = 'http://www.pulpproject.org/foo/'
+
         self.context._write_file_header()
-        result_string = '{"type":"pulp-docker-redirect","version":1,"repository":"bar","data":['
+        result_string = '{"type":"pulp-docker-redirect","version":1,"repository":"bar",' \
+                        '"repository-url":"http://www.pulpproject.org/foo/","images":['
         self.context.metadata_file_handle.write.assert_called_once_with(result_string)
 
     def test_write_file_footer(self):
