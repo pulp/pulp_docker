@@ -2,9 +2,8 @@ import shutil
 import tempfile
 import unittest
 
-from mock import Mock
+from mock import Mock, call
 from pulp.common.compat import json
-from pulp.devel.unit.util import compare_dict
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.model import Repository
@@ -67,9 +66,9 @@ class TestRedirectFileContext(unittest.TestCase):
 
     def test_add_unit_metadata_with_tag(self):
         unit = DockerImage('foo_image', 'foo_parent', 2048)
-        test_result = {'id': 'foo_image', 'tags': ['bar']}
+        test_result = {'id': 'foo_image'}
         result_json = json.dumps(test_result)
-        self.context.labels['foo_image'] = ['bar']
+        self.context.tags = {'bar': 'foo_image'}
         self.context.redirect_url = 'http://www.pulpproject.org/foo/'
         self.context.add_unit_metadata(unit)
         self.context.metadata_file_handle.write.assert_called_once_with(result_json)
@@ -80,18 +79,11 @@ class TestRedirectFileContext(unittest.TestCase):
 
         self.context._write_file_header()
         result_string = '{"type":"pulp-docker-redirect","version":1,"repository":"bar",' \
-                        '"repository-url":"http://www.pulpproject.org/foo/","images":['
+                        '"url":"http://www.pulpproject.org/foo/","images":['
         self.context.metadata_file_handle.write.assert_called_once_with(result_string)
 
     def test_write_file_footer(self):
         self.context._write_file_footer()
-        self.context.metadata_file_handle.write.assert_called_once_with(']}')
+        calls = [call('],"tags":'), call(json.dumps({u'latest': u'image_id'})), call('}')]
 
-
-class TestBuildTagDict(unittest.TestCase):
-    conduit = Mock(get_repo_scratchpad=Mock(return_value={u'tags': {u'latest': u'image_id',
-                                                                    u'bob': u'image_id',
-                                                                    u'fruit': u'apple'}}))
-
-    tag_dict = metadata.build_tag_dict(conduit)
-    compare_dict(tag_dict, {u'image_id': [u'bob', u'latest'], u'apple': [u'fruit']})
+        self.context.metadata_file_handle.write.assert_has_calls(calls)

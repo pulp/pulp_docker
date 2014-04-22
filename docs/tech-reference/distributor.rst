@@ -38,11 +38,12 @@ The file is JSON formatted with the following keys
 * **type** *(string)* - the type of the file.  This will always be "pulp-docker-redirect"
 * **version** *(int)* - version of the format for the file.  Currently version 1
 * **repository** *(string)* - the name of the repository this file is describing
-* **repository-url** *(string)* - the url for access to the repositories content
+* **url** *(string)* - the url for access to the repositories content
 * **images** *(array)* - an array of objects describing each image/layer in the repository
 
  * **id** *(str)* - the image id for the image
- * **tags** *(array of str)* - an array of tags associated with this image. This field is optional.
+
+* **tags** *(obj)* - an object containing key, value paris of "tag-name":"image-id"
 
 Example Redirect File Contents::
 
@@ -50,19 +51,14 @@ Example Redirect File Contents::
   "type":"pulp-docker-redirect",
   "version":1,
   "repository":"docker",
-  "repository-url":"http://www.foo.com/docker",
+  "url":"http://www.foo.com/docker",
   "images":[
-    {
-      "id":"48e5f45168b97799ad0aafb7e2fef9fac57b5f16f6db7f67ba2000eb947637eb"
-    },{
-      "id":"511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158"
-    },{
-      "tags":["latest", "foo"],
-      "id":"769b9341d937a3dba9e460f664b4f183a6cecdd62b337220a28b3deb50ee0a02"
-    },{
-      "id":"bf747efa0e2fa9f7c691588ce3938944c75607a7bb5e757f7369f86904d97c78"
-    }
-    ]
+    {"id":"48e5f45168b97799ad0aafb7e2fef9fac57b5f16f6db7f67ba2000eb947637eb"},
+    {"id":"511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158"},
+    {"id":"769b9341d937a3dba9e460f664b4f183a6cecdd62b337220a28b3deb50ee0a02"},
+    {"id":"bf747efa0e2fa9f7c691588ce3938944c75607a7bb5e757f7369f86904d97c78"}
+    ],
+  "tags": {"latest": "769b9341d937a3dba9e460f664b4f183a6cecdd62b337220a28b3deb50ee0a02"}
  }
 
 

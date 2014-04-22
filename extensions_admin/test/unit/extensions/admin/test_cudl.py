@@ -25,7 +25,7 @@ class TestCreateDockerRepositoryCommand(unittest.TestCase):
                       'protected': False}
         result = command._describe_distributors(user_input)
         target_result = {
-            "distributor_type": constants.DISTRIBUTOR_TYPE_ID,
+            "distributor_type": constants.DISTRIBUTOR_WEB_TYPE_ID,
             "distributor_config": {'redirect-url': 'foo', 'protected': False},
             "auto_publish": True,
             "distributor_id": constants.CLI_WEB_DISTRIBUTOR_ID

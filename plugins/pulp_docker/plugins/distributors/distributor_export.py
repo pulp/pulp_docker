@@ -8,7 +8,7 @@ from pulp.common.config import read_json_config
 from pulp.plugins.distributor import Distributor
 
 from pulp_docker.common import constants
-from pulp_docker.plugins.distributors.publish_steps import WebPublisher
+from pulp_docker.plugins.distributors.publish_steps import ExportPublisher
 from pulp_docker.plugins.distributors import configuration
 
 
@@ -26,13 +26,13 @@ def entry_point():
     :rtype:  Distributor, dict
     """
     plugin_config = copy.deepcopy(PLUGIN_DEFAULT_CONFIG)
-    edited_config = read_json_config(constants.DISTRIBUTOR_CONFIG_FILE_NAME)
+    edited_config = read_json_config(constants.DISTRIBUTOR_EXPORT_CONFIG_FILE_NAME)
 
     plugin_config.update(edited_config)
-    return DockerDistributor, plugin_config
+    return DockerExportDistributor, plugin_config
 
 
-class DockerDistributor(Distributor):
+class DockerExportDistributor(Distributor):
     @classmethod
     def metadata(cls):
         """
@@ -49,13 +49,13 @@ class DockerDistributor(Distributor):
         :rtype:     dict
         """
         return {
-            'id': constants.DISTRIBUTOR_TYPE_ID,
-            'display_name': _('Docker Distributor'),
+            'id': constants.DISTRIBUTOR_EXPORT_TYPE_ID,
+            'display_name': _('Docker Export Distributor'),
             'types': [constants.IMAGE_TYPE_ID]
         }
 
     def __init__(self):
-        super(DockerDistributor, self).__init__()
+        super(DockerExportDistributor, self).__init__()
         self._publisher = None
         self.canceled = False
 
@@ -118,15 +118,13 @@ class DockerDistributor(Distributor):
         :return: report describing the publish run
         :rtype:  pulp.plugins.model.PublishReport
         """
-        _logger.debug('Publishing docker repository: %s' % repo.id)
-        self._publisher = WebPublisher(repo, publish_conduit, config)
+        self._publisher = ExportPublisher(repo, publish_conduit, config)
         return self._publisher.publish()
 
     def cancel_publish_repo(self):
         """
         Call cancellation control hook.
         """
-        _logger.debug('Canceling docker repository publish')
         self.canceled = True
         if self._publisher is not None:
             self._publisher.cancel()
@@ -152,21 +150,18 @@ class DockerDistributor(Distributor):
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
         # remove the directories that might have been created for this repo/distributor
-        dir_list = [repo.working_dir,
-                    configuration.get_master_publish_dir(repo, config),
-                    configuration.get_web_publish_dir(repo, config)]
+        dir_list = [repo.working_dir]
 
         for repo_dir in dir_list:
             shutil.rmtree(repo_dir, ignore_errors=True)
 
         # Remove the published app file & directory links
-        dir_list = [configuration.get_web_publish_dir(repo, config),
-                    os.path.join(configuration.get_app_publish_dir(config),
-                                 configuration.get_redirect_file_name(repo))]
+        file_list = [os.path.join(configuration.get_export_repo_directory(config),
+                                  configuration.get_export_repo_filename(repo, config))]
 
-        for repo_dir in dir_list:
+        for file_name in file_list:
             try:
-                os.unlink(repo_dir)
+                os.unlink(file_name)
             except OSError:
                 # It's fine if this file doesn't exist
                 pass

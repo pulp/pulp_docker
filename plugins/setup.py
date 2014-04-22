@@ -14,7 +14,8 @@ setup(
             'importer = pulp_docker.plugins.importers.importer:entry_point',
         ],
         'pulp.distributors': [
-            'distributor = pulp_docker.plugins.distributors.distributor:entry_point',
+            'web_distributor = pulp_docker.plugins.distributors.distributor_web:entry_point',
+            'export_distributor = pulp_docker.plugins.distributors.distributor_export:entry_point',
         ]
     }
 )

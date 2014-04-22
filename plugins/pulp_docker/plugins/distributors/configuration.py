@@ -155,3 +155,29 @@ def get_repo_relative_path(repo, config):
     :rtype:  str
     """
     return repo.id
+
+
+def get_export_repo_directory(config):
+    """
+    Get the directory where the export publisher will publish repositories.
+
+    :param config: configuration instance
+    :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
+    :return: directory where export files are saved
+    :rtype:  str
+    """
+    return os.path.join(get_root_publish_directory(config), 'export', 'repo')
+
+
+def get_export_repo_filename(repo, config):
+    """
+    Get the file name for a repository export
+
+    :param repo: repository to get relative path for
+    :type  repo: pulp.plugins.model.Repository
+    :param config: configuration instance
+    :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
+    :return: The file name for the published tar file
+    :rtype:  str
+    """
+    return '%s.tar' % repo.id
