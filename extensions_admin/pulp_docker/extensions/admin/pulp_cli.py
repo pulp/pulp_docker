@@ -23,11 +23,10 @@ DESC_PUBLISH = _('publish a docker repository')
 
 SECTION_EXPORT = 'export'
 DESC_EXPORT = _('export a docker repository')
-DESC_EXPORT_RUN = _('triggers an immediate export of a repository')
+DESC_EXPORT_RUN = _('triggers an immediate export of a repository to a tar file')
 DESC_EXPORT_FILE = _('the full path for an export file; if specified, the repository will be '
-                     'exported to the given file using the tar format on the server instead of '
-                     'the default for the repository. The web user must have the correct '
-                     'permissions to write to the directory specified.')
+                     'exported as a tar file to the given file on the server.  '
+                     'The web server\'s user must have the permission to write the file specified.')
 
 OPTION_EXPORT_FILE = PulpCliOption('--export-file', DESC_EXPORT_FILE, required=False)
 
@@ -84,8 +83,7 @@ def add_publish_section(context, parent_section):
     add a publish section to the repo section
 
     :type  context: pulp.client.extensions.core.ClientContext
-    :param parent_section:  section of the CLI to which the repo section
-                            should be added
+    :param parent_section:  section of the CLI to which the repo section should be added
     :type  parent_section:  pulp.client.extensions.extensions.PulpCliSection
     """
     section = parent_section.create_subsection(SECTION_PUBLISH, DESC_PUBLISH)
@@ -103,11 +101,10 @@ def add_publish_section(context, parent_section):
 
 def add_export_section(context, parent_section):
     """
-    add a export section to the repo section
+    add a export section to the parent section
 
     :type  context: pulp.client.extensions.core.ClientContext
-    :param parent_section:  section of the CLI to which the repo section
-                            should be added
+    :param parent_section:  section of the CLI to which the export section should be added
     :type  parent_section:  pulp.client.extensions.extensions.PulpCliSection
     """
     section = parent_section.create_subsection(SECTION_EXPORT, DESC_EXPORT)

@@ -51,7 +51,7 @@ Example Redirect File Contents::
   "type":"pulp-docker-redirect",
   "version":1,
   "repository":"docker",
-  "repository-url":"http://www.foo.com/docker",
+  "url":"http://www.foo.com/docker",
   "images":[
     {"id":"48e5f45168b97799ad0aafb7e2fef9fac57b5f16f6db7f67ba2000eb947637eb"},
     {"id":"511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158"},

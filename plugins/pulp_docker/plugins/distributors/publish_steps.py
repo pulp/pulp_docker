@@ -147,10 +147,10 @@ class SaveTarFilePublishStep(PublishStep):
         Publish a directory from to a tar file
         """
         # Generate the tar file in the working directory
-        file_handle, tar_file_name = tempfile.mkstemp(dir=self.source_dir)
-        tar_file = tarfile.TarFile(name=tar_file_name, mode='w', dereference=True)
-        tar_file.add(name=self.source_dir, arcname='')
-        tar_file.close()
+        tar_file_name = os.path.join(self.source_dir, os.path.basename(self.publish_file))
+
+        with tarfile.TarFile(name=tar_file_name, mode='w', dereference=True) as tar_file:
+            tar_file.add(name=self.source_dir, arcname='')
 
         # Move the tar file to the final location
         publish_dir_parent = os.path.dirname(self.publish_file)
