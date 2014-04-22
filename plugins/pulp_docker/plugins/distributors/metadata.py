@@ -93,7 +93,8 @@ class RedirectFileContext(JSONArrayFileContext):
         """
 
         self.metadata_file_handle.write('{"type":"pulp-docker-redirect","version":1,'
-                                        '"repository":"%s","data":[' % self.repo_id)
+                                        '"repository":"%s","repository-url":"%s","images":[' %
+                                        (self.repo_id, self.redirect_url))
 
     def _write_file_footer(self):
         """
@@ -111,8 +112,7 @@ class RedirectFileContext(JSONArrayFileContext):
         super(RedirectFileContext, self).add_unit_metadata(unit)
         image_id = unit.unit_key['image_id']
         unit_data = {
-            'id': image_id,
-            'url': self.redirect_url + image_id + '/'
+            'id': image_id
         }
         if self.labels.get(image_id):
             unit_data.update({'tags': self.labels.get(image_id)})
