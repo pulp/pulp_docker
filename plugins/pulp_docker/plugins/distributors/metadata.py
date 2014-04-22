@@ -12,25 +12,6 @@ _LOG = logging.getLogger(__name__)
 IMAGES_FILE_NAME = 'images.json'
 
 
-def build_tag_dict(conduit):
-    """
-    Build the mapping for image id to tags
-
-    :param conduit: The conduit to get api calls
-    :type conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
-    """
-    scratchpad = conduit.get_repo_scratchpad()
-    tags = scratchpad[u'tags']
-    labels = {}
-    for tag_name, image_name in tags.iteritems():
-        tag_list = labels.get(image_name)
-        if not tag_list:
-            tag_list = []
-            labels[image_name] = tag_list
-        tag_list.append(tag_name)
-    return labels
-
-
 class ImagesFileContext(JSONArrayFileContext):
     """
     Context manager for generating the docker images file.
@@ -84,7 +65,8 @@ class RedirectFileContext(JSONArrayFileContext):
         metadata_file_path = os.path.join(working_dir,
                                           configuration.get_redirect_file_name(repo))
         super(RedirectFileContext, self).__init__(metadata_file_path)
-        self.labels = build_tag_dict(conduit)
+        scratchpad = conduit.get_repo_scratchpad()
+        self.tags = scratchpad[u'tags']
         self.redirect_url = configuration.get_redirect_url(config, repo)
 
     def _write_file_header(self):
@@ -93,14 +75,16 @@ class RedirectFileContext(JSONArrayFileContext):
         """
 
         self.metadata_file_handle.write('{"type":"pulp-docker-redirect","version":1,'
-                                        '"repository":"%s","repository-url":"%s","images":[' %
+                                        '"repository":"%s","url":"%s","images":[' %
                                         (self.repo_id, self.redirect_url))
 
     def _write_file_footer(self):
         """
         Write out the end of the json file
         """
-        self.metadata_file_handle.write(']}')
+        self.metadata_file_handle.write('],"tags":')
+        self.metadata_file_handle.write(json.dumps(self.tags))
+        self.metadata_file_handle.write('}')
 
     def add_unit_metadata(self, unit):
         """
@@ -114,8 +98,5 @@ class RedirectFileContext(JSONArrayFileContext):
         unit_data = {
             'id': image_id
         }
-        if self.labels.get(image_id):
-            unit_data.update({'tags': self.labels.get(image_id)})
-
         string_representation = json.dumps(unit_data)
         self.metadata_file_handle.write(string_representation)

@@ -123,3 +123,11 @@ class TestConfigurationGetters(unittest.TestCase):
         computed_result = 'https://www.foo.bar/pulp/docker/baz/'
         self.assertEquals(computed_result, configuration.get_redirect_url({},
                                                                           Mock(id='baz')))
+
+    def test_get_export_repo_filename(self):
+        filename = configuration.get_export_repo_filename(self.repo, self.config)
+        self.assertEquals(filename, "foo.tar")
+
+    def test_get_export_repo_directory(self):
+        directory = configuration.get_export_repo_directory(self.config)
+        self.assertEquals(directory, os.path.join(self.publish_dir, 'export', 'repo'))

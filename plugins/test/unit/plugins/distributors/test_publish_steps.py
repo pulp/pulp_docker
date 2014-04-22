@@ -1,5 +1,6 @@
 import os
 import shutil
+import tarfile
 import tempfile
 import time
 import unittest
@@ -131,6 +132,28 @@ class TestPublishImagesStep(unittest.TestCase):
         step.redirect_context.finalize.assert_called_once_with()
 
 
+class TestSaveTarFilePublishStep(unittest.TestCase):
+    def setUp(self):
+        self.working_directory = tempfile.mkdtemp()
+        self.repo = Mock()
+
+    def tearDown(self):
+        shutil.rmtree(self.working_directory)
+
+    def test_process_main(self):
+        source_dir = os.path.join(self.working_directory, 'source')
+        os.makedirs(source_dir)
+        target_file = os.path.join(self.working_directory, 'target', 'target.tar')
+        step = publish_steps.SaveTarFilePublishStep(source_dir, target_file)
+
+        touch(os.path.join(source_dir, 'foo.txt'))
+        step.process_main()
+
+        with tarfile.open(target_file) as tar_file:
+            names = tar_file.getnames()
+            self.assertEquals(names, ['', 'foo.txt'])
+
+
 class TestWebPublisher(unittest.TestCase):
 
     def setUp(self):
@@ -154,3 +177,27 @@ class TestWebPublisher(unittest.TestCase):
         self.assertEquals(publisher.process_steps, [mock_images_step.return_value])
         self.assertEquals(publisher.post_metadata_process_steps,
                           [mock_web_publish_step.return_value])
+
+
+class TestExportPublisher(unittest.TestCase):
+
+    def setUp(self):
+        self.working_directory = tempfile.mkdtemp()
+        self.publish_dir = os.path.join(self.working_directory, 'publish')
+        self.working_temp = os.path.join(self.working_directory, 'work')
+        self.repo = Mock(id='foo', working_dir=self.working_temp)
+
+    def tearDown(self):
+        shutil.rmtree(self.working_directory)
+
+    @patch('pulp_docker.plugins.distributors.publish_steps.SaveTarFilePublishStep')
+    @patch('pulp_docker.plugins.distributors.publish_steps.PublishImagesStep')
+    def test_init(self, mock_images_step, mock_tar_file_step):
+        mock_conduit = Mock()
+        mock_config = {
+            constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: self.publish_dir
+        }
+        publisher = publish_steps.ExportPublisher(self.repo, mock_conduit, mock_config)
+        self.assertEquals(publisher.process_steps, [mock_images_step.return_value])
+        self.assertEquals(publisher.post_metadata_process_steps,
+                          [mock_tar_file_step.return_value])

@@ -2,6 +2,8 @@ from gettext import gettext as _
 import logging
 import os
 import shutil
+import tarfile
+import tempfile
 
 from pulp.plugins.util.publish_step import BasePublisher, UnitPublishStep, PublishStep
 
@@ -42,6 +44,30 @@ class WebPublisher(BasePublisher):
         atomic_publish_step.description = _('Making files available via web.')
         self.add_process_steps([PublishImagesStep()])
         self.add_post_process_steps([atomic_publish_step])
+
+
+class ExportPublisher(BasePublisher):
+    """
+    Docker Export publisher class that is responsible for the actual publishing
+    of a docker repository via a tar file
+    """
+
+    def __init__(self, repo, publish_conduit, config):
+        """
+        :param repo: Pulp managed Yum repository
+        :type  repo: pulp.plugins.model.Repository
+        :param publish_conduit: Conduit providing access to relative Pulp functionality
+        :type  publish_conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
+        :param config: Pulp configuration for the distributor
+        :type  config: pulp.plugins.config.PluginCallConfiguration
+        """
+        super(ExportPublisher, self).__init__(repo, publish_conduit, config)
+
+        self.add_process_steps([PublishImagesStep()])
+        tar_file = os.path.join(configuration.get_export_repo_directory(config),
+                                configuration.get_export_repo_filename(repo, config))
+        self.add_post_process_steps([SaveTarFilePublishStep(self.working_dir,
+                                                            tar_file)])
 
 
 class PublishImagesStep(UnitPublishStep):
@@ -97,6 +123,40 @@ class PublishImagesStep(UnitPublishStep):
         Get the directory where the files published to the web have been linked
         """
         return os.path.join(self.get_working_dir(), 'web')
+
+
+class SaveTarFilePublishStep(PublishStep):
+    """
+    Save a directory as a tar file
+    :param source_dir: The directory to turn into a tar file
+    :type source_dir: str
+    :param publish_file: Fully qualified name of the final location for the generated tar file
+    :type publish_file: str
+    :param step_id: The id of the step, so that this step can be used with custom names.
+    :type step_id: str
+    """
+    def __init__(self, source_dir, publish_file, step_id=None):
+        step_id = step_id if step_id else constants.PUBLISH_STEP_DIRECTORY
+        super(SaveTarFilePublishStep, self).__init__(step_id)
+        self.source_dir = source_dir
+        self.publish_file = publish_file
+        self.description = _('Saving tar file.')
+
+    def process_main(self):
+        """
+        Publish a directory from to a tar file
+        """
+        # Generate the tar file in the working directory
+        file_handle, tar_file_name = tempfile.mkstemp(dir=self.source_dir)
+        tar_file = tarfile.TarFile(name=tar_file_name, mode='w', dereference=True)
+        tar_file.add(name=self.source_dir, arcname='')
+        tar_file.close()
+
+        # Move the tar file to the final location
+        publish_dir_parent = os.path.dirname(self.publish_file)
+        if not os.path.exists(publish_dir_parent):
+            os.makedirs(publish_dir_parent, 0750)
+        shutil.move(os.path.join(self.source_dir, tar_file_name), self.publish_file)
 
 
 class AtomicDirectoryPublishStep(PublishStep):

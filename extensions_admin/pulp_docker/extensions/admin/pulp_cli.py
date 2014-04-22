@@ -2,6 +2,7 @@ from gettext import gettext as _
 
 from pulp.client.commands.repo import cudl, sync_publish, status
 from pulp.client.extensions.decorator import priority
+from pulp.client.extensions.extensions import PulpCliOption
 
 from pulp_docker.common import constants
 from pulp_docker.extensions.admin.cudl import CreateDockerRepositoryCommand
@@ -20,6 +21,16 @@ DESC_UPLOADS = _('upload docker images into a repository')
 SECTION_PUBLISH = 'publish'
 DESC_PUBLISH = _('publish a docker repository')
 
+SECTION_EXPORT = 'export'
+DESC_EXPORT = _('export a docker repository')
+DESC_EXPORT_RUN = _('triggers an immediate export of a repository')
+DESC_EXPORT_FILE = _('the full path for an export file; if specified, the repository will be '
+                     'exported to the given file using the tar format on the server instead of '
+                     'the default for the repository. The web user must have the correct '
+                     'permissions to write to the directory specified.')
+
+OPTION_EXPORT_FILE = PulpCliOption('--export-file', DESC_EXPORT_FILE, required=False)
+
 
 @priority()
 def initialize(context):
@@ -32,6 +43,7 @@ def initialize(context):
     repo_section = add_repo_section(context, root_section)
     add_upload_section(context, repo_section)
     add_publish_section(context, repo_section)
+    add_export_section(context, repo_section)
 
 
 def add_upload_section(context, parent_section):
@@ -85,5 +97,27 @@ def add_publish_section(context, parent_section):
                                                  constants.CLI_WEB_DISTRIBUTOR_ID))
     section.add_command(
         sync_publish.PublishStatusCommand(context, renderer))
+
+    return section
+
+
+def add_export_section(context, parent_section):
+    """
+    add a export section to the repo section
+
+    :type  context: pulp.client.extensions.core.ClientContext
+    :param parent_section:  section of the CLI to which the repo section
+                            should be added
+    :type  parent_section:  pulp.client.extensions.extensions.PulpCliSection
+    """
+    section = parent_section.create_subsection(SECTION_EXPORT, DESC_EXPORT)
+    section.add_command(
+        sync_publish.RunPublishRepositoryCommand(context=context,
+                                                 renderer=status.PublishStepStatusRenderer(context),
+                                                 distributor_id=constants.CLI_EXPORT_DISTRIBUTOR_ID,
+                                                 description=DESC_EXPORT_RUN,
+                                                 override_config_options=[OPTION_EXPORT_FILE]))
+    section.add_command(
+        sync_publish.PublishStatusCommand(context, status.PublishStepStatusRenderer(context)))
 
     return section
