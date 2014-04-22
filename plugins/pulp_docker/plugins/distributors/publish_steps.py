@@ -3,7 +3,6 @@ import logging
 import os
 import shutil
 import tarfile
-import tempfile
 
 from pulp.plugins.util.publish_step import BasePublisher, UnitPublishStep, PublishStep
 
