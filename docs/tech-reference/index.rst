@@ -13,6 +13,7 @@ Contents:
 
    importer
    distributor
+   tags
 
 
 Indices and tables
