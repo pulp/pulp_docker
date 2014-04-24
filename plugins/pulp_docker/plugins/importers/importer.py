@@ -143,7 +143,7 @@ class DockerImporter(Importer):
         while units:
             units_to_add = set()
 
-            #Associate the units to the repository
+            # Associate the units to the repository
             for u in units:
                 import_conduit.associate_unit(u)
                 units_added.append(u)

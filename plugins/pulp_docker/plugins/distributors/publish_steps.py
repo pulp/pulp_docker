@@ -147,9 +147,11 @@ class SaveTarFilePublishStep(PublishStep):
         """
         # Generate the tar file in the working directory
         tar_file_name = os.path.join(self.source_dir, os.path.basename(self.publish_file))
-
-        with tarfile.TarFile(name=tar_file_name, mode='w', dereference=True) as tar_file:
+        tar_file = tarfile.TarFile(name=tar_file_name, mode='w', dereference=True)
+        try:
             tar_file.add(name=self.source_dir, arcname='')
+        finally:
+            tar_file.close()
 
         # Move the tar file to the final location
         publish_dir_parent = os.path.dirname(self.publish_file)
