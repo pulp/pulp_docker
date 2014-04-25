@@ -140,7 +140,7 @@ class DockerImporter(Importer):
         known_units = set()
         units_added = []
 
-        while units:
+        while True:
             units_to_add = set()
 
             # Associate the units to the repository
@@ -160,8 +160,8 @@ class DockerImporter(Importer):
                                                    unit_filters=unit_filter)
                 units = import_conduit.get_source_units(criteria=criteria)
             else:
-                # Clear out the units list so the loop will exit
-                units = []
+                # Break out of the loop since there were no units to add to the list
+                break
 
         return units_added
 

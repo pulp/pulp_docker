@@ -63,6 +63,19 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
 
+    def test_tag_partial_match_image_id(self):
+        user_input = {
+            'repo-id': 'foo-repo',
+            'tag': [['foo', 'baz']]
+        }
+        self.unit_search_command.response_body = [{u'metadata': {u'image_id': 'bazqux'}}]
+        self.command.run(**user_input)
+
+        target_kwargs = {
+            u'scratchpad': {u'tags': {'foo': 'bazqux'}}
+        }
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+
     def test_multi_tag(self):
         user_input = {
             'repo-id': 'foo-repo',

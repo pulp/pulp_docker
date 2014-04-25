@@ -21,3 +21,7 @@ class TestParseColonSeparated(unittest.TestCase):
 
     def test_with_no_value_after_colon(self):
         self.assertRaises(ValueError, parsers.parse_colon_separated, ['foo:'])
+
+    def test_with_multiple_colon(self):
+        result = parsers.parse_colon_separated(['foo:bar:baz'])
+        self.assertEquals(result, [['foo:bar', 'baz']])

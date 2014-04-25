@@ -27,12 +27,12 @@ d = _('if "true" requests for this repo will be checked for an entitlement certi
       'the server url for this repository; if "false" no authorization checking will be done.')
 OPT_PROTECTED = PulpCliOption('--protected', d, required=False, parse_func=parsers.parse_boolean)
 
-d = _('Tag a particular image in the repository.  The format of the parameter is '
+d = _('Tag a particular image in the repository. The format of the parameter is '
       '"<tag_name>:<image_hash>"; for example: "latest:abc123"')
 OPTION_TAG = PulpCliOption('--tag', d, required=False, allow_multiple=True,
                            parse_func=docker_parsers.parse_colon_separated)
 
-d = _('Remove the specified tag from the repository. This only removes the tag, the underlying '
+d = _('Remove the specified tag from the repository. This only removes the tag; the underlying '
       'image will remain in the repository.')
 OPTION_REMOVE_TAG = PulpCliOption('--remove-tag', d, required=False, allow_multiple=True)
 
@@ -86,7 +86,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
 class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
 
     def __init__(self, context):
-        UpdateRepositoryCommand.__init__(self, context)
+        super(UpdateDockerRepositoryCommand, self).__init__(context)
         self.add_option(OPTION_TAG)
         self.add_option(OPTION_REMOVE_TAG)
 
@@ -99,26 +99,35 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
         tags = kwargs.get(OPTION_TAG.keyword)
         if tags:
             tags = kwargs.pop(OPTION_TAG.keyword)
+            for tag, image_id in tags:
+                image_tags[tag] = image_id
             # Ensure the specified images exist in the repo
             images_requested = set([image_id for tag, image_id in tags])
-            images = [['image_id', image_id] for image_id in images_requested]
+            images = ['^%s' % image_id for image_id in images_requested]
+            image_regex = '|'.join(images)
             search_criteria = {
                 'type_ids': constants.IMAGE_TYPE_ID,
-                'in': images,
+                'match': [['image_id', image_regex]],
                 'fields': ['image_id']
             }
+
             response = self.context.server.repo_unit.search(repo_id, **search_criteria).\
                 response_body
             if len(response) != len(images):
                 images_found = set([x[u'metadata'][u'image_id'] for x in response])
                 missing_images = images_requested.difference(images_found)
-                msg = _('Unable to create tag in repository.  The following image(s) do not '
+                msg = _('Unable to create tag in repository. The following image(s) do not '
                         'exist in the repository: %s.')
                 self.prompt.render_failure_message(msg % ', '.join(missing_images))
                 return
 
-            for tag, image_id in tags:
-                image_tags[tag] = image_id
+            # Get the full image id from the returned values
+            for image in response:
+                found_image_id = image[u'metadata'][u'image_id']
+                for key, value in image_tags.iteritems():
+                    if found_image_id.startswith(value):
+                        image_tags[key] = found_image_id
+
             scratchpad[u'tags'] = image_tags
             kwargs[u'scratchpad'] = scratchpad
 

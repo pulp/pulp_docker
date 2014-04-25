@@ -17,6 +17,7 @@ def get_formatter_for_type(type_id):
 
     :param type_id: The type of the unit for which a formatter is needed
     :type type_id: str
+    :raises ValueError: if the method does not recognize the type_id
     """
 
     if type_id != constants.IMAGE_TYPE_ID:
@@ -28,8 +29,8 @@ def get_formatter_for_type(type_id):
 class ImageCopyCommand(UnitCopyCommand):
 
     def __init__(self, context, name='copy', description=DESC_COPY):
-        UnitCopyCommand.__init__(self, context, name=name, description=description,
-                                 method=self.run, type_id=constants.IMAGE_TYPE_ID)
+        super(ImageCopyCommand, self).__init__(context, name=name, description=description,
+                                               method=self.run, type_id=constants.IMAGE_TYPE_ID)
 
     @staticmethod
     def get_formatter_for_type(type_id):

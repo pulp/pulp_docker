@@ -95,8 +95,8 @@ class TestImportUnits(unittest.TestCase):
 
     def setUp(self):
         self.unit_key = {'image_id': data.busybox_ids[0]}
-        self.source_repo = Repository('repo1')
-        self.dest_repo = Repository('repo1')
+        self.source_repo = Repository('repo_source')
+        self.dest_repo = Repository('repo_dest')
         self.conduit = mock.MagicMock()
         self.config = PluginCallConfiguration({}, {})
 
