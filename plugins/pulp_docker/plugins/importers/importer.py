@@ -193,15 +193,10 @@ class DockerImporter(Importer):
         repo_manager = manager_factory.repo_manager()
         scratchpad = repo_manager.get_repo_scratchpad(repo.id)
         tags = scratchpad.get(u'tags', {})
-        tags_to_remove = []
-        for unit in units:
-            image_id = unit.unit_key[u'image_id']
-            for tag_key, tag_image_id in tags.iteritems():
-                if image_id == tag_image_id:
-                    tags_to_remove.append(tag_key)
-
-        for tag in tags_to_remove:
-            tags.pop(tag)
+        unit_ids = set([unit.unit_key[u'image_id'] for unit in units])
+        for tag_key, tag_image_id in tags.items():
+            if tag_image_id in unit_ids:
+                del tags[tag_key]
 
         scratchpad[u'tags'] = tags
         repo_manager.set_repo_scratchpad(repo.id, scratchpad)
