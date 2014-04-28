@@ -39,3 +39,74 @@ class TestCreateDockerRepositoryCommand(unittest.TestCase):
         }
         result = command._describe_distributors(user_input)
         self.assertEquals(result[0]["auto_publish"], False)
+
+
+class TestUpdateDockerRepositoryCommand(unittest.TestCase):
+
+    def setUp(self):
+        self.context = Mock()
+        self.command = cudl.UpdateDockerRepositoryCommand(self.context)
+        self.mock_repo_response = Mock(response_body={})
+        self.context.server.repo.repository.return_value = self.mock_repo_response
+        self.unit_search_command = Mock(response_body=[{u'metadata': {u'image_id': 'bar'}}])
+        self.context.server.repo_unit.search.return_value = self.unit_search_command
+
+    def test_tag(self):
+        user_input = {
+            'repo-id': 'foo-repo',
+            'tag': [['foo', 'bar']]
+        }
+        self.command.run(**user_input)
+
+        target_kwargs = {
+            u'scratchpad': {u'tags': {'foo': 'bar'}}
+        }
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+
+    def test_tag_partial_match_image_id(self):
+        user_input = {
+            'repo-id': 'foo-repo',
+            'tag': [['foo', 'baz']]
+        }
+        self.unit_search_command.response_body = [{u'metadata': {u'image_id': 'bazqux'}}]
+        self.command.run(**user_input)
+
+        target_kwargs = {
+            u'scratchpad': {u'tags': {'foo': 'bazqux'}}
+        }
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+
+    def test_multi_tag(self):
+        user_input = {
+            'repo-id': 'foo-repo',
+            'tag': [['foo', 'bar'], ['baz', 'bar']]
+        }
+        self.command.run(**user_input)
+
+        target_kwargs = {
+            u'scratchpad': {u'tags': {'foo': 'bar', 'baz': 'bar'}}
+        }
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+
+    def test_image_not_found(self):
+        user_input = {
+            'repo-id': 'foo-repo',
+            'tag': [['foo', 'bar']]
+        }
+        self.unit_search_command.response_body = []
+        self.command.run(**user_input)
+        self.assertTrue(self.command.prompt.render_failure_message.called)
+
+    def test_remove_tag(self):
+        self.mock_repo_response.response_body = \
+            {u'scratchpad': {u'tags': {'foo': 'bar', 'baz': 'bar'}}}
+        user_input = {
+            'repo-id': 'foo-repo',
+            'remove-tag': ['foo']
+        }
+        self.command.run(**user_input)
+
+        target_kwargs = {
+            u'scratchpad': {u'tags': {'baz': 'bar'}}
+        }
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)

@@ -91,6 +91,41 @@ class TestUploadUnit(unittest.TestCase):
         mock_update_tags.assert_called_once_with(self.repo.id, data.busybox_tar_path)
 
 
+class TestImportUnits(unittest.TestCase):
+
+    def setUp(self):
+        self.unit_key = {'image_id': data.busybox_ids[0]}
+        self.source_repo = Repository('repo_source')
+        self.dest_repo = Repository('repo_dest')
+        self.conduit = mock.MagicMock()
+        self.config = PluginCallConfiguration({}, {})
+
+    def test_import_all(self):
+        mock_unit = mock.Mock(unit_key={'image_id': 'foo'}, metadata={})
+        self.conduit.get_source_units.return_value = [mock_unit]
+        result = DockerImporter().import_units(self.source_repo, self.dest_repo, self.conduit,
+                                               self.config)
+        self.assertEquals(result, [mock_unit])
+        self.conduit.associate_unit.assert_called_once_with(mock_unit)
+
+    def test_import_no_parent(self):
+        mock_unit = mock.Mock(unit_key={'image_id': 'foo'}, metadata={})
+        result = DockerImporter().import_units(self.source_repo, self.dest_repo, self.conduit,
+                                               self.config, units=[mock_unit])
+        self.assertEquals(result, [mock_unit])
+        self.conduit.associate_unit.assert_called_once_with(mock_unit)
+
+    def test_import_with_parent(self):
+        mock_unit1 = mock.Mock(unit_key={'image_id': 'foo'}, metadata={'parent_id': 'bar'})
+        mock_unit2 = mock.Mock(unit_key={'image_id': 'bar'}, metadata={})
+        self.conduit.get_source_units.return_value = [mock_unit2]
+        result = DockerImporter().import_units(self.source_repo, self.dest_repo, self.conduit,
+                                               self.config, units=[mock_unit1])
+        self.assertEquals(result, [mock_unit1, mock_unit2])
+        calls = [mock.call(mock_unit1), mock.call(mock_unit2)]
+        self.conduit.associate_unit.assert_has_calls(calls)
+
+
 class TestValidateConfig(unittest.TestCase):
     def test_always_true(self):
         for repo, config in [['a', 'b'], [1, 2], [mock.Mock(), {}], ['abc', {'a': 2}]]:

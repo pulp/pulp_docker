@@ -66,7 +66,8 @@ class RedirectFileContext(JSONArrayFileContext):
                                           configuration.get_redirect_file_name(repo))
         super(RedirectFileContext, self).__init__(metadata_file_path)
         scratchpad = conduit.get_repo_scratchpad()
-        self.tags = scratchpad[u'tags']
+        self.tags = scratchpad.get(u'tags', {})
+
         self.redirect_url = configuration.get_redirect_url(config, repo)
 
     def _write_file_header(self):

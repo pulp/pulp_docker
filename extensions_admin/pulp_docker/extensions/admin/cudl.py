@@ -1,11 +1,16 @@
 from gettext import gettext as _
 
+
 from pulp.client import parsers
+from pulp.client.commands.options import OPTION_REPO_ID
 from pulp.client.commands.repo.cudl import CreateAndConfigureRepositoryCommand
+from pulp.client.commands.repo.cudl import UpdateRepositoryCommand
 from pulp.common.constants import REPO_NOTE_TYPE_KEY
 from pulp.client.extensions.extensions import PulpCliOption
 
 from pulp_docker.common import constants
+from pulp_docker.extensions.admin import parsers as docker_parsers
+
 
 d = _('if "true", on each successful sync the repository will automatically be '
       'published; if "false" content will only be available after manually publishing '
@@ -21,6 +26,15 @@ OPT_REDIRECT_URL = PulpCliOption('--redirect-url', d, required=False)
 d = _('if "true" requests for this repo will be checked for an entitlement certificate authorizing '
       'the server url for this repository; if "false" no authorization checking will be done.')
 OPT_PROTECTED = PulpCliOption('--protected', d, required=False, parse_func=parsers.parse_boolean)
+
+d = _('Tag a particular image in the repository. The format of the parameter is '
+      '"<tag_name>:<image_hash>"; for example: "latest:abc123"')
+OPTION_TAG = PulpCliOption('--tag', d, required=False, allow_multiple=True,
+                           parse_func=docker_parsers.parse_colon_separated)
+
+d = _('Remove the specified tag from the repository. This only removes the tag; the underlying '
+      'image will remain in the repository.')
+OPTION_REMOVE_TAG = PulpCliOption('--remove-tag', d, required=False, allow_multiple=True)
 
 
 class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
@@ -67,3 +81,62 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
         ]
 
         return data
+
+
+class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
+
+    def __init__(self, context):
+        super(UpdateDockerRepositoryCommand, self).__init__(context)
+        self.add_option(OPTION_TAG)
+        self.add_option(OPTION_REMOVE_TAG)
+
+    def run(self, **kwargs):
+        repo_id = kwargs.get(OPTION_REPO_ID.keyword)
+        response = self.context.server.repo.repository(repo_id).response_body
+        scratchpad = response.get(u'scratchpad', {})
+        image_tags = scratchpad.get(u'tags', {})
+
+        tags = kwargs.get(OPTION_TAG.keyword)
+        if tags:
+            tags = kwargs.pop(OPTION_TAG.keyword)
+            for tag, image_id in tags:
+                image_tags[tag] = image_id
+            # Ensure the specified images exist in the repo
+            images_requested = set([image_id for tag, image_id in tags])
+            images = ['^%s' % image_id for image_id in images_requested]
+            image_regex = '|'.join(images)
+            search_criteria = {
+                'type_ids': constants.IMAGE_TYPE_ID,
+                'match': [['image_id', image_regex]],
+                'fields': ['image_id']
+            }
+
+            response = self.context.server.repo_unit.search(repo_id, **search_criteria).\
+                response_body
+            if len(response) != len(images):
+                images_found = set([x[u'metadata'][u'image_id'] for x in response])
+                missing_images = images_requested.difference(images_found)
+                msg = _('Unable to create tag in repository. The following image(s) do not '
+                        'exist in the repository: %s.')
+                self.prompt.render_failure_message(msg % ', '.join(missing_images))
+                return
+
+            # Get the full image id from the returned values
+            for image in response:
+                found_image_id = image[u'metadata'][u'image_id']
+                for key, value in image_tags.iteritems():
+                    if found_image_id.startswith(value):
+                        image_tags[key] = found_image_id
+
+            scratchpad[u'tags'] = image_tags
+            kwargs[u'scratchpad'] = scratchpad
+
+        remove_tags = kwargs.get(OPTION_REMOVE_TAG.keyword)
+        if remove_tags:
+            kwargs.pop(OPTION_REMOVE_TAG.keyword)
+            for tag in remove_tags:
+                image_tags.pop(tag)
+            scratchpad[u'tags'] = image_tags
+            kwargs[u'scratchpad'] = scratchpad
+
+        super(UpdateDockerRepositoryCommand, self).run(**kwargs)
