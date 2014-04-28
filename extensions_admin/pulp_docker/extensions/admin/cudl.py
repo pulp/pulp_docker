@@ -100,6 +100,11 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
         if tags:
             tags = kwargs.pop(OPTION_TAG.keyword)
             for tag, image_id in tags:
+                if len(image_id) < 6:
+                    msg = _('The image id, (%s), must be at least 6 characters.')
+                    self.prompt.render_failure_message(msg % image_id)
+                    return
+
                 image_tags[tag] = image_id
             # Ensure the specified images exist in the repo
             images_requested = set([image_id for tag, image_id in tags])

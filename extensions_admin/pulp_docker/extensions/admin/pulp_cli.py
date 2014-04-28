@@ -7,7 +7,7 @@ from pulp.client.extensions.extensions import PulpCliOption
 from pulp_docker.common import constants
 from pulp_docker.extensions.admin.cudl import CreateDockerRepositoryCommand
 from pulp_docker.extensions.admin.cudl import UpdateDockerRepositoryCommand
-from pulp_docker.extensions.admin.copy_images import ImageCopyCommand
+from pulp_docker.extensions.admin.images import ImageCopyCommand, ImageRemoveCommand
 from pulp_docker.extensions.admin.upload import UploadDockerImageCommand
 
 
@@ -77,6 +77,7 @@ def add_repo_section(context, parent_section):
     repo_section.add_command(CreateDockerRepositoryCommand(context))
     repo_section.add_command(cudl.DeleteRepositoryCommand(context))
     repo_section.add_command(UpdateDockerRepositoryCommand(context))
+    repo_section.add_command(ImageRemoveCommand(context))
     repo_section.add_command(ImageCopyCommand(context))
 
     return repo_section

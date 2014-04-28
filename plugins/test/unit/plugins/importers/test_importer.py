@@ -131,3 +131,30 @@ class TestValidateConfig(unittest.TestCase):
         for repo, config in [['a', 'b'], [1, 2], [mock.Mock(), {}], ['abc', {'a': 2}]]:
             # make sure all attempts are validated
             self.assertEqual(DockerImporter().validate_config(repo, config), (True, ''))
+
+
+class TestRemoveUnit(unittest.TestCase):
+
+    def setUp(self):
+        self.repo = Repository('repo_source')
+        self.conduit = mock.MagicMock()
+        self.config = PluginCallConfiguration({}, {})
+        self.mock_unit = mock.Mock(unit_key={'image_id': 'foo'}, metadata={})
+
+    @mock.patch('pulp_docker.plugins.importers.importer.manager_factory.repo_manager')
+    def test_remove_with_tag(self, mock_repo_manager):
+        mock_repo_manager.return_value.get_repo_scratchpad.return_value = \
+            {u'tags': {'apple': 'foo'}}
+        DockerImporter().remove_units(self.repo, [self.mock_unit], self.config)
+        mock_repo_manager.return_value.set_repo_scratchpad.assert_called_once_with(
+            self.repo.id, {u'tags': {}}
+        )
+
+    @mock.patch('pulp_docker.plugins.importers.importer.manager_factory.repo_manager')
+    def test_remove_without_tag(self, mock_repo_manager):
+        mock_repo_manager.return_value.get_repo_scratchpad.return_value = \
+            {u'tags': {'apple': 'bar'}}
+        DockerImporter().remove_units(self.repo, [self.mock_unit], self.config)
+        mock_repo_manager.return_value.set_repo_scratchpad.assert_called_once_with(
+            self.repo.id, {u'tags': {'apple': 'bar'}}
+        )

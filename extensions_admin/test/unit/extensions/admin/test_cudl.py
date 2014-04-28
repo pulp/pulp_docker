@@ -54,44 +54,53 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
     def test_tag(self):
         user_input = {
             'repo-id': 'foo-repo',
-            'tag': [['foo', 'bar']]
+            'tag': [['foo', 'bar123']]
         }
         self.command.run(**user_input)
 
         target_kwargs = {
-            u'scratchpad': {u'tags': {'foo': 'bar'}}
+            u'scratchpad': {u'tags': {'foo': 'bar123'}}
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
 
-    def test_tag_partial_match_image_id(self):
+    def test_tag_partial_match_image_id_too_short(self):
         user_input = {
             'repo-id': 'foo-repo',
             'tag': [['foo', 'baz']]
         }
-        self.unit_search_command.response_body = [{u'metadata': {u'image_id': 'bazqux'}}]
+        self.unit_search_command.response_body = [{u'metadata': {u'image_id': 'baz123qux'}}]
+        self.command.run(**user_input)
+        self.assertFalse(self.context.server.repo.update.called)
+
+    def test_tag_partial_match_image_id(self):
+        user_input = {
+            'repo-id': 'foo-repo',
+            'tag': [['foo', 'baz123']]
+        }
+        self.unit_search_command.response_body = [{u'metadata': {u'image_id': 'baz123qux'}}]
         self.command.run(**user_input)
 
         target_kwargs = {
-            u'scratchpad': {u'tags': {'foo': 'bazqux'}}
+            u'scratchpad': {u'tags': {'foo': 'baz123qux'}}
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
 
     def test_multi_tag(self):
         user_input = {
             'repo-id': 'foo-repo',
-            'tag': [['foo', 'bar'], ['baz', 'bar']]
+            'tag': [['foo', 'bar123'], ['baz', 'bar123']]
         }
         self.command.run(**user_input)
 
         target_kwargs = {
-            u'scratchpad': {u'tags': {'foo': 'bar', 'baz': 'bar'}}
+            u'scratchpad': {u'tags': {'foo': 'bar123', 'baz': 'bar123'}}
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
 
     def test_image_not_found(self):
         user_input = {
             'repo-id': 'foo-repo',
-            'tag': [['foo', 'bar']]
+            'tag': [['foo', 'bar123']]
         }
         self.unit_search_command.response_body = []
         self.command.run(**user_input)
@@ -99,7 +108,7 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
 
     def test_remove_tag(self):
         self.mock_repo_response.response_body = \
-            {u'scratchpad': {u'tags': {'foo': 'bar', 'baz': 'bar'}}}
+            {u'scratchpad': {u'tags': {'foo': 'bar123', 'baz': 'bar123'}}}
         user_input = {
             'repo-id': 'foo-repo',
             'remove-tag': ['foo']
@@ -107,6 +116,6 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         self.command.run(**user_input)
 
         target_kwargs = {
-            u'scratchpad': {u'tags': {'baz': 'bar'}}
+            u'scratchpad': {u'tags': {'baz': 'bar123'}}
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
