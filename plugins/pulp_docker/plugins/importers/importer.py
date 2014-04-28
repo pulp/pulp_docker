@@ -4,6 +4,7 @@ import logging
 from pulp.common.config import read_json_config
 from pulp.plugins.conduits.mixins import UnitAssociationCriteria
 from pulp.plugins.importer import Importer
+import pulp.server.managers.factory as manager_factory
 
 from pulp_docker.common import constants, tarutils
 from pulp_docker.plugins.importers import upload
@@ -170,3 +171,37 @@ class DockerImporter(Importer):
         We don't have a config yet, so it's always valid
         """
         return True, ''
+
+    def remove_units(self, repo, units, config):
+        """
+        Removes content units from the given repository.
+
+        This method is removes the tags associated with images in the repository
+
+        This call will not result in the unit being deleted from Pulp itself.
+
+        :param repo: metadata describing the repository
+        :type  repo: pulp.plugins.model.Repository
+
+        :param units: list of objects describing the units to import in
+                      this call
+        :type  units: list of pulp.plugins.model.AssociatedUnit
+
+        :param config: plugin configuration
+        :type  config: pulp.plugins.config.PluginCallConfiguration
+        """
+        repo_manager = manager_factory.repo_manager()
+        scratchpad = repo_manager.get_repo_scratchpad(repo.id)
+        tags = scratchpad.get(u'tags', {})
+        tags_to_remove = []
+        for unit in units:
+            image_id = unit.unit_key[u'image_id']
+            for tag_key, tag_image_id in tags.iteritems():
+                if image_id == tag_image_id:
+                    tags_to_remove.append(tag_key)
+
+        for tag in tags_to_remove:
+            tags.pop(tag)
+
+        scratchpad[u'tags'] = tags
+        repo_manager.set_repo_scratchpad(repo.id, scratchpad)

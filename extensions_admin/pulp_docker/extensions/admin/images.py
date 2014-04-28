@@ -1,11 +1,12 @@
 from gettext import gettext as _
 
-from pulp.client.commands.unit import UnitCopyCommand
+from pulp.client.commands.unit import UnitCopyCommand, UnitRemoveCommand
 
 from pulp_docker.common import constants
 
 
 DESC_COPY = _('copies images from one repository into another')
+DESC_REMOVE = _('remove images from a repository')
 
 MODULE_ID_TEMPLATE = '%(image_id)s'
 
@@ -36,6 +37,28 @@ class ImageCopyCommand(UnitCopyCommand):
     def get_formatter_for_type(type_id):
         """
         Returns a method that can be used to format the unit key of a docker image
+        for display purposes
+
+        :param type_id: the type_id of the unit key to get a formatter for
+        :type type_id: str
+        :return: function
+        """
+        return get_formatter_for_type(type_id)
+
+
+class ImageRemoveCommand(UnitRemoveCommand):
+    """
+    Class for executing unit remove commands for docker image units
+    """
+
+    def __init__(self, context, name='remove', description=DESC_REMOVE):
+        UnitRemoveCommand.__init__(self, context, name=name, description=description,
+                                   type_id=constants.IMAGE_TYPE_ID)
+
+    @staticmethod
+    def get_formatter_for_type(type_id):
+        """
+        Returns a method that can be used to format the unit key of a puppet_module
         for display purposes
 
         :param type_id: the type_id of the unit key to get a formatter for
