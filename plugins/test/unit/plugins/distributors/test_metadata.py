@@ -79,6 +79,7 @@ class TestRedirectFileContext(unittest.TestCase):
 
         self.context._write_file_header()
         result_string = '{"type":"pulp-docker-redirect","version":1,"repository":"bar",' \
+                        '"repo-registry-id": "foo_repo_id",' \
                         '"url":"http://www.pulpproject.org/foo/","images":['
         self.context.metadata_file_handle.write.assert_called_once_with(result_string)
 

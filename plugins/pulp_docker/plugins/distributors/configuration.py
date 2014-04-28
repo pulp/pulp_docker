@@ -181,3 +181,21 @@ def get_export_repo_filename(repo, config):
     :rtype:  str
     """
     return '%s.tar' % repo.id
+
+
+def get_repo_registry_id(repo, config):
+    """
+    Get the registry ID that should be used by the docker API.  If a registry name has not
+    been specified on the repo fail back to the repo id.
+
+    :param repo: repository to get relative path for
+    :type  repo: pulp.plugins.model.Repository
+    :param config: configuration instance
+    :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
+    :return: The name of the repository as it should be represented in in the Docker API
+    :rtype:  str
+    """
+    registry = config.get(constants.CONFIG_KEY_REPO_REGISTRY_ID)
+    if not registry:
+        registry = repo.id
+    return registry

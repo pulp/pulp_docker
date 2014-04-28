@@ -67,6 +67,7 @@ class RedirectFileContext(JSONArrayFileContext):
         super(RedirectFileContext, self).__init__(metadata_file_path)
         scratchpad = conduit.get_repo_scratchpad()
         self.tags = scratchpad.get(u'tags', {})
+        self.registry = configuration.get_repo_registry_id(repo, config)
 
         self.redirect_url = configuration.get_redirect_url(config, repo)
 
@@ -74,10 +75,10 @@ class RedirectFileContext(JSONArrayFileContext):
         """
         Write out the beginning of the json file
         """
-
         self.metadata_file_handle.write('{"type":"pulp-docker-redirect","version":1,'
-                                        '"repository":"%s","url":"%s","images":[' %
-                                        (self.repo_id, self.redirect_url))
+                                        '"repository":"%s","repo-registry-id": "%s",'
+                                        '"url":"%s","images":[' %
+                                        (self.repo_id, self.registry, self.redirect_url))
 
     def _write_file_footer(self):
         """
