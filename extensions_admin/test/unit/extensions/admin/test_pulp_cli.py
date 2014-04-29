@@ -3,11 +3,12 @@ import unittest
 import mock
 from pulp.client.commands.repo.cudl import CreateRepositoryCommand, DeleteRepositoryCommand
 from pulp.client.commands.repo.cudl import UpdateRepositoryCommand
-from pulp.client.commands.repo.upload import UploadCommand
 from pulp.client.commands.repo.sync_publish import PublishStatusCommand, RunPublishRepositoryCommand
+from pulp.client.commands.repo.upload import UploadCommand
 from pulp.client.extensions.core import PulpCli
 
 from pulp_docker.extensions.admin import pulp_cli
+from pulp_docker.extensions.admin.repo_list import ListDockerRepositoriesCommand
 
 
 class TestInitialize(unittest.TestCase):
@@ -29,6 +30,7 @@ class TestInitialize(unittest.TestCase):
         self.assertTrue(isinstance(repo_section.commands['create'], CreateRepositoryCommand))
         self.assertTrue(isinstance(repo_section.commands['delete'], DeleteRepositoryCommand))
         self.assertTrue(isinstance(repo_section.commands['update'], UpdateRepositoryCommand))
+        self.assertTrue(isinstance(repo_section.commands['list'], ListDockerRepositoriesCommand))
 
         upload_section = repo_section.subsections['uploads']
         self.assertTrue(isinstance(upload_section.commands['upload'], UploadCommand))
