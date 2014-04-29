@@ -22,13 +22,15 @@ class TestCreateDockerRepositoryCommand(unittest.TestCase):
     def test_describe_distributors(self):
         command = cudl.CreateDockerRepositoryCommand(Mock())
         user_input = {'redirect-url': 'foo',
-                      'protected': False}
+                      'protected': False,
+                      'repo-registry-id': 'bar'}
         result = command._describe_distributors(user_input)
         target_result = {
-            "distributor_type": constants.DISTRIBUTOR_WEB_TYPE_ID,
-            "distributor_config": {'redirect-url': 'foo', 'protected': False},
-            "auto_publish": True,
-            "distributor_id": constants.CLI_WEB_DISTRIBUTOR_ID
+            'distributor_type': constants.DISTRIBUTOR_WEB_TYPE_ID,
+            'distributor_config': {
+                'redirect-url': 'foo', 'repo-registry-id': 'bar', 'protected': False},
+            'auto_publish': True,
+            'distributor_id': constants.CLI_WEB_DISTRIBUTOR_ID
         }
         compare_dict(result[0], target_result)
 
@@ -45,7 +47,9 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
 
     def setUp(self):
         self.context = Mock()
+        self.context.config = {'output': {'poll_frequency_in_seconds': 3}}
         self.command = cudl.UpdateDockerRepositoryCommand(self.context)
+        self.command.poll = Mock()
         self.mock_repo_response = Mock(response_body={})
         self.context.server.repo.repository.return_value = self.mock_repo_response
         self.unit_search_command = Mock(response_body=[{u'metadata': {u'image_id': 'bar'}}])
@@ -58,10 +62,14 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         }
         self.command.run(**user_input)
 
-        target_kwargs = {
+        repo_delta = {
             u'scratchpad': {u'tags': {'foo': 'bar123'}}
         }
-        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+        importer_config = None
+        dist_config = None
+
+        self.context.server.repo.update.assert_called_once_with('foo-repo', repo_delta,
+                                                                importer_config, dist_config)
 
     def test_tag_partial_match_image_id_too_short(self):
         user_input = {
@@ -83,7 +91,8 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         target_kwargs = {
             u'scratchpad': {u'tags': {'foo': 'baz123qux'}}
         }
-        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs,
+                                                                None, None)
 
     def test_multi_tag(self):
         user_input = {
@@ -95,7 +104,8 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         target_kwargs = {
             u'scratchpad': {u'tags': {'foo': 'bar123', 'baz': 'bar123'}}
         }
-        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs,
+                                                                None, None)
 
     def test_image_not_found(self):
         user_input = {
@@ -118,4 +128,26 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         target_kwargs = {
             u'scratchpad': {u'tags': {'baz': 'bar123'}}
         }
-        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs)
+        self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs,
+                                                                None, None)
+
+    def test_repo_update_distributors(self):
+        user_input = {
+            'auto-publish': False,
+            'repo-id': 'foo-repo',
+            'protected': True,
+            'repo-registry-id': 'flux',
+            'redirect-url': 'bar'
+        }
+        self.command.run(**user_input)
+
+        repo_config = {}
+        dist_config = {'docker_web_distributor_name_cli': {'protected': True,
+                                                           'auto_publish': False,
+                                                           'redirect-url': 'bar',
+                                                           'repo-registry-id': 'flux'},
+                       'docker_export_distributor_name_cli': {'redirect-url': 'bar',
+                                                              'repo-registry-id': 'flux'},
+                       }
+        self.context.server.repo.update.assert_called_once_with('foo-repo', repo_config,
+                                                                None, dist_config)

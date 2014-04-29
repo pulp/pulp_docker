@@ -23,6 +23,10 @@ d = _('The URL that will be used when generating the redirect map for connecting
       'The value defaults to https://<server_name_from_pulp_server.conf>/pulp/docker/<repo_name>.')
 OPT_REDIRECT_URL = PulpCliOption('--redirect-url', d, required=False)
 
+d = _('the name that will be used for this repository in the Docker registry. If not specified, '
+      'the repo id will be used')
+OPT_REPO_REGISTRY_ID = PulpCliOption('--repo-registry-id', d, required=False)
+
 d = _('if "true" requests for this repo will be checked for an entitlement certificate authorizing '
       'the server url for this repository; if "false" no authorization checking will be done.')
 OPT_PROTECTED = PulpCliOption('--protected', d, required=False, parse_func=parsers.parse_boolean)
@@ -46,6 +50,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
         self.add_option(OPT_AUTO_PUBLISH)
         self.add_option(OPT_REDIRECT_URL)
         self.add_option(OPT_PROTECTED)
+        self.add_option(OPT_REPO_REGISTRY_ID)
 
     def _describe_distributors(self, user_input):
         """
@@ -61,13 +66,17 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
         :rtype:     list of dict
         """
         config = {}
-        value = user_input.get(OPT_PROTECTED.keyword)
+        value = user_input.pop(OPT_PROTECTED.keyword, None)
         if value is not None:
             config[constants.CONFIG_KEY_PROTECTED] = value
 
-        value = user_input.get(OPT_REDIRECT_URL.keyword)
+        value = user_input.pop(OPT_REDIRECT_URL.keyword, None)
         if value is not None:
             config[constants.CONFIG_KEY_REDIRECT_URL] = value
+
+        value = user_input.pop(OPT_REPO_REGISTRY_ID.keyword, None)
+        if value is not None:
+            config[constants.CONFIG_KEY_REPO_REGISTRY_ID] = value
 
         auto_publish = user_input.get('auto-publish', True)
         data = [
@@ -89,8 +98,44 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
         super(UpdateDockerRepositoryCommand, self).__init__(context)
         self.add_option(OPTION_TAG)
         self.add_option(OPTION_REMOVE_TAG)
+        self.add_option(OPT_AUTO_PUBLISH)
+        self.add_option(OPT_REDIRECT_URL)
+        self.add_option(OPT_PROTECTED)
+        self.add_option(OPT_REPO_REGISTRY_ID)
 
     def run(self, **kwargs):
+
+        # Update distributor configuration
+        web_config = {}
+        export_config = {}
+        value = kwargs.pop(OPT_PROTECTED.keyword, None)
+        if value is not None:
+            web_config[constants.CONFIG_KEY_PROTECTED] = value
+
+        value = kwargs.pop(OPT_REDIRECT_URL.keyword, None)
+        if value is not None:
+            web_config[constants.CONFIG_KEY_REDIRECT_URL] = value
+            export_config[constants.CONFIG_KEY_REDIRECT_URL] = value
+
+        value = kwargs.pop(OPT_REPO_REGISTRY_ID.keyword, None)
+        if value is not None:
+            web_config[constants.CONFIG_KEY_REPO_REGISTRY_ID] = value
+            export_config[constants.CONFIG_KEY_REPO_REGISTRY_ID] = value
+
+        value = kwargs.pop(OPT_AUTO_PUBLISH.keyword, None)
+        if value is not None:
+            web_config['auto_publish'] = value
+
+        if web_config or export_config:
+            kwargs['distributor_configs'] = {}
+
+        if web_config:
+            kwargs['distributor_configs'][constants.CLI_WEB_DISTRIBUTOR_ID] = web_config
+
+        if export_config:
+            kwargs['distributor_configs'][constants.CLI_EXPORT_DISTRIBUTOR_ID] = export_config
+
+        # Update Tags
         repo_id = kwargs.get(OPTION_REPO_ID.keyword)
         response = self.context.server.repo.repository(repo_id).response_body
         scratchpad = response.get(u'scratchpad', {})

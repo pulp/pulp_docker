@@ -17,6 +17,7 @@ CONFIG_VALUE_DOCKER_PUBLISH_DIRECTORY = '/var/lib/pulp/published/docker'
 # Config keys for a distributor instance in the database
 CONFIG_KEY_REDIRECT_URL = 'redirect-url'
 CONFIG_KEY_PROTECTED = 'protected'
+CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 
 # Keys that are specified on the repo config
 PUBLISH_STEP_IMAGES = 'publish_images'
