@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from gettext import gettext as _
 
 from pulp.client.commands.repo.cudl import ListRepositoriesCommand
