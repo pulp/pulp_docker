@@ -8,7 +8,7 @@ from pulp.plugins.util.publish_step import BasePublisher, UnitPublishStep, Publi
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors import configuration
-from pulp_docker.plugins.distributors.metadata import ImagesFileContext, RedirectFileContext
+from pulp_docker.plugins.distributors.metadata import RedirectFileContext
 
 _LOG = logging.getLogger(__name__)
 
@@ -83,10 +83,8 @@ class PublishImagesStep(UnitPublishStep):
 
     def initialize(self):
         """
-        Initialize the images file
+        Initialize the metadata contexts
         """
-        self.context = ImagesFileContext(self.get_web_directory(), self.get_conduit())
-        self.context.initialize()
         self.redirect_context = RedirectFileContext(self.get_working_dir(),
                                                     self.get_conduit(),
                                                     self.parent.config,
@@ -100,7 +98,6 @@ class PublishImagesStep(UnitPublishStep):
         :param unit: The unit to process
         :type unit: pulp_docker.common.models.DockerImage
         """
-        self.context.add_unit_metadata(unit)
         self.redirect_context.add_unit_metadata(unit)
         target_base = os.path.join(self.get_web_directory(), unit.unit_key['image_id'])
         files = ['ancestry', 'json', 'layer']
@@ -112,8 +109,6 @@ class PublishImagesStep(UnitPublishStep):
         """
         Close & finalize each the metadata context
         """
-        if self.context:
-            self.context.finalize()
         if self.redirect_context:
             self.redirect_context.finalize()
 
