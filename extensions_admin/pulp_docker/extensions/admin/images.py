@@ -1,5 +1,7 @@
 from gettext import gettext as _
 
+from pulp.client.commands import options
+from pulp.client.commands.criteria import DisplayUnitAssociationsCommand
 from pulp.client.commands.unit import UnitCopyCommand, UnitRemoveCommand
 
 from pulp_docker.common import constants
@@ -7,6 +9,7 @@ from pulp_docker.common import constants
 
 DESC_COPY = _('copies images from one repository into another')
 DESC_REMOVE = _('remove images from a repository')
+DESC_SEARCH = _('search for images in a repository')
 
 MODULE_ID_TEMPLATE = '%(image_id)s'
 
@@ -66,3 +69,44 @@ class ImageRemoveCommand(UnitRemoveCommand):
         :return: function
         """
         return get_formatter_for_type(type_id)
+
+
+class ImageSearchCommand(DisplayUnitAssociationsCommand):
+    def __init__(self, context):
+        super(ImageSearchCommand, self).__init__(self.run, name='images', description=DESC_SEARCH)
+        self.context = context
+        self.prompt = context.prompt
+
+    def run(self, **kwargs):
+        """
+        Print a list of all the images matching the search parameters in kwargs
+
+        :param kwargs: the search parameters for finding docker images
+        :type kwargs: dict
+        """
+        # Get the list of images
+        repo_id = kwargs.pop(options.OPTION_REPO_ID.keyword)
+        kwargs['type_ids'] = [constants.IMAGE_TYPE_ID]
+        images = self.context.server.repo_unit.search(repo_id, **kwargs).response_body
+
+        # Get the list of tags for the repo
+        response = self.context.server.repo.repository(repo_id).response_body
+        scratchpad = response.get(u'scratchpad', {})
+        tags = scratchpad.get(u'tags', {})
+        image_tags = {}
+
+        # reverse the dictionary to map images to tags
+        for key, value in tags.iteritems():
+            tag_list = image_tags.get(value)
+            if not tag_list:
+                tag_list = []
+            tag_list.append(key)
+            image_tags[value] = tag_list
+
+        # Add the tag info to the images list
+        for image in images:
+            image_id = image[u'metadata'][u'image_id']
+            if image_id in image_tags:
+                image[u'metadata'][u'tags'] = image_tags.get(image_id)
+
+        self.prompt.render_document_list(images)
