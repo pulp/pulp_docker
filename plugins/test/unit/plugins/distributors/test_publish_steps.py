@@ -99,7 +99,7 @@ class TestPublishImagesStep(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.working_directory)
 
-    @patch('pulp_docker.plugins.distributors.publish_steps.ImagesFileContext')
+    @patch('pulp_docker.plugins.distributors.publish_steps.RedirectFileContext')
     def test_initialize_metdata(self, mock_context):
         step = publish_steps.PublishImagesStep()
         step.parent = self.parent
@@ -109,7 +109,6 @@ class TestPublishImagesStep(unittest.TestCase):
     def test_process_units(self):
         step = publish_steps.PublishImagesStep()
         step.parent = self.parent
-        step.context = Mock()
         step.redirect_context = Mock()
         file_list = ['ancestry', 'layer', 'json']
         for file_name in file_list:
@@ -117,7 +116,6 @@ class TestPublishImagesStep(unittest.TestCase):
         unit = Mock(unit_key={'image_id': 'foo_image'}, storage_path=self.content_directory)
         step.get_working_dir = Mock(return_value=self.publish_directory)
         step.process_unit(unit)
-        step.context.add_unit_metadata.assert_called_once_with(unit)
         step.redirect_context.add_unit_metadata.assert_called_once_with(unit)
         for file_name in file_list:
             self.assertTrue(os.path.exists(os.path.join(self.publish_directory, 'web',
@@ -125,10 +123,8 @@ class TestPublishImagesStep(unittest.TestCase):
 
     def test_finalize(self):
         step = publish_steps.PublishImagesStep()
-        step.context = Mock()
         step.redirect_context = Mock()
         step.finalize()
-        step.context.finalize.assert_called_once_with()
         step.redirect_context.finalize.assert_called_once_with()
 
 
