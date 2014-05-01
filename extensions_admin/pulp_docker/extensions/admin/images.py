@@ -97,11 +97,7 @@ class ImageSearchCommand(DisplayUnitAssociationsCommand):
 
         # reverse the dictionary to map images to tags
         for key, value in tags.iteritems():
-            tag_list = image_tags.get(value)
-            if not tag_list:
-                tag_list = []
-            tag_list.append(key)
-            image_tags[value] = tag_list
+            image_tags.setdefault(value, []).append(key)
 
         # Add the tag info to the images list
         for image in images:
