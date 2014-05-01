@@ -9,6 +9,7 @@ from pulp_docker.extensions.admin.cudl import CreateDockerRepositoryCommand
 from pulp_docker.extensions.admin.cudl import UpdateDockerRepositoryCommand
 from pulp_docker.extensions.admin.images import ImageCopyCommand, ImageRemoveCommand
 from pulp_docker.extensions.admin.upload import UploadDockerImageCommand
+from pulp_docker.extensions.admin.repo_list import ListDockerRepositoriesCommand
 
 
 SECTION_ROOT = 'docker'
@@ -79,6 +80,7 @@ def add_repo_section(context, parent_section):
     repo_section.add_command(UpdateDockerRepositoryCommand(context))
     repo_section.add_command(ImageRemoveCommand(context))
     repo_section.add_command(ImageCopyCommand(context))
+    repo_section.add_command(ListDockerRepositoriesCommand(context))
 
     return repo_section
 
