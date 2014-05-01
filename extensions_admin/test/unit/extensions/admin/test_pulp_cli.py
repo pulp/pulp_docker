@@ -8,6 +8,7 @@ from pulp.client.commands.repo.upload import UploadCommand
 from pulp.client.extensions.core import PulpCli
 
 from pulp_docker.extensions.admin import pulp_cli
+from pulp_docker.extensions.admin import images
 from pulp_docker.extensions.admin.repo_list import ListDockerRepositoriesCommand
 
 
@@ -31,6 +32,9 @@ class TestInitialize(unittest.TestCase):
         self.assertTrue(isinstance(repo_section.commands['delete'], DeleteRepositoryCommand))
         self.assertTrue(isinstance(repo_section.commands['update'], UpdateRepositoryCommand))
         self.assertTrue(isinstance(repo_section.commands['list'], ListDockerRepositoriesCommand))
+        self.assertTrue(isinstance(repo_section.commands['images'], images.ImageSearchCommand))
+        self.assertTrue(isinstance(repo_section.commands['copy'], images.ImageCopyCommand))
+        self.assertTrue(isinstance(repo_section.commands['remove'], images.ImageRemoveCommand))
 
         upload_section = repo_section.subsections['uploads']
         self.assertTrue(isinstance(upload_section.commands['upload'], UploadCommand))
