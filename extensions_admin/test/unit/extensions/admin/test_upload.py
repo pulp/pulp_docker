@@ -7,10 +7,16 @@ from pulp_docker.extensions.admin.upload import UploadDockerImageCommand
 import data
 
 
+test_config = {
+    'filesystem': {'upload_working_dir': '~/.pulp/upload/'},
+    'output': {'poll_frequency_in_seconds': 2},
+}
+
+
 class TestDetermineID(unittest.TestCase):
     def setUp(self):
         self.context = mock.MagicMock()
-        self.context.config = {'filesystem': {'upload_working_dir': '~/.pulp/upload/'}}
+        self.context.config = test_config
         self.command = UploadDockerImageCommand(self.context)
 
     def test_return_value(self):
@@ -22,7 +28,7 @@ class TestDetermineID(unittest.TestCase):
 class TestGenerateUnitKeyAndMetadata(unittest.TestCase):
     def setUp(self):
         self.context = mock.MagicMock()
-        self.context.config = {'filesystem': {'upload_working_dir': '~/.pulp/upload/'}}
+        self.context.config = test_config
         self.command = UploadDockerImageCommand(self.context)
 
     def test_with_busybox(self):
