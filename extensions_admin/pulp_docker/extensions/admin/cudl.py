@@ -80,11 +80,11 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
 
         auto_publish = user_input.get('auto-publish', True)
         data = [
-            dict(distributor_type=constants.DISTRIBUTOR_WEB_TYPE_ID,
+            dict(distributor_type_id=constants.DISTRIBUTOR_WEB_TYPE_ID,
                  distributor_config=config,
                  auto_publish=auto_publish,
                  distributor_id=constants.CLI_WEB_DISTRIBUTOR_ID),
-            dict(distributor_type=constants.DISTRIBUTOR_EXPORT_TYPE_ID,
+            dict(distributor_type_id=constants.DISTRIBUTOR_EXPORT_TYPE_ID,
                  distributor_config=config,
                  auto_publish=False, distributor_id=constants.CLI_EXPORT_DISTRIBUTOR_ID)
         ]
