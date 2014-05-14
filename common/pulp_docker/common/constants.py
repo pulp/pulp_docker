@@ -20,6 +20,8 @@ CONFIG_KEY_PROTECTED = 'protected'
 CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 
 # Keys that are specified on the repo config
+PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'
+PUBLISH_STEP_EXPORT_PUBLISHER = 'export_to_tar'
 PUBLISH_STEP_IMAGES = 'publish_images'
 PUBLISH_STEP_OVER_HTTP = 'publish_images_over_http'
 PUBLISH_STEP_DIRECTORY = 'publish_directory'
