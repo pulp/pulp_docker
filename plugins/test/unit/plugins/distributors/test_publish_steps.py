@@ -97,13 +97,15 @@ class TestExportPublisher(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.working_directory)
 
-    @patch('pulp_docker.plugins.distributors.publish_steps.SaveTarFilePublishStep')
-    @patch('pulp_docker.plugins.distributors.publish_steps.PublishImagesStep')
-    def test_init(self, mock_images_step, mock_tar_file_step):
+    def test_init(self):
         mock_conduit = Mock()
         mock_config = {
             constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: self.publish_dir
         }
         publisher = publish_steps.ExportPublisher(self.repo, mock_conduit, mock_config)
-        self.assertEquals(publisher.children, [mock_images_step.return_value,
-                                               mock_tar_file_step.return_value])
+        self.assertTrue(isinstance(publisher.children[0], publish_steps.PublishImagesStep))
+        self.assertTrue(isinstance(publisher.children[1], publish_steps.SaveTarFilePublishStep))
+        tar_step = publisher.children[1]
+        self.assertEquals(tar_step.source_dir, self.working_temp)
+        self.assertEquals(tar_step.publish_file,
+                          os.path.join(self.publish_dir, 'export/repo/foo.tar'))
