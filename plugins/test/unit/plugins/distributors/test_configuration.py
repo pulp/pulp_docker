@@ -131,3 +131,15 @@ class TestConfigurationGetters(unittest.TestCase):
     def test_get_export_repo_directory(self):
         directory = configuration.get_export_repo_directory(self.config)
         self.assertEquals(directory, os.path.join(self.publish_dir, 'export', 'repo'))
+
+    def test_get_export_repo_file_with_path_from_config(self):
+        config = PluginCallConfiguration(None, {constants.CONFIG_KEY_EXPORT_FILE: '/tmp/foo.tar'})
+        result = configuration.get_export_repo_file_with_path(self.repo, config)
+        self.assertEquals(result, '/tmp/foo.tar')
+
+    def test_get_export_repo_file_with_path_default(self):
+        result = configuration.get_export_repo_file_with_path(self.repo, self.config)
+        expected_result = os.path.join(configuration.get_export_repo_directory(self.config),
+                                       configuration.get_export_repo_filename(self.repo,
+                                                                              self.config))
+        self.assertEquals(result, expected_result)

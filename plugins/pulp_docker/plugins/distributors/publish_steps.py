@@ -65,8 +65,7 @@ class ExportPublisher(PublishStep):
                                               repo, publish_conduit, config)
 
         self.add_child(PublishImagesStep())
-        tar_file = os.path.join(configuration.get_export_repo_directory(config),
-                                configuration.get_export_repo_filename(repo, config))
+        tar_file = configuration.get_export_repo_file_with_path(repo, config)
         self.add_child(SaveTarFilePublishStep(self.get_working_dir(), tar_file))
 
 

@@ -13,6 +13,7 @@ REPO_NOTE_DOCKER = 'docker-repo'
 # Config keys for the distributor plugin conf
 CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY = 'docker_publish_directory'
 CONFIG_VALUE_DOCKER_PUBLISH_DIRECTORY = '/var/lib/pulp/published/docker'
+CONFIG_KEY_EXPORT_FILE = 'export_file'
 
 # Config keys for a distributor instance in the database
 CONFIG_KEY_REDIRECT_URL = 'redirect-url'

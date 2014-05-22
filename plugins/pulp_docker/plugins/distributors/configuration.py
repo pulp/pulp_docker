@@ -173,7 +173,7 @@ def get_export_repo_filename(repo, config):
     """
     Get the file name for a repository export
 
-    :param repo: repository to get relative path for
+    :param repo: repository being exported
     :type  repo: pulp.plugins.model.Repository
     :param config: configuration instance
     :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
@@ -181,6 +181,24 @@ def get_export_repo_filename(repo, config):
     :rtype:  str
     """
     return '%s.tar' % repo.id
+
+
+def get_export_repo_file_with_path(repo, config):
+    """
+    Get the file name to use when exporting a docker repo as a tar file
+
+    :param repo: repository being exported
+    :type  repo: pulp.plugins.model.Repository
+    :param config: configuration instance
+    :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
+    :return: The absolute file name for the tar file that will be exported
+    :rtype:  str
+    """
+    file_name = config.get(constants.CONFIG_KEY_EXPORT_FILE)
+    if not file_name:
+        file_name = os.path.join(get_export_repo_directory(config),
+                                 get_export_repo_filename(repo, config))
+    return file_name
 
 
 def get_repo_registry_id(repo, config):
