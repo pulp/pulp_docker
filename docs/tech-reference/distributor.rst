@@ -39,6 +39,8 @@ The file is JSON formatted with the following keys
 * **version** *(int)* - version of the format for the file.  Currently version 1
 * **repository** *(string)* - the name of the repository this file is describing
 * **url** *(string)* - the url for access to the repositories content
+* **protected** *(bool)* - whether or not the repository should be protected by an entitlement
+                           certificate.
 * **images** *(array)* - an array of objects describing each image/layer in the repository
 
  * **id** *(str)* - the image id for the image
@@ -52,6 +54,7 @@ Example Redirect File Contents::
   "version":1,
   "repository":"docker",
   "url":"http://www.foo.com/docker",
+  "protected": true,
   "images":[
     {"id":"48e5f45168b97799ad0aafb7e2fef9fac57b5f16f6db7f67ba2000eb947637eb"},
     {"id":"511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158"},

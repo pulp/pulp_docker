@@ -36,6 +36,10 @@ class RedirectFileContext(JSONArrayFileContext):
         self.registry = configuration.get_repo_registry_id(repo, config)
 
         self.redirect_url = configuration.get_redirect_url(config, repo)
+        if config.get('protected', False):
+            self.protected = "true"
+        else:
+            self.protected = "false"
 
     def _write_file_header(self):
         """
@@ -43,8 +47,9 @@ class RedirectFileContext(JSONArrayFileContext):
         """
         self.metadata_file_handle.write('{"type":"pulp-docker-redirect","version":1,'
                                         '"repository":"%s","repo-registry-id": "%s",'
-                                        '"url":"%s","images":[' %
-                                        (self.repo_id, self.registry, self.redirect_url))
+                                        '"url":"%s","protected":%s,"images":[' %
+                                        (self.repo_id, self.registry, self.redirect_url,
+                                         self.protected))
 
     def _write_file_footer(self):
         """

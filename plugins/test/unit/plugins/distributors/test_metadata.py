@@ -53,7 +53,25 @@ class TestRedirectFileContext(unittest.TestCase):
         self.context._write_file_header()
         result_string = '{"type":"pulp-docker-redirect","version":1,"repository":"bar",' \
                         '"repo-registry-id": "foo_repo_id",' \
-                        '"url":"http://www.pulpproject.org/foo/","images":['
+                        '"url":"http://www.pulpproject.org/foo/",' \
+                        '"protected":false,"images":['
+        self.context.metadata_file_handle.write.assert_called_once_with(result_string)
+
+    def test_write_file_protected_true(self):
+        self.config = PluginCallConfiguration(None, {'protected': True})
+        self.context = metadata.RedirectFileContext(self.working_directory,
+                                                    self.conduit,
+                                                    self.config,
+                                                    self.repo)
+        self.context.metadata_file_handle = Mock()
+        self.context.repo_id = 'bar'
+        self.context.redirect_url = 'http://www.pulpproject.org/foo/'
+
+        self.context._write_file_header()
+        result_string = '{"type":"pulp-docker-redirect","version":1,"repository":"bar",' \
+                        '"repo-registry-id": "foo_repo_id",' \
+                        '"url":"http://www.pulpproject.org/foo/",' \
+                        '"protected":true,"images":['
         self.context.metadata_file_handle.write.assert_called_once_with(result_string)
 
     def test_write_file_footer(self):
