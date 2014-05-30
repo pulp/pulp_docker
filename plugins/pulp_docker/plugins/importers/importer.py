@@ -80,7 +80,7 @@ class DockerImporter(Importer):
         # retrieve metadata from the tarball
         metadata = tarutils.get_metadata(file_path)
         # turn that metadata into a collection of models
-        models = upload.get_models(metadata, unit_key)
+        models = upload.get_models(metadata)
         ancestry = tarutils.get_ancestry(models[0].image_id, metadata)
         # save those models as units in pulp
         upload.save_models(conduit, models, ancestry, file_path)

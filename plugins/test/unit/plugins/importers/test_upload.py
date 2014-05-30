@@ -25,10 +25,19 @@ metadata = {
     'id4': {'parent': None, 'size': 1024},
 }
 
+metadata_shared_parents_multiple_leaves = {
+    'id1': {'parent': 'id2', 'size': 1024},
+    'id2': {'parent': 'id3', 'size': 1024},
+    'id3': {'parent': 'id5', 'size': 1024},
+    'id4': {'parent': 'id5', 'size': 1024},
+    'id5': {'parent': None, 'size': 1024},
+}
+
 
 class TestGetModels(unittest.TestCase):
     def test_full_metadata(self):
-        models = upload.get_models(metadata, {'image_id': 'id1'})
+        # Test for simple metadata
+        models = upload.get_models(metadata)
 
         self.assertEqual(len(models), len(metadata))
         for m in models:
@@ -38,13 +47,32 @@ class TestGetModels(unittest.TestCase):
         ids = [m.image_id for m in models]
         self.assertEqual(set(ids), set(metadata.keys()))
 
+        # Test for metadata having shared parents and multiple leaves
+        models = upload.get_models(metadata_shared_parents_multiple_leaves)
+
+        self.assertEqual(len(models), len(metadata_shared_parents_multiple_leaves))
+        for m in models:
+            self.assertTrue(isinstance(m, DockerImage))
+            self.assertTrue(m.image_id in metadata_shared_parents_multiple_leaves)
+
+        ids = [m.image_id for m in models]
+        self.assertEqual(set(ids), set(metadata_shared_parents_multiple_leaves.keys()))
+
     def test_mask(self):
-        models = upload.get_models(metadata, {'image_id': 'id1'}, mask_id='id3')
+        # Test for simple metadata
+        models = upload.get_models(metadata, mask_id='id3')
 
         self.assertEqual(len(models), 2)
         # make sure this only returns the first two and masks the others
         for m in models:
             self.assertTrue(m.image_id in ['id1', 'id2'])
+
+        # Test for metadata having shared parents and multiple leaves
+        models = upload.get_models(metadata_shared_parents_multiple_leaves, mask_id='id3')
+
+        self.assertEqual(len(models), 3)
+        for m in models:
+            self.assertTrue(m.image_id in ['id1', 'id2', 'id4'])
 
 
 class TestSaveModels(unittest.TestCase):

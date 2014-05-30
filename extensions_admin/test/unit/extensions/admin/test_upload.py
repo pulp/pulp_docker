@@ -34,8 +34,5 @@ class TestGenerateUnitKeyAndMetadata(unittest.TestCase):
     def test_with_busybox(self):
         unit_key, metadata = self.command.generate_unit_key_and_metadata(data.busybox_tar_path)
 
-        self.assertEqual(unit_key, {'image_id': data.busybox_ids[0]})
+        self.assertEqual(unit_key, {})
         self.assertEqual(metadata, {})
-
-    def test_file_does_not_exist(self):
-        self.assertRaises(IOError, self.command.generate_unit_key_and_metadata, '/a/b/c/d')

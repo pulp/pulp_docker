@@ -10,9 +10,9 @@ from pulp.server.managers import factory
 from pulp_docker.common import models, tarutils
 
 
-def get_models(metadata, unit_key, mask_id=''):
+def get_models(metadata, mask_id=''):
     """
-    Given some metadata and a unit key, returns model instances to represent
+    Given image metadata, returns model instances to represent
     each layer of the image defined by the unit_key
 
     :param metadata:    a dictionary where keys are image IDs, and values are
@@ -20,9 +20,6 @@ def get_models(metadata, unit_key, mask_id=''):
                         values for those two attributes as taken from the docker
                         image metadata.
     :type  metadata:    dict
-    :param unit_key:    a dictionary containing the unit key of the youngest
-                        child docker image
-    :type  unit_key:    dict
     :param mask_id:     The ID of an image that should not be included in the
                         returned models. This image and all of its ancestors
                         will be excluded.
@@ -33,18 +30,20 @@ def get_models(metadata, unit_key, mask_id=''):
     """
     images = []
 
-    image_id = unit_key['image_id']
-    while image_id:
-        json_data = metadata[image_id]
-        parent_id = json_data.get('parent')
-        size = json_data['size']
+    leaf_image_ids = tarutils.get_youngest_children(metadata)
 
-        images.append(models.DockerImage(image_id, parent_id, size))
+    for image_id in leaf_image_ids:
+        while image_id:
+            json_data = metadata[image_id]
+            parent_id = json_data.get('parent')
+            size = json_data['size']
 
-        if parent_id == mask_id:
-            break
+            images.append(models.DockerImage(image_id, parent_id, size))
 
-        image_id = parent_id
+            if parent_id == mask_id:
+                break
+
+            image_id = parent_id
 
     return images
 

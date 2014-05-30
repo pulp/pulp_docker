@@ -58,11 +58,9 @@ class TestGetAncestry(unittest.TestCase):
         self.assertEqual(ancestry, busybox_ids)
 
 
-class TestGetYoungestChild(unittest.TestCase):
-    def test_path_does_not_exist(self):
-        self.assertRaises(IOError, tarutils.get_youngest_child, '/a/b/c/d')
-
+class TestGetYoungestChildren(unittest.TestCase):
     def test_with_busybox(self):
-        ret = tarutils.get_youngest_child(busybox_tar_path)
+        metadata = tarutils.get_metadata(busybox_tar_path)
+        ret = tarutils.get_youngest_children(metadata)
 
-        self.assertEqual(ret, busybox_ids[0])
+        self.assertEqual(ret, set([busybox_ids[0]]))
