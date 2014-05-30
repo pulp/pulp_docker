@@ -100,6 +100,11 @@ def get_youngest_child(tarfile_path):
     for image_data in images_with_parents.values():
         parent = image_data.get('parent')
         if parent is not None:
-            image_ids.remove(parent)
+            try:
+                image_ids.remove(parent)
+            except KeyError:
+                # This can happen if an image is a parent of multiple child images,
+                # in which case this could be already removed from image_ids.
+                pass
 
     return image_ids.pop()
