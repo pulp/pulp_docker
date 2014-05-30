@@ -1,9 +1,23 @@
+from gettext import gettext as _
+
+
 from pulp.client.commands.repo.upload import UploadCommand
+from pulp.client.extensions.extensions import PulpCliOption
 
 from pulp_docker.common import constants, tarutils
 
 
+d = _('image id of an ancestor image that should not be uploaded. '
+      'The masked ancestor and any ancestors of that image will be skipped from the upload.')
+OPT_MASK_ANCESTOR_ID = PulpCliOption('--mask-ancestor-id', d, required=False)
+
+
 class UploadDockerImageCommand(UploadCommand):
+
+    def __init__(self, context):
+        super(UploadDockerImageCommand, self).__init__(context)
+        self.add_option(OPT_MASK_ANCESTOR_ID)
+
     def determine_type_id(self, filename, **kwargs):
         """
         We only support one content type, so this always returns that.
