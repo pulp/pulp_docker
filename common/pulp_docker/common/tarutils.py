@@ -94,12 +94,17 @@ def get_youngest_children(metadata):
     :type  metadata:    dict
 
     :return:    image IDs for the youngest docker images
-    :rtype:     set
+    :rtype:     list
     """
     image_ids = set(metadata.keys())
     for image_data in metadata.values():
         parent = image_data.get('parent')
         if parent is not None:
-            image_ids.remove(parent)
+            try:
+                image_ids.remove(parent)
+            except KeyError:
+                # This can happen if an image is a parent of multiple child images,
+                # in which case this could be already removed from image_ids.
+                pass
 
-    return image_ids
+    return list(image_ids)

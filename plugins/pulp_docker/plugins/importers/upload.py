@@ -29,6 +29,7 @@ def get_models(metadata, mask_id=''):
     :rtype:     list
     """
     images = []
+    existing_image_ids = set()
 
     leaf_image_ids = tarutils.get_youngest_children(metadata)
 
@@ -38,7 +39,11 @@ def get_models(metadata, mask_id=''):
             parent_id = json_data.get('parent')
             size = json_data['size']
 
-            images.append(models.DockerImage(image_id, parent_id, size))
+            if image_id not in existing_image_ids:
+                # This will avoid adding multiple images with a same id, which can happen
+                # in case of parents with multiple children.
+                existing_image_ids.add(image_id)
+                images.append(models.DockerImage(image_id, parent_id, size))
 
             if parent_id == mask_id:
                 break
