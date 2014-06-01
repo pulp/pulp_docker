@@ -29,7 +29,7 @@ metadata_shared_parents_multiple_leaves = {
     'id1': {'parent': 'id2', 'size': 1024},
     'id2': {'parent': 'id3', 'size': 1024},
     'id3': {'parent': 'id5', 'size': 1024},
-    'id4': {'parent': 'id5', 'size': 1024},
+    'id4': {'parent': 'id2', 'size': 1024},
     'id5': {'parent': None, 'size': 1024},
 }
 
