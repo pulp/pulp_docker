@@ -47,6 +47,7 @@ class TestGetModels(unittest.TestCase):
         ids = [m.image_id for m in models]
         self.assertEqual(set(ids), set(metadata.keys()))
 
+    def test_full_metadata_shared_parents_multiple_leaves(self):
         # Test for metadata having shared parents and multiple leaves
         models = upload.get_models(metadata_shared_parents_multiple_leaves)
 
@@ -67,6 +68,7 @@ class TestGetModels(unittest.TestCase):
         for m in models:
             self.assertTrue(m.image_id in ['id1', 'id2'])
 
+    def test_mask_shared_parents_multiple_leaves(self):
         # Test for metadata having shared parents and multiple leaves
         models = upload.get_models(metadata_shared_parents_multiple_leaves, mask_id='id3')
 
