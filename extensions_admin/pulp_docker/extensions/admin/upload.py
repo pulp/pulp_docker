@@ -4,7 +4,7 @@ from gettext import gettext as _
 from pulp.client.commands.repo.upload import UploadCommand
 from pulp.client.extensions.extensions import PulpCliOption
 
-from pulp_docker.common import constants, tarutils
+from pulp_docker.common import constants
 
 
 d = _('image id of an ancestor image that should not be uploaded. '
@@ -29,9 +29,9 @@ class UploadDockerImageCommand(UploadCommand):
 
     def generate_unit_key_and_metadata(self, filename, **kwargs):
         """
-        Returns the unit key and metadata. This looks in the tarball and finds
-        the layer that is not referenced as a parent to any other layer, in order
-        to identify the ID of the image that is the leaf of the tree.
+        Returns unit key and metadata as empty dictionaries. This is appropriate
+        in this case, since docker image consists of multiple layers each having
+        it's own unit key and each layer is imported separately into the server database.
 
         :param filename: full path to the file being uploaded
         :type  filename: str, None
@@ -42,7 +42,7 @@ class UploadDockerImageCommand(UploadCommand):
         :return: tuple of unit key and metadata to upload for the file
         :rtype:  tuple
         """
-        unit_key = {'image_id': tarutils.get_youngest_child(filename)}
+        unit_key = {}
         metadata = {}
 
         return unit_key, metadata

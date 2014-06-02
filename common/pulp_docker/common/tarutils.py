@@ -82,24 +82,29 @@ def get_ancestry(image_id, metadata):
     return tuple(image_ids)
 
 
-def get_youngest_child(tarfile_path):
+def get_youngest_children(metadata):
     """
-    Given a full path to a tarfile, figure out which image ID is the leaf node,
-    aka the youngest child.
+    Given a full path to a tarfile, figure out which image IDs are leaf nodes,
+    aka the youngest children.
 
-    :param tarfile_path:    full path to a tarfile that is the product
-                            of "docker save"
-    :type  tarfile_path:    basestring
+    :param metadata:    a dictionary where keys are image IDs, and values are
+                        dictionaries with keys "parent" and "size", containing
+                        values for those two attributes as taken from the docker
+                        image metadata.
+    :type  metadata:    dict
 
-    :return:    image ID for the youngest docker image
-    :rtype:     basestring
+    :return:    image IDs for the youngest docker images
+    :rtype:     list
     """
-    images_with_parents = get_metadata(tarfile_path)
-
-    image_ids = set(images_with_parents.keys())
-    for image_data in images_with_parents.values():
+    image_ids = set(metadata.keys())
+    for image_data in metadata.values():
         parent = image_data.get('parent')
         if parent is not None:
-            image_ids.remove(parent)
+            try:
+                image_ids.remove(parent)
+            except KeyError:
+                # This can happen if an image is a parent of multiple child images,
+                # in which case this could be already removed from image_ids.
+                pass
 
-    return image_ids.pop()
+    return list(image_ids)

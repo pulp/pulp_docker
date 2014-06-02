@@ -16,6 +16,34 @@ busybox_ids = (
     '511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158',
 )
 
+# This is a test metadata returned by tarutils.get_metadata when used on busybox.tar.
+test_metadata_with_multiple_images_sharing_a_single_parent = {
+    u'150ddf0474655d12dcc79b0d5ee360dadcfba01e25d89dee71b4fed3d0c30fbe': {
+        'parent': u'faab0acffc50714526b090fa60e0a55d79fc5b34fabbe6b964ca09cbb62f2026',
+        'size': 0},
+    u'4bf469521ee475733b739c3b15876b8d2b1102e3ce007f48a058e8830c9d2b47': {
+        'parent': u'6c991eb934609424f761d3d0a7c79f4f72b76db286aa02e617659ac116aa7758',
+        'size': 5454693},
+    u'511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158': {
+        'parent': None,
+        'size': 0},
+    u'6c991eb934609424f761d3d0a7c79f4f72b76db286aa02e617659ac116aa7758': {
+        'parent': u'511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158',
+        'size': 0},
+    u'89aba41176b8f979bae09db1df5d6f3b58584318fce5d9e56b49c5a3e9700ab4': {
+        'parent': u'4bf469521ee475733b739c3b15876b8d2b1102e3ce007f48a058e8830c9d2b47',
+        'size': 0},
+    u'8e36c99cfab52f0cf6f1aed7674cbdfe57e2ec8d29cdfdfac816b1d659d3ca9e': {
+        'parent': u'900ce1b454ef7494e87709c727b8a456167eb7ea7bd202cb0d4b9911a6f05a5e',
+        'size': 0},
+    u'900ce1b454ef7494e87709c727b8a456167eb7ea7bd202cb0d4b9911a6f05a5e': {
+        'parent': u'6c991eb934609424f761d3d0a7c79f4f72b76db286aa02e617659ac116aa7758',
+        'size': 2433303},
+    u'faab0acffc50714526b090fa60e0a55d79fc5b34fabbe6b964ca09cbb62f2026': {
+        'parent': u'6c991eb934609424f761d3d0a7c79f4f72b76db286aa02e617659ac116aa7758',
+        'size': 5609404}
+}
+
 
 class TestGetMetadata(unittest.TestCase):
     def test_path_does_not_exist(self):
@@ -58,11 +86,18 @@ class TestGetAncestry(unittest.TestCase):
         self.assertEqual(ancestry, busybox_ids)
 
 
-class TestGetYoungestChild(unittest.TestCase):
-    def test_path_does_not_exist(self):
-        self.assertRaises(IOError, tarutils.get_youngest_child, '/a/b/c/d')
+class TestGetYoungestChildren(unittest.TestCase):
+    def test_with_busybox_light(self):
+        metadata = tarutils.get_metadata(busybox_tar_path)
+        ret = tarutils.get_youngest_children(metadata)
+
+        self.assertEqual(ret, [busybox_ids[0]])
 
     def test_with_busybox(self):
-        ret = tarutils.get_youngest_child(busybox_tar_path)
-
-        self.assertEqual(ret, busybox_ids[0])
+        ret = tarutils.get_youngest_children(
+            test_metadata_with_multiple_images_sharing_a_single_parent)
+        expected_youngest_children = [
+            '150ddf0474655d12dcc79b0d5ee360dadcfba01e25d89dee71b4fed3d0c30fbe',
+            '89aba41176b8f979bae09db1df5d6f3b58584318fce5d9e56b49c5a3e9700ab4',
+            '8e36c99cfab52f0cf6f1aed7674cbdfe57e2ec8d29cdfdfac816b1d659d3ca9e']
+        self.assertEqual(set(ret), set(expected_youngest_children))
