@@ -46,3 +46,20 @@ class UploadDockerImageCommand(UploadCommand):
         metadata = {}
 
         return unit_key, metadata
+
+    def generate_override_config(self, **kwargs):
+        """
+        Generate an override config value to the upload command.
+
+        :param kwargs: parsed from the user input
+        :type kwargs:  dict
+
+        :return: override config generated from the user input
+        :rtype:  dict
+        """
+        override_config = {}
+
+        if OPT_MASK_ANCESTOR_ID.keyword in kwargs:
+            override_config[constants.CONFIG_KEY_MASK_ID] = kwargs[OPT_MASK_ANCESTOR_ID.keyword]
+
+        return override_config
