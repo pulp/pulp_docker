@@ -86,20 +86,18 @@ class TestGetAncestry(unittest.TestCase):
         self.assertEqual(ancestry, busybox_ids)
 
 
-class TestGetYoungestChild(unittest.TestCase):
-    def test_path_does_not_exist(self):
-        self.assertRaises(IOError, tarutils.get_youngest_child, '/a/b/c/d')
-
+class TestGetYoungestChildren(unittest.TestCase):
     def test_with_busybox_light(self):
-        ret = tarutils.get_youngest_child(busybox_tar_path)
+        metadata = tarutils.get_metadata(busybox_tar_path)
+        ret = tarutils.get_youngest_children(metadata)
 
-        self.assertEqual(ret, busybox_ids[0])
+        self.assertEqual(ret, [busybox_ids[0]])
 
-    @mock.patch('pulp_docker.common.tarutils.get_metadata')
-    def test_with_busybox(self, mock_get_metadata):
-        mock_get_metadata.return_value = \
-            test_metadata_with_multiple_images_sharing_a_single_parent
-        ret = tarutils.get_youngest_child("testbusybox.tar")
-        expected_youngest_child = \
-            "150ddf0474655d12dcc79b0d5ee360dadcfba01e25d89dee71b4fed3d0c30fbe"
-        self.assertEqual(ret, expected_youngest_child)
+    def test_with_busybox(self):
+        ret = tarutils.get_youngest_children(
+            test_metadata_with_multiple_images_sharing_a_single_parent)
+        expected_youngest_children = [
+            '150ddf0474655d12dcc79b0d5ee360dadcfba01e25d89dee71b4fed3d0c30fbe',
+            '89aba41176b8f979bae09db1df5d6f3b58584318fce5d9e56b49c5a3e9700ab4',
+            '8e36c99cfab52f0cf6f1aed7674cbdfe57e2ec8d29cdfdfac816b1d659d3ca9e']
+        self.assertEqual(set(ret), set(expected_youngest_children))
