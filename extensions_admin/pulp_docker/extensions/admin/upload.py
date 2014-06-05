@@ -7,8 +7,9 @@ from pulp.client.extensions.extensions import PulpCliOption
 from pulp_docker.common import constants
 
 
-d = _('image id of an ancestor image that should not be uploaded. '
-      'The masked ancestor and any ancestors of that image will be skipped from the upload.')
+d = _('image id of an ancestor image that should not be added to the repository. '
+      'The masked ancestor and any ancestors of that image will be skipped from importing into '
+      'the repository.')
 OPT_MASK_ANCESTOR_ID = PulpCliOption('--mask-id', d, aliases=['-m'], required=False)
 
 
