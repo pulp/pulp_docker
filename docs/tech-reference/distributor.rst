@@ -38,6 +38,8 @@ The file is JSON formatted with the following keys
 * **type** *(string)* - the type of the file.  This will always be "pulp-docker-redirect"
 * **version** *(int)* - version of the format for the file.  Currently version 1
 * **repository** *(string)* - the name of the repository this file is describing
+* **repo-registry-id** *(string)* - the name that will be used for this repository in the Docker
+                                    registry
 * **url** *(string)* - the url for access to the repositories content
 * **protected** *(bool)* - whether or not the repository should be protected by an entitlement
                            certificate.
@@ -53,6 +55,7 @@ Example Redirect File Contents::
   "type":"pulp-docker-redirect",
   "version":1,
   "repository":"docker",
+  "repo-registry-id":"redhat/docker",
   "url":"http://www.foo.com/docker",
   "protected": true,
   "images":[
