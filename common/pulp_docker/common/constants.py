@@ -21,7 +21,7 @@ CONFIG_KEY_PROTECTED = 'protected'
 CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 
 # Config keys for an importer override config
-CONFIG_KEY_MASK_ID = 'mask-id'
+CONFIG_KEY_MASK_ID = 'mask_id'
 
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'
