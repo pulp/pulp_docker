@@ -20,6 +20,9 @@ CONFIG_KEY_REDIRECT_URL = 'redirect-url'
 CONFIG_KEY_PROTECTED = 'protected'
 CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 
+# Config keys for an importer override config
+CONFIG_KEY_MASK_ID = 'mask_id'
+
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'
 PUBLISH_STEP_EXPORT_PUBLISHER = 'export_to_tar'

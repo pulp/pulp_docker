@@ -70,6 +70,67 @@ There are now four new images in the pulp repository::
       Docker Image: 4
 
 
+During an image upload, you can specify the id of an ancestor image
+that should not be uploaded to the repository. In this case, the masked ancestor
+and any ancestors of that image will not be imported::
+
+    $ pulp-admin docker repo create --repo-id tutorial
+    Repository [tutorial] successfully created
+
+    $ pulp-admin docker repo uploads upload --repo-id tutorial
+    -f /home/skarmark/git/pulp1/pulp/tutorial.tar
+    --mask-ancestor-id 'f38e479062c4953de709cc7f08fa8f85bec6bc5d01f03e340f7caf2990e8efd1'
+    +----------------------------------------------------------------------+
+                              Unit Upload
+    +----------------------------------------------------------------------+
+
+    Extracting necessary metadata for each request...
+    [==================================================] 100%
+    Analyzing: tutorial.tar
+    ... completed
+
+    Creating upload requests on the server...
+    [==================================================] 100%
+    Initializing: tutorial.tar
+    ... completed
+
+    Starting upload of selected units. If this process is stopped through ctrl+c,
+    the uploads will be paused and may be resumed later using the resume command or
+    cancelled entirely using the cancel command.
+
+    Uploading: tutorial.tar
+    [==================================================] 100%
+    353358336/353358336 bytes
+    ... completed
+
+    Importing into the repository...
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [\]
+    Running...
+
+    Task Succeeded
+
+
+    Deleting the upload request...
+    ... completed
+
+There are now only two images imported into the pulp repository, instead of five total images
+in the tar file::
+
+    $ pulp-admin docker repo list
+    +----------------------------------------------------------------------+
+                            Docker Repositories
+    +----------------------------------------------------------------------+
+
+    Id:                  tutorial
+    Display Name:        tutorial
+    Description:         None
+    Content Unit Counts:
+        Docker Image: 2
+
+
 Publish
 -------
 
