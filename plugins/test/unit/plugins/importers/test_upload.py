@@ -129,17 +129,35 @@ class TestUpdateTags(unittest.TestCase):
 
         upload.update_tags('repo1', data.busybox_tar_path)
 
-        mock_update.assert_called_once_with('repo1', {'tags': {'latest': data.busybox_ids[0]}})
+        mock_update.assert_called_once_with('repo1', {'tags': [{'tag': 'latest',
+                                                                'image_id': data.busybox_ids[0]}]})
 
     def test_preserves_existing_tags(self, mock_update, mock_get):
-        mock_get.return_value = {'tags': {'greatest': data.busybox_ids[1]}}
+        mock_get.return_value = {'tags': [{'tag': 'greatest',
+                                           'image_id': data.busybox_ids[1]}]}
 
         upload.update_tags('repo1', data.busybox_tar_path)
 
         expected_tags = {
-            'tags': {
-                'latest': data.busybox_ids[0],
-                'greatest': data.busybox_ids[1],
-            }
+            'tags': [{'tag': 'greatest',
+                      'image_id': data.busybox_ids[1]},
+                     {'tag': 'latest',
+                      'image_id': data.busybox_ids[0]}]
+        }
+        mock_update.assert_called_once_with('repo1', expected_tags)
+
+    def test_overwrites_existing_duplicate_tags(self, mock_update, mock_get):
+        mock_get.return_value = {'tags': [{'tag': 'latest',
+                                           'image_id': 'original_latest'},
+                                          {'tag': 'existing',
+                                           'image_id': 'existing'}]}
+
+        upload.update_tags('repo1', data.busybox_tar_path)
+
+        expected_tags = {
+            'tags': [{'tag': 'existing',
+                      'image_id': 'existing'},
+                     {'tag': 'latest',
+                      'image_id': data.busybox_ids[0]}]
         }
         mock_update.assert_called_once_with('repo1', expected_tags)
