@@ -30,3 +30,7 @@ PUBLISH_STEP_IMAGES = 'publish_images'
 PUBLISH_STEP_OVER_HTTP = 'publish_images_over_http'
 PUBLISH_STEP_DIRECTORY = 'publish_directory'
 PUBLISH_STEP_TAR = 'save_tar'
+
+# Image tag dictionary keys
+IMAGE_TAG_KEY = 'tag'
+IMAGE_ID_KEY = 'image_id'

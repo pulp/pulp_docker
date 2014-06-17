@@ -177,7 +177,7 @@ class DockerImporter(Importer):
         """
         Removes content units from the given repository.
 
-        This method is removes the tags associated with images in the repository
+        This method also removes the tags associated with images in the repository.
 
         This call will not result in the unit being deleted from Pulp itself.
 
@@ -193,11 +193,11 @@ class DockerImporter(Importer):
         """
         repo_manager = manager_factory.repo_manager()
         scratchpad = repo_manager.get_repo_scratchpad(repo.id)
-        tags = scratchpad.get(u'tags', {})
+        tags = scratchpad.get(u'tags', [])
         unit_ids = set([unit.unit_key[u'image_id'] for unit in units])
-        for tag_key, tag_image_id in tags.items():
-            if tag_image_id in unit_ids:
-                del tags[tag_key]
+        for tag_dict in tags[:]:
+            if tag_dict[constants.IMAGE_ID_KEY] in unit_ids:
+                tags.remove(tag_dict)
 
         scratchpad[u'tags'] = tags
         repo_manager.set_repo_scratchpad(repo.id, scratchpad)

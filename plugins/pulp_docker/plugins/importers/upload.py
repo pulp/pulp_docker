@@ -7,7 +7,7 @@ import tarfile
 
 from pulp.server.managers import factory
 
-from pulp_docker.common import models, tarutils
+from pulp_docker.common import constants, models, tarutils
 
 
 def get_models(metadata, mask_id=''):
@@ -117,11 +117,11 @@ def update_tags(repo_id, tarfile_path):
 
     # Remove common tags between existing and new tags so we don't have duplicates
     for tag_dict in tags[:]:
-        if tag_dict['tag'] in new_tags.keys():
+        if tag_dict[constants.IMAGE_TAG_KEY] in new_tags.keys():
             tags.remove(tag_dict)
 
     # Add new tags to existing tags. Since tags can contain '.' which cannot be stored
     # as a key in mongodb, we are storing them this way.
     for tag, image_id in new_tags.items():
-        tags.append({'tag': tag, 'image_id': image_id})
+        tags.append({constants.IMAGE_TAG_KEY: tag, constants.IMAGE_ID_KEY: image_id})
     repo_manager.update_repo_scratchpad(repo_id, {'tags': tags})
