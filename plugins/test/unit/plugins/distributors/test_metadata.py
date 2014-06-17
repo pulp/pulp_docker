@@ -8,6 +8,7 @@ from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.model import Repository
 
+from pulp_docker.common import constants
 from pulp_docker.common.models import DockerImage
 from pulp_docker.plugins.distributors import metadata
 
@@ -19,8 +20,10 @@ class TestRedirectFileContext(unittest.TestCase):
         self.repo = Repository('foo_repo_id', working_dir=self.working_directory)
         self.config = PluginCallConfiguration(None, None)
         self.conduit = RepoPublishConduit(self.repo.id, 'foo_repo')
-        self.conduit.get_repo_scratchpad = Mock(return_value={u'tags': {}})
-        self.conduit.get_repo_scratchpad.return_value = {u'tags': {u'latest': u'image_id'}}
+        self.conduit.get_repo_scratchpad = Mock(return_value={u'tags': []})
+        tag_list = [{constants.IMAGE_TAG_KEY: u'latest',
+                     constants.IMAGE_ID_KEY: u'image_id'}]
+        self.conduit.get_repo_scratchpad.return_value = {u'tags': tag_list}
         self.context = metadata.RedirectFileContext(self.working_directory,
                                                     self.conduit,
                                                     self.config,

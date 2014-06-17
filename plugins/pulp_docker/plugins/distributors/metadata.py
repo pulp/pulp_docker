@@ -5,6 +5,7 @@ import os
 from pulp.server.compat import json
 from pulp.plugins.util.metadata_writer import JSONArrayFileContext
 
+from pulp_docker.common import constants
 from pulp_docker.plugins.distributors import configuration
 
 _LOG = logging.getLogger(__name__)
@@ -32,7 +33,10 @@ class RedirectFileContext(JSONArrayFileContext):
                                           configuration.get_redirect_file_name(repo))
         super(RedirectFileContext, self).__init__(metadata_file_path)
         scratchpad = conduit.get_repo_scratchpad()
-        self.tags = scratchpad.get(u'tags', {})
+
+        tag_list = scratchpad.get(u'tags', [])
+        self.tags = self.convert_tag_list_to_dict(tag_list)
+
         self.registry = configuration.get_repo_registry_id(repo, config)
 
         self.redirect_url = configuration.get_redirect_url(config, repo)
@@ -73,3 +77,21 @@ class RedirectFileContext(JSONArrayFileContext):
         }
         string_representation = json.dumps(unit_data)
         self.metadata_file_handle.write(string_representation)
+
+    def convert_tag_list_to_dict(self, tag_list):
+        """
+        Convert a list of tags to a dictionary with tag as the key and image id as value.
+        If a single tag is associated with multiple image_ids, they will be overwritten.
+        Since we make sure this doesn't happen when adding image tags to a repository,
+        we can safely do the conversion.
+
+        :param tag_list:  list of dictionaries each containing values for 'tag' and 'image_id' keys
+        :type tag_list:   list of dict
+
+        :return:          dictionary of tag:image_id
+        :rtype:           dict
+        """
+        tag_dict = {}
+        for tag in tag_list:
+            tag_dict[tag[constants.IMAGE_TAG_KEY]] = tag[constants.IMAGE_ID_KEY]
+        return tag_dict
