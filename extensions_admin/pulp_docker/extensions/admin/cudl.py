@@ -10,6 +10,7 @@ from pulp.client.extensions.extensions import PulpCliOption
 
 from pulp_docker.common import constants
 from pulp_docker.extensions.admin import parsers as docker_parsers
+from pulp_docker.plugins.importers.upload import generate_updated_tags
 
 
 d = _('if "true", on each successful sync the repository will automatically be '
@@ -139,7 +140,7 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
         repo_id = kwargs.get(OPTION_REPO_ID.keyword)
         response = self.context.server.repo.repository(repo_id).response_body
         scratchpad = response.get(u'scratchpad', {})
-        image_tags = scratchpad.get(u'tags', {})
+        image_tags = scratchpad.get(u'tags', [])
 
         tags = kwargs.get(OPTION_TAG.keyword)
         if tags:
@@ -150,7 +151,6 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
                     self.prompt.render_failure_message(msg % image_id)
                     return
 
-                image_tags[tag] = image_id
             # Ensure the specified images exist in the repo
             images_requested = set([image_id for tag, image_id in tags])
             images = ['^%s' % image_id for image_id in images_requested]
@@ -171,13 +171,17 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
                 self.prompt.render_failure_message(msg % ', '.join(missing_images))
                 return
 
-            # Get the full image id from the returned values
+            # Get the full image id from the returned values and save in tags_to_update dictionary
+            tags_to_update = {}
             for image in response:
                 found_image_id = image[u'metadata'][u'image_id']
-                for key, value in image_tags.iteritems():
-                    if found_image_id.startswith(value):
-                        image_tags[key] = found_image_id
+                for tag, image_id in tags:
+                    if found_image_id.startswith(image_id):
+                        tags_to_update[tag] = found_image_id
 
+            # Create a list of tags which can be saved on the repo scratchpad
+            # using the original scratchpad tags and new tags
+            image_tags = generate_updated_tags(scratchpad, tags_to_update)
             scratchpad[u'tags'] = image_tags
             kwargs[u'scratchpad'] = scratchpad
 
@@ -185,7 +189,10 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
         if remove_tags:
             kwargs.pop(OPTION_REMOVE_TAG.keyword)
             for tag in remove_tags:
-                image_tags.pop(tag)
+                for image_tag in image_tags[:]:
+                    if tag == image_tag[constants.IMAGE_TAG_KEY]:
+                        image_tags.remove(image_tag)
+
             scratchpad[u'tags'] = image_tags
             kwargs[u'scratchpad'] = scratchpad
 
