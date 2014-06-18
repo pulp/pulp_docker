@@ -179,8 +179,8 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
                     if found_image_id.startswith(image_id):
                         tags_to_update[tag] = found_image_id
 
-            # Create a list of tags which can be saved on the repo scratchpad
-            # using the original scratchpad tags and new tags
+            # Create a list of tag dictionaries that can be saved on the repo scratchpad
+            # using the original tags and new tags specified by the user
             image_tags = generate_updated_tags(scratchpad, tags_to_update)
             scratchpad[u'tags'] = image_tags
             kwargs[u'scratchpad'] = scratchpad
@@ -189,6 +189,8 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
         if remove_tags:
             kwargs.pop(OPTION_REMOVE_TAG.keyword)
             for tag in remove_tags:
+                # For each tag in remove_tags, remove the respective tag dictionary
+                # for matching tag.
                 for image_tag in image_tags[:]:
                     if tag == image_tag[constants.IMAGE_TAG_KEY]:
                         image_tags.remove(image_tag)

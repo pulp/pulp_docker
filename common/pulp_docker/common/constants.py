@@ -31,6 +31,7 @@ PUBLISH_STEP_OVER_HTTP = 'publish_images_over_http'
 PUBLISH_STEP_DIRECTORY = 'publish_directory'
 PUBLISH_STEP_TAR = 'save_tar'
 
-# Image tag dictionary keys
+# Dictionary keys to be used when storing or accessing a list of tag dictionaries
+# on the repo scratchpad
 IMAGE_TAG_KEY = 'tag'
 IMAGE_ID_KEY = 'image_id'

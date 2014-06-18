@@ -82,3 +82,13 @@ class TestRedirectFileContext(unittest.TestCase):
         calls = [call('],"tags":'), call(json.dumps({u'latest': u'image_id'})), call('}')]
 
         self.context.metadata_file_handle.write.assert_has_calls(calls)
+
+    def test_convert_tag_list_to_dict(self):
+        self.assertEqual(self.context.convert_tag_list_to_dict([]), {})
+        tag_list = [{constants.IMAGE_TAG_KEY: 'tag1',
+                     constants.IMAGE_ID_KEY: 'image1'},
+                    {constants.IMAGE_TAG_KEY: 'tag2',
+                     constants.IMAGE_ID_KEY: 'image2'}]
+        tag_dict = self.context.convert_tag_list_to_dict(tag_list)
+        expected_tag_dict = {'tag1': 'image1', 'tag2': 'image2'}
+        self.assertEqual(tag_dict, expected_tag_dict)
