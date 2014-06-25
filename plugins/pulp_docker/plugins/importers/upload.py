@@ -119,9 +119,9 @@ def update_tags(repo_id, tarfile_path):
 
 def generate_updated_tags(scratchpad, new_tags):
     """
-    Get the current repo scratchpad's tags and generate updated tag list
+    Get the current repo scratchpad's tags and generate an updated tag list
     by adding new tags to them. If a tag exists on the scratchpad as well as
-    in the new tags, old tag will be overwritten by the new tag.
+    in the new tags, the old tag will be overwritten by the new tag.
 
     :param scratchpad: repo scratchpad dictionary
     :type  scratchpad: dict
