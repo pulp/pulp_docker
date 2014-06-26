@@ -129,17 +129,67 @@ class TestUpdateTags(unittest.TestCase):
 
         upload.update_tags('repo1', data.busybox_tar_path)
 
-        mock_update.assert_called_once_with('repo1', {'tags': {'latest': data.busybox_ids[0]}})
+        mock_update.assert_called_once_with('repo1',
+                                            {'tags':
+                                                [{constants.IMAGE_TAG_KEY: 'latest',
+                                                  constants.IMAGE_ID_KEY: data.busybox_ids[0]}]})
 
     def test_preserves_existing_tags(self, mock_update, mock_get):
-        mock_get.return_value = {'tags': {'greatest': data.busybox_ids[1]}}
+        mock_get.return_value = {'tags': [{constants.IMAGE_TAG_KEY: 'greatest',
+                                           constants.IMAGE_ID_KEY: data.busybox_ids[1]}]}
 
         upload.update_tags('repo1', data.busybox_tar_path)
 
         expected_tags = {
-            'tags': {
-                'latest': data.busybox_ids[0],
-                'greatest': data.busybox_ids[1],
-            }
+            'tags': [{constants.IMAGE_TAG_KEY: 'greatest',
+                      constants.IMAGE_ID_KEY: data.busybox_ids[1]},
+                     {constants.IMAGE_TAG_KEY: 'latest',
+                      constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
         }
         mock_update.assert_called_once_with('repo1', expected_tags)
+
+    def test_overwrite_existing_duplicate_tags(self, mock_update, mock_get):
+        mock_get.return_value = {'tags': [{constants.IMAGE_TAG_KEY: 'latest',
+                                           constants.IMAGE_ID_KEY: 'original_latest'},
+                                          {constants.IMAGE_TAG_KEY: 'existing',
+                                           constants.IMAGE_ID_KEY: 'existing'}]}
+
+        upload.update_tags('repo1', data.busybox_tar_path)
+
+        expected_tags = {
+            'tags': [{constants.IMAGE_TAG_KEY: 'existing',
+                      constants.IMAGE_ID_KEY: 'existing'},
+                     {constants.IMAGE_TAG_KEY: 'latest',
+                      constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
+        }
+        mock_update.assert_called_once_with('repo1', expected_tags)
+
+    def test_generate_updated_tags(self, mock_update, mock_get):
+        scratchpad = {'tags': [{constants.IMAGE_TAG_KEY: 'tag1',
+                                constants.IMAGE_ID_KEY: 'image1'},
+                               {constants.IMAGE_TAG_KEY: 'tag2',
+                                constants.IMAGE_ID_KEY: 'image2'},
+                               {constants.IMAGE_TAG_KEY: 'tag-existing',
+                                constants.IMAGE_ID_KEY: 'image-existing'}]}
+        new_tags = {'tag3': 'image3', 'tag-existing': 'image-new'}
+        update_tags = upload.generate_updated_tags(scratchpad, new_tags)
+        expected_update_tags = [{constants.IMAGE_TAG_KEY: 'tag1',
+                                 constants.IMAGE_ID_KEY: 'image1'},
+                                {constants.IMAGE_TAG_KEY: 'tag2',
+                                 constants.IMAGE_ID_KEY: 'image2'},
+                                {constants.IMAGE_TAG_KEY: 'tag-existing',
+                                 constants.IMAGE_ID_KEY: 'image-new'},
+                                {constants.IMAGE_TAG_KEY: 'tag3',
+                                 constants.IMAGE_ID_KEY: 'image3'}]
+        self.assertEqual(update_tags, expected_update_tags)
+
+    def test_generate_updated_tags_empty_newtags(self, mock_update, mock_get):
+        scratchpad = {'tags': [{constants.IMAGE_TAG_KEY: 'tag1',
+                                constants.IMAGE_ID_KEY: 'image1'},
+                               {constants.IMAGE_TAG_KEY: 'tag2',
+                                constants.IMAGE_ID_KEY: 'image2'},
+                               {constants.IMAGE_TAG_KEY: 'tag-existing',
+                                constants.IMAGE_ID_KEY: 'image-existing'}]}
+        new_tags = {}
+        update_tags = upload.generate_updated_tags(scratchpad, new_tags)
+        self.assertEqual(update_tags, scratchpad['tags'])

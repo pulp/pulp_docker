@@ -46,7 +46,10 @@ class TestImageSearchCommand(unittest.TestCase):
         command = images.ImageSearchCommand(context)
 
         repo_info = {
-            u'scratchpad': {u'tags': {'latest': 'bar', 'foo': 'bar'}}
+            u'scratchpad': {u'tags': [{constants.IMAGE_TAG_KEY: 'latest',
+                                       constants.IMAGE_ID_KEY: 'bar'},
+                                      {constants.IMAGE_TAG_KEY: 'foo',
+                                       constants.IMAGE_ID_KEY: 'bar'}]}
         }
         context.server.repo.repository.return_value.response_body = repo_info
 
@@ -55,6 +58,6 @@ class TestImageSearchCommand(unittest.TestCase):
 
         command.run(**{'repo-id': 'baz'})
         target = copy.deepcopy(image_list)
-        target[0][u'metadata'][u'tags'] = ['foo', 'latest']
+        target[0][u'metadata'][u'tags'] = ['latest', 'foo']
 
         context.prompt.render_document_list.assert_called_once_with(target)

@@ -92,12 +92,14 @@ class ImageSearchCommand(DisplayUnitAssociationsCommand):
         # Get the list of tags for the repo
         response = self.context.server.repo.repository(repo_id).response_body
         scratchpad = response.get(u'scratchpad', {})
-        tags = scratchpad.get(u'tags', {})
+        tags = scratchpad.get(u'tags', [])
         image_tags = {}
 
-        # reverse the dictionary to map images to tags
-        for key, value in tags.iteritems():
-            image_tags.setdefault(value, []).append(key)
+        # create a dictionary to map images to a list of tags
+        for tag_dict in tags:
+            tag = tag_dict[constants.IMAGE_TAG_KEY]
+            image_id = tag_dict[constants.IMAGE_ID_KEY]
+            image_tags.setdefault(image_id, []).append(tag)
 
         # Add the tag info to the images list
         for image in images:

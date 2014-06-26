@@ -52,7 +52,7 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         self.command.poll = Mock()
         self.mock_repo_response = Mock(response_body={})
         self.context.server.repo.repository.return_value = self.mock_repo_response
-        self.unit_search_command = Mock(response_body=[{u'metadata': {u'image_id': 'bar'}}])
+        self.unit_search_command = Mock(response_body=[{u'metadata': {u'image_id': 'bar123'}}])
         self.context.server.repo_unit.search.return_value = self.unit_search_command
 
     def test_tag(self):
@@ -63,7 +63,8 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         self.command.run(**user_input)
 
         repo_delta = {
-            u'scratchpad': {u'tags': {'foo': 'bar123'}}
+            u'scratchpad': {u'tags': [{constants.IMAGE_TAG_KEY: 'foo',
+                                       constants.IMAGE_ID_KEY: 'bar123'}]}
         }
         importer_config = None
         dist_config = None
@@ -89,7 +90,8 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         self.command.run(**user_input)
 
         target_kwargs = {
-            u'scratchpad': {u'tags': {'foo': 'baz123qux'}}
+            u'scratchpad': {u'tags': [{constants.IMAGE_TAG_KEY: 'foo',
+                                       constants.IMAGE_ID_KEY: 'baz123qux'}]}
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs,
                                                                 None, None)
@@ -102,7 +104,10 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         self.command.run(**user_input)
 
         target_kwargs = {
-            u'scratchpad': {u'tags': {'foo': 'bar123', 'baz': 'bar123'}}
+            u'scratchpad': {u'tags': [{constants.IMAGE_TAG_KEY: 'foo',
+                                       constants.IMAGE_ID_KEY: 'bar123'},
+                                      {constants.IMAGE_TAG_KEY: 'baz',
+                                       constants.IMAGE_ID_KEY: 'bar123'}]}
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs,
                                                                 None, None)
@@ -118,7 +123,10 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
 
     def test_remove_tag(self):
         self.mock_repo_response.response_body = \
-            {u'scratchpad': {u'tags': {'foo': 'bar123', 'baz': 'bar123'}}}
+            {u'scratchpad': {u'tags': [{constants.IMAGE_TAG_KEY: 'foo',
+                                        constants.IMAGE_ID_KEY: 'bar123'},
+                                       {constants.IMAGE_TAG_KEY: 'baz',
+                                        constants.IMAGE_ID_KEY: 'bar123'}]}}
         user_input = {
             'repo-id': 'foo-repo',
             'remove-tag': ['foo']
@@ -126,7 +134,8 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
         self.command.run(**user_input)
 
         target_kwargs = {
-            u'scratchpad': {u'tags': {'baz': 'bar123'}}
+            u'scratchpad': {u'tags': [{constants.IMAGE_TAG_KEY: 'baz',
+                                       constants.IMAGE_ID_KEY: 'bar123'}]}
         }
         self.context.server.repo.update.assert_called_once_with('foo-repo', target_kwargs,
                                                                 None, None)
