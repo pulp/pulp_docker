@@ -29,8 +29,12 @@ def get_metadata(tarfile_path):
             # find the "json" files, which contain all image metadata
             if os.path.basename(member.path) == 'json':
                 image_data = json.load(archive.extractfile(member))
-                metadata[image_data['id']] = {
-                    'parent': image_data.get('parent'),
+                # At some point between docker 0.10 and 1.0, it changed behavior
+                # of whether these keys are capitalized or not.
+                image_id = image_data.get('id', image_data.get('Id'))
+                parent_id = image_data.get('parent', image_data.get('Parent'))
+                metadata[image_id] = {
+                    'parent': parent_id,
                     'size': image_data['Size']
                 }
 
