@@ -12,8 +12,10 @@ class DockerImage(object):
         :type  image_id:    basestring
         :param parent_id:   parent's unique image ID
         :type  parent_id:   basestring
-        :param size:        size of the image in bytes, as reported by docker
-        :type  size:        int
+        :param size:        size of the image in bytes, as reported by docker.
+                            This can be None, because some very old docker images
+                            do not contain it in their metadata.
+        :type  size:        int or NoneType
         """
         self.image_id = image_id
         self.parent_id = parent_id

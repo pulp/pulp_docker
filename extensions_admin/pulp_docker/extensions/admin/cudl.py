@@ -1,16 +1,15 @@
 from gettext import gettext as _
 
-
-from pulp.client import parsers
+from pulp.client import arg_utils, parsers
 from pulp.client.commands.options import OPTION_REPO_ID
 from pulp.client.commands.repo.cudl import CreateAndConfigureRepositoryCommand
 from pulp.client.commands.repo.cudl import UpdateRepositoryCommand
+from pulp.client.commands.repo.importer_config import ImporterConfigMixin
 from pulp.common.constants import REPO_NOTE_TYPE_KEY
 from pulp.client.extensions.extensions import PulpCliOption
 
-from pulp_docker.common import constants
+from pulp_docker.common import constants, tags
 from pulp_docker.extensions.admin import parsers as docker_parsers
-from pulp_docker.plugins.importers.upload import generate_updated_tags
 
 
 d = _('if "true", on each successful sync the repository will automatically be '
@@ -41,17 +40,26 @@ d = _('Remove the specified tag from the repository. This only removes the tag; 
       'image will remain in the repository.')
 OPTION_REMOVE_TAG = PulpCliOption('--remove-tag', d, required=False, allow_multiple=True)
 
+d = _('name of the upstream repository')
+OPT_UPSTREAM_NAME = PulpCliOption('--upstream-name', d, required=False)
 
-class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
+DESC_FEED = _('URL for the upstream docker index, not including repo name')
+
+
+class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, ImporterConfigMixin):
     default_notes = {REPO_NOTE_TYPE_KEY: constants.REPO_NOTE_DOCKER}
     IMPORTER_TYPE_ID = constants.IMPORTER_TYPE_ID
 
     def __init__(self, context):
-        super(CreateDockerRepositoryCommand, self).__init__(context)
+        CreateAndConfigureRepositoryCommand.__init__(self, context)
+        ImporterConfigMixin.__init__(self, include_ssl=False, include_sync=True,
+                                     include_unit_policy=False)
         self.add_option(OPT_AUTO_PUBLISH)
         self.add_option(OPT_REDIRECT_URL)
         self.add_option(OPT_PROTECTED)
         self.add_option(OPT_REPO_REGISTRY_ID)
+        self.sync_group.add_option(OPT_UPSTREAM_NAME)
+        self.options_bundle.opt_feed.description = DESC_FEED
 
     def _describe_distributors(self, user_input):
         """
@@ -92,19 +100,52 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand):
 
         return data
 
+    def _parse_importer_config(self, user_input):
+        """
+        Subclasses should override this to provide whatever option parsing
+        is needed to create an importer config.
 
-class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
+        :param user_input:  dictionary of data passed in by okaara
+        :type  user_inpus:  dict
+
+        :return:    importer config
+        :rtype:     dict
+        """
+        config = self.parse_user_input(user_input)
+
+        name = user_input.pop(OPT_UPSTREAM_NAME.keyword)
+        if name is not None:
+            config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
+
+        return config
+
+
+class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin):
 
     def __init__(self, context):
-        super(UpdateDockerRepositoryCommand, self).__init__(context)
+        UpdateRepositoryCommand.__init__(self, context)
+        ImporterConfigMixin.__init__(self, include_ssl=False, include_sync=True,
+                                     include_unit_policy=False)
         self.add_option(OPTION_TAG)
         self.add_option(OPTION_REMOVE_TAG)
         self.add_option(OPT_AUTO_PUBLISH)
         self.add_option(OPT_REDIRECT_URL)
         self.add_option(OPT_PROTECTED)
         self.add_option(OPT_REPO_REGISTRY_ID)
+        self.sync_group.add_option(OPT_UPSTREAM_NAME)
+        self.options_bundle.opt_feed.description = DESC_FEED
 
     def run(self, **kwargs):
+        arg_utils.convert_removed_options(kwargs)
+
+        importer_config = self.parse_user_input(kwargs)
+
+        name = kwargs.pop(OPT_UPSTREAM_NAME.keyword, None)
+        if name is not None:
+            importer_config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
+
+        if importer_config:
+            kwargs['importer_config'] = importer_config
 
         # Update distributor configuration
         web_config = {}
@@ -142,17 +183,17 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
         scratchpad = response.get(u'scratchpad', {})
         image_tags = scratchpad.get(u'tags', [])
 
-        tags = kwargs.get(OPTION_TAG.keyword)
-        if tags:
-            tags = kwargs.pop(OPTION_TAG.keyword)
-            for tag, image_id in tags:
+        user_tags = kwargs.get(OPTION_TAG.keyword)
+        if user_tags:
+            user_tags = kwargs.pop(OPTION_TAG.keyword)
+            for tag, image_id in user_tags:
                 if len(image_id) < 6:
                     msg = _('The image id, (%s), must be at least 6 characters.')
                     self.prompt.render_failure_message(msg % image_id)
                     return
 
             # Ensure the specified images exist in the repo
-            images_requested = set([image_id for tag, image_id in tags])
+            images_requested = set([image_id for tag, image_id in user_tags])
             images = ['^%s' % image_id for image_id in images_requested]
             image_regex = '|'.join(images)
             search_criteria = {
@@ -175,13 +216,13 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand):
             tags_to_update = {}
             for image in response:
                 found_image_id = image[u'metadata'][u'image_id']
-                for tag, image_id in tags:
+                for tag, image_id in user_tags:
                     if found_image_id.startswith(image_id):
                         tags_to_update[tag] = found_image_id
 
             # Create a list of tag dictionaries that can be saved on the repo scratchpad
             # using the original tags and new tags specified by the user
-            image_tags = generate_updated_tags(scratchpad, tags_to_update)
+            image_tags = tags.generate_updated_tags(scratchpad, tags_to_update)
             scratchpad[u'tags'] = image_tags
             kwargs[u'scratchpad'] = scratchpad
 
