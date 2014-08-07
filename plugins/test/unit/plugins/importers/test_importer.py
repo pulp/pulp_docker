@@ -77,6 +77,20 @@ class TestSyncRepo(unittest.TestCase):
         mock_rmtree.assert_called_once_with(mock_mkdtemp.return_value, ignore_errors=True)
 
 
+class TestCancel(unittest.TestCase):
+    def setUp(self):
+        super(TestCancel, self).setUp()
+        self.importer = DockerImporter()
+
+    def test_calls_cancel(self):
+        self.importer.sync_step = mock.MagicMock()
+
+        self.importer.cancel_sync_repo()
+
+        # make sure the step's cancel method was called
+        self.importer.sync_step.cancel.assert_called_once_with()
+
+
 @mock.patch.object(upload, 'update_tags', spec_set=True)
 class TestUploadUnit(unittest.TestCase):
     def setUp(self):

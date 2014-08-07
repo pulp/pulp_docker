@@ -80,10 +80,22 @@ class DockerImporter(Importer):
         """
         working_dir = tempfile.mkdtemp(dir=repo.working_dir)
         try:
-            return sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
-                                 working_dir=working_dir).sync()
+            self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
+                                           working_dir=working_dir)
+            return self.sync_step.sync()
+
         finally:
             shutil.rmtree(working_dir, ignore_errors=True)
+
+    def cancel_sync_repo(self):
+        """
+        Cancels an in-progress sync.
+
+        This call is responsible for halting a current sync by stopping any
+        in-progress downloads and performing any cleanup necessary to get the
+        system back into a stable state.
+        """
+        self.sync_step.cancel()
 
     def upload_unit(self, repo, type_id, unit_key, metadata, file_path, conduit, config):
         """
