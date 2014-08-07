@@ -42,6 +42,14 @@ class TestCreateDockerRepositoryCommand(unittest.TestCase):
         result = command._describe_distributors(user_input)
         self.assertEquals(result[0]["auto_publish"], False)
 
+    def test_parse_importer_config(self):
+        command = cudl.CreateDockerRepositoryCommand(Mock())
+        user_input = {
+            cudl.OPT_UPSTREAM_NAME.keyword: 'pulp/crane',
+        }
+        result = command._parse_importer_config(user_input)
+        self.assertEqual(result[constants.CONFIG_KEY_UPSTREAM_NAME], 'pulp/crane')
+
 
 class TestUpdateDockerRepositoryCommand(unittest.TestCase):
 
@@ -71,6 +79,18 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
 
         self.context.server.repo.update.assert_called_once_with('foo-repo', repo_delta,
                                                                 importer_config, dist_config)
+
+    def test_run_with_importer_config(self):
+        user_input = {
+            'repo-id': 'foo-repo',
+            cudl.OPT_UPSTREAM_NAME.keyword: 'pulp/crane',
+        }
+        self.command.run(**user_input)
+
+        expected_importer_config = {constants.CONFIG_KEY_UPSTREAM_NAME: 'pulp/crane'}
+
+        self.context.server.repo.update.assert_called_once_with('foo-repo', {},
+                                                                expected_importer_config, None)
 
     def test_tag_partial_match_image_id_too_short(self):
         user_input = {

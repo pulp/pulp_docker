@@ -34,6 +34,63 @@ class TestBasics(unittest.TestCase):
         self.assertTrue(len(metadata['display_name']) > 0)
 
 
+@mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
+@mock.patch('tempfile.mkdtemp', spec_set=True)
+@mock.patch('shutil.rmtree')
+class TestSyncRepo(unittest.TestCase):
+    def setUp(self):
+        super(TestSyncRepo, self).setUp()
+        self.repo = Repository('repo1', working_dir='/a/b/c')
+        self.sync_conduit = mock.MagicMock()
+        self.config = mock.MagicMock()
+        self.importer = DockerImporter()
+
+    def test_calls_sync_step(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        mock_sync_step.assert_called_once_with(repo=self.repo, conduit=self.sync_conduit,
+                                               config=self.config,
+                                               working_dir=mock_mkdtemp.return_value)
+
+    def test_calls_sync(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        mock_sync_step.return_value.sync.assert_called_once_with()
+
+    def test_makes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        mock_mkdtemp.assert_called_once_with(dir=self.repo.working_dir)
+
+    def test_removes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        mock_rmtree.assert_called_once_with(mock_mkdtemp.return_value, ignore_errors=True)
+
+    def test_removes_temp_dir_after_exception(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        class MyError(Exception):
+            pass
+        mock_sync_step.return_value.sync.side_effect = MyError
+        self.assertRaises(MyError, self.importer.sync_repo, self.repo,
+                          self.sync_conduit, self.config)
+
+        mock_rmtree.assert_called_once_with(mock_mkdtemp.return_value, ignore_errors=True)
+
+
+class TestCancel(unittest.TestCase):
+    def setUp(self):
+        super(TestCancel, self).setUp()
+        self.importer = DockerImporter()
+
+    def test_calls_cancel(self):
+        self.importer.sync_step = mock.MagicMock()
+
+        self.importer.cancel_sync_repo()
+
+        # make sure the step's cancel method was called
+        self.importer.sync_step.cancel.assert_called_once_with()
+
+
 @mock.patch.object(upload, 'update_tags', spec_set=True)
 class TestUploadUnit(unittest.TestCase):
     def setUp(self):

@@ -10,6 +10,9 @@ DISTRIBUTOR_EXPORT_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_export_distr
 
 REPO_NOTE_DOCKER = 'docker-repo'
 
+# Config keys for the importer
+CONFIG_KEY_UPSTREAM_NAME = 'upstream_name'
+
 # Config keys for the distributor plugin conf
 CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY = 'docker_publish_directory'
 CONFIG_VALUE_DOCKER_PUBLISH_DIRECTORY = '/var/lib/pulp/published/docker'
@@ -22,6 +25,12 @@ CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 
 # Config keys for an importer override config
 CONFIG_KEY_MASK_ID = 'mask_id'
+
+SYNC_STEP_MAIN = 'sync_step_main'
+SYNC_STEP_METADATA = 'sync_step_metadata'
+SYNC_STEP_GET_LOCAL = 'sync_step_metadata'
+SYNC_STEP_DOWNLOAD = 'sync_step_download'
+SYNC_STEP_SAVE = 'sync_step_save'
 
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'

@@ -23,6 +23,9 @@ DESC_REPO = _('repository lifecycle commands')
 SECTION_UPLOADS = 'uploads'
 DESC_UPLOADS = _('upload docker images into a repository')
 
+SECTION_SYNC = 'sync'
+DESC_SYNC = _('sync a docker repository from an upstream index')
+
 SECTION_PUBLISH = 'publish'
 DESC_PUBLISH = _('publish a docker repository')
 
@@ -46,6 +49,7 @@ def initialize(context):
     root_section = context.cli.create_section(SECTION_ROOT, DESC_ROOT)
     repo_section = add_repo_section(context, root_section)
     add_upload_section(context, repo_section)
+    add_sync_section(context, repo_section)
     add_publish_section(context, repo_section)
     add_export_section(context, repo_section)
 
@@ -86,6 +90,26 @@ def add_repo_section(context, parent_section):
     repo_section.add_command(ListDockerRepositoriesCommand(context))
 
     return repo_section
+
+
+def add_sync_section(context, parent_section):
+    """
+    add a sync section
+
+    :param context: pulp context
+    :type  context: pulp.client.extensions.core.ClientContext
+    :param parent_section:  section of the CLI to which the upload section
+                            should be added
+    :type  parent_section:  pulp.client.extensions.extensions.PulpCliSection
+    :return: populated section
+    :rtype: PulpCliSection
+    """
+    renderer = status.PublishStepStatusRenderer(context)
+
+    sync_section = parent_section.create_subsection(SECTION_SYNC, DESC_SYNC)
+    sync_section.add_command(sync_publish.RunSyncRepositoryCommand(context, renderer))
+
+    return sync_section
 
 
 def add_publish_section(context, parent_section):
