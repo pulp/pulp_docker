@@ -34,7 +34,7 @@ class TestBasics(unittest.TestCase):
         self.working_dir = tempfile.mkdtemp()
 
     def tearDown(self):
-        shutil.rmtree(self.working_dir, ignore_errors=True)
+        shutil.rmtree(self.working_dir)
 
     def test_metadata(self):
         metadata = DockerWebDistributor.metadata()

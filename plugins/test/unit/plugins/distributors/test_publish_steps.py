@@ -31,7 +31,7 @@ class TestPublishImagesStep(unittest.TestCase):
         self.parent = PublishStep('test-step', repo, conduit, config)
 
     def tearDown(self):
-        shutil.rmtree(self.working_directory)
+        shutil.rmtree(self.temp_dir)
 
     @patch('pulp_docker.plugins.distributors.publish_steps.RedirectFileContext')
     def test_initialize_metdata(self, mock_context):
