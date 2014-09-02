@@ -33,9 +33,10 @@ def get_metadata(tarfile_path):
                 # of whether these keys are capitalized or not.
                 image_id = image_data.get('id', image_data.get('Id'))
                 parent_id = image_data.get('parent', image_data.get('Parent'))
+                size = image_data.get('size', image_data.get('Size'))
                 metadata[image_id] = {
                     'parent': parent_id,
-                    'size': image_data['Size']
+                    'size': size
                 }
 
     return metadata
