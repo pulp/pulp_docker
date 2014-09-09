@@ -2,7 +2,7 @@
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
 Name: pulp-docker
-Version: 0.1.2
+Version: 0.2.0
 Release: 1%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
@@ -138,6 +138,10 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Tue Sep 09 2014 Chris Duryee <cduryee@redhat.com> 0.2.0-1
+  bump to 0.2.0
+- 
+
 * Mon Sep 08 2014 Chris Duryee <cduryee@redhat.com> 0.1.2-1
 - adding cancellation support (mhrivnak@redhat.com)
 - adding sync (mhrivnak@redhat.com)
