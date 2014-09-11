@@ -138,6 +138,9 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Thu Sep 11 2014 Chris Duryee <cduryee@redhat.com> 0.2.1-0.1.alpha
+- declare correct package version in spec file (cduryee@redhat.com)
+
 * Tue Sep 09 2014 Chris Duryee <cduryee@redhat.com> 0.2.0-1
   bump to 0.2.0
 - 
