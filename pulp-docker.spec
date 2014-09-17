@@ -53,7 +53,9 @@ pushd plugins
 popd
 
 mkdir -p %{buildroot}/%{_usr}/lib/pulp/plugins/types
-mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/
+mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/app/
+mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/export/
+mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/web/
 
 cp -R plugins/etc/httpd %{buildroot}/%{_sysconfdir}
 # Types
