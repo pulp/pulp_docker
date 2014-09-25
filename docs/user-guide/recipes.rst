@@ -216,3 +216,40 @@ This produces a tarball at ``/var/lib/pulp/published/docker/export/repo/busybox.
 which contains both a JSON file for use with crane, and the static image files
 to which crane will redirect requests. See the `Crane`_ documentation for how
 to use that tarball.
+
+Sync
+------
+
+The pulp-docker plugin supports syncing from upstream repositories as of version 0.2.1. For example::
+
+    $ pulp-admin docker repo create synctest --feed=https://index.docker.io --upstream-name=busybox
+    Repository [synctest] successfully created
+
+    $ pulp-admin docker repo sync run --repo-id synctest
+    +----------------------------------------------------------------------+
+                        Synchronizing Repository [synctest]
+    +----------------------------------------------------------------------+
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    Retrieving metadata
+    [\]
+    ... completed
+
+    Copying units already in pulp
+    [-]
+    ... completed
+
+    Downloading remote files
+    [-]
+    ... completed
+
+    Saving images and tags
+    [-]
+    ... completed
+
+
+    Task Succeeded
+
+Once this is complete, the data in the remote repository is now in your local Pulp instance.
