@@ -35,7 +35,9 @@ def get_metadata(tarfile_path):
                 parent_id = image_data.get('parent', image_data.get('Parent'))
                 metadata[image_id] = {
                     'parent': parent_id,
-                    'size': image_data['Size']
+                    # image 511136ea does not have a Size attribute, which has
+                    # caused problems during upload
+                    'size': image_data.get('Size'),
                 }
 
     return metadata

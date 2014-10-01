@@ -62,7 +62,11 @@ class TestGetMetadata(unittest.TestCase):
                 # make sure all other layers have the correct parent
                 self.assertEqual(data['parent'], busybox_ids[i + 1])
 
-            self.assertTrue(isinstance(data['size'], int))
+            # this image does not have a Size attribute in its json
+            if image_id.startswith('511136ea'):
+                self.assertTrue(data['size'] is None)
+            else:
+                self.assertTrue(isinstance(data['size'], int))
 
 
 class TestGetTags(unittest.TestCase):
