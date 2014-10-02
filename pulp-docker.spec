@@ -140,6 +140,12 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Thu Oct 02 2014 Chris Duryee <cduryee@redhat.com> 0.2.1-0.2.beta
+- making the default size None when a layer's metadata lacks the Size attribute
+  (mhrivnak@redhat.com)
+- adding several publish directories that need to be in the package
+  (mhrivnak@redhat.com)
+
 * Thu Sep 11 2014 Chris Duryee <cduryee@redhat.com> 0.2.1-0.1.alpha
 - declare correct package version in spec file (cduryee@redhat.com)
 
