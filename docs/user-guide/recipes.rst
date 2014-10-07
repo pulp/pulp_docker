@@ -3,6 +3,20 @@ Recipes
 
 .. _Crane: https://github.com/pulp/crane
 
+Configuring `Crane`_ with pulp_docker
+-------------------------------------
+The Crane project can be used to make docker repositories hosted by Pulp available
+to the docker client. This allows a ``docker pull`` to be performed against data
+that is published by the Pulp server.
+
+If `Crane`_ is being run on the same server that is running Pulp, there is one setting that
+must be configured in Crane in order for it to find the information that is published by Pulp.
+In the /etc/crane.conf the ``data_dir`` parameter must be set to the location that the pulp publish
+is placing metadata files. By default this is the ``/var/lib/pulp/published/docker/app/``
+directory. Crane will check the ``data_dir`` for updates periodically.
+Full documentation for /etc/crane.conf can be found in the `Crane`_ readme.
+
+
 Upload To Pulp
 --------------
 
