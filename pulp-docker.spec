@@ -101,6 +101,7 @@ Requires: python-pulp-common >= 2.4.0
 Requires: python-pulp-docker-common = %{version} 
 Requires: pulp-server >= 2.4.0
 Requires: python-setuptools
+Requires: python-nectar >= 1.3.0
 
 %description plugins
 Provides a collection of platform plugins that extend the Pulp platform
