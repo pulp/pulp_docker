@@ -5,6 +5,9 @@ import optparse
 import os
 import sys
 
+from pulp.devel import environment
+
+
 WARNING_COLOR = '\033[31m'
 WARNING_RESET = '\033[0m'
 
@@ -18,6 +21,8 @@ DIRS = ('/var/lib/pulp/published/docker/web',)
 
 # Standard directories
 DIR_PLUGINS = '/usr/lib/pulp/plugins'
+
+ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 
 LINKS = (
     ('plugins/etc/httpd/conf.d/pulp_docker.conf', '/etc/httpd/conf.d/pulp_docker.conf'),
@@ -91,6 +96,9 @@ def getlinks():
 
 
 def install(opts):
+    # Install the packages in developer mode
+    environment.manage_setup_pys('install', ROOT_DIR)
+
     warnings = []
     create_dirs(opts)
     # Ensure the directory is owned by apache
@@ -116,6 +124,9 @@ def uninstall(opts):
             debug(opts, '%s does not exist, skipping' % dst)
             continue
         os.unlink(dst)
+
+    # Uninstall the packages
+    environment.manage_setup_pys('uninstall', ROOT_DIR)
 
     return os.EX_OK
 
