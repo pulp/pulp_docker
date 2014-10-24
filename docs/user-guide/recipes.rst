@@ -236,7 +236,7 @@ Sync
 
 The pulp-docker plugin supports syncing from upstream repositories as of version 0.2.1. For example::
 
-    $ pulp-admin docker repo create synctest --feed=https://index.docker.io --upstream-name=busybox
+    $ pulp-admin docker repo create --repo-id=synctest --feed=https://index.docker.io --upstream-name=busybox
     Repository [synctest] successfully created
 
     $ pulp-admin docker repo sync run --repo-id synctest
