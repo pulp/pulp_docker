@@ -37,13 +37,6 @@ class ListDockerRepositoriesCommand(ListRepositoriesCommand):
                     and notes[pulp_constants.REPO_NOTE_TYPE_KEY] == constants.REPO_NOTE_DOCKER:
                 docker_repos.append(repo)
 
-        # There isn't really anything compelling in the exporter distributor
-        # to display to the user, so remove it entirely.
-        for r in docker_repos:
-            if 'distributors' in r:
-                r['distributors'] = \
-                    [x for x in r['distributors'] if x['id'] == constants.CLI_EXPORT_DISTRIBUTOR_ID]
-
         return docker_repos
 
     def get_other_repositories(self, query_params, **kwargs):
