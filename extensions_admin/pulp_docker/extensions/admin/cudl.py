@@ -15,7 +15,7 @@ from pulp_docker.extensions.admin import parsers as docker_parsers
 d = _('if "true", on each successful sync the repository will automatically be '
       'published; if "false" content will only be available after manually publishing '
       'the repository; defaults to "true"')
-OPT_AUTO_PUBLISH = PulpCliOption('--auto-publish', d, required=False,
+OPT_AUTO_PUBLISH = PulpCliOption('--auto-publish', d, required=False, default='true',
                                  parse_func=parsers.parse_boolean)
 
 d = _('The URL that will be used when generating the redirect map for connecting the docker '
@@ -87,7 +87,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
         if value is not None:
             config[constants.CONFIG_KEY_REPO_REGISTRY_ID] = value
 
-        auto_publish = user_input.get('auto-publish', True)
+        auto_publish = user_input.get(OPT_AUTO_PUBLISH.keyword, True)
         data = [
             dict(distributor_type_id=constants.DISTRIBUTOR_WEB_TYPE_ID,
                  distributor_config=config,

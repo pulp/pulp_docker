@@ -53,9 +53,8 @@ class TestListDockerRepositoriesCommand(unittest.TestCase):
         self.assertEqual(1, len(repos))
         self.assertEqual(repos[0]['id'], 'matching')
 
-        #   Make sure the export distributor was removed
-        self.assertEqual(len(repos[0]['distributors']), 1)
-        self.assertEqual(repos[0]['distributors'][0]['id'], constants.CLI_EXPORT_DISTRIBUTOR_ID)
+        #   Make sure two distributors exist
+        self.assertEqual(len(repos[0]['distributors']), 2)
 
     def test_get_repositories_no_details(self):
         # Setup
