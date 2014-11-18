@@ -13,7 +13,7 @@ and served by Crane directly. By default the :ref:`redirect file <redirect_file>
 ``/var/lib/pulp/published/docker/web/<repo_id>/``.
 
 The global configuration file for the docker_web_distributor plugin
-can be found in ``/etc/pulp/server/plugin.conf.d/docker_distributor.json``.
+can be found in ``/etc/pulp/server/plugins.conf.d/docker_distributor.json``.
 
 All values from the global configuration can be overridden on the local config.
 
@@ -52,7 +52,7 @@ By default the :ref:`redirect file <redirect_file>` is stored in the root of the
 the tar file.
 
 The global configuration file for the docker_export_distributor plugin
-can be found in ``/etc/pulp/server/plugin.conf.d/docker_distributor_export.json``.
+can be found in ``/etc/pulp/server/plugins.conf.d/docker_distributor_export.json``.
 
 All values from the global configuration can be overridden on the local config.
 
