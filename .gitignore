@@ -51,7 +51,7 @@ cover
 *.pot
 
 # Sphinx documentation
-docs/_build/
+docs/*/_build/
 
 # pycharm
 .idea/
