@@ -141,6 +141,25 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Fri Nov 21 2014 Chris Duryee <cduryee@redhat.com> 0.2.1-1
+- bump release to 1 (cduryee@redhat.com)
+- 1160272 - Adjusting configuration files' path for docker plugins.
+  (ipanova@redhat.com)
+- Add intersphinx and extlinks support to pulp_docker (cduryee@redhat.com)
+- 1150592 - set default auto-publish value (cduryee@redhat.com)
+- 1150605 - fix error in docker recipe (cduryee@redhat.com)
+- Merge branch 'merge_docs' (rbarlow@redhat.com)
+- Merge the two Sphinx projects together. (rbarlow@redhat.com)
+- Merge branch 'dev_install' (rbarlow@redhat.com)
+- pulp-dev.py installs the packages. (rbarlow@redhat.com)
+- Merge pull request #41 from pulp/mhrivnak-install-docs (mhrivnak@hrivnak.org)
+- requiring python-nectar (mhrivnak@redhat.com)
+- changing installation doc to use RPMs instead of git (mhrivnak@redhat.com)
+- Merge branch 'master' of github.com:pulp/pulp_docker (rbarlow@redhat.com)
+- 1103232 - Document importer settings. (rbarlow@redhat.com)
+- Update for PR comments (bcourt@redhat.com)
+- Clean up docs & fix export config name (bcourt@redhat.com)
+
 * Thu Oct 02 2014 Chris Duryee <cduryee@redhat.com> 0.2.1-0.2.beta
 - making the default size None when a layer's metadata lacks the Size attribute
   (mhrivnak@redhat.com)
