@@ -93,7 +93,7 @@ and any ancestors of that image will not be imported::
 
     $ pulp-admin docker repo uploads upload --repo-id tutorial
     -f /home/skarmark/git/pulp1/pulp/tutorial.tar
-    --mask-ancestor-id 'f38e479062c4953de709cc7f08fa8f85bec6bc5d01f03e340f7caf2990e8efd1'
+    --mask-id 'f38e479062c4953de709cc7f08fa8f85bec6bc5d01f03e340f7caf2990e8efd1'
     +----------------------------------------------------------------------+
                               Unit Upload
     +----------------------------------------------------------------------+
