@@ -92,7 +92,7 @@ class DockerWebDistributor(Distributor):
         :return: tuple of (bool, str) to describe the result
         :rtype:  tuple
         """
-        return configuration.validate_config(config)
+        return configuration.validate_config(config, repo)
 
     def publish_repo(self, repo, publish_conduit, config):
         """

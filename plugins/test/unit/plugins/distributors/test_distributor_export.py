@@ -45,8 +45,9 @@ class TestBasics(unittest.TestCase):
 
     @patch('pulp_docker.plugins.distributors.distributor_export.configuration.validate_config')
     def test_validate_config(self, mock_validate):
-        value = self.distributor.validate_config(Mock(), 'foo', Mock())
-        mock_validate.assert_called_once_with('foo')
+        repo = Mock()
+        value = self.distributor.validate_config(repo, 'foo', Mock())
+        mock_validate.assert_called_once_with('foo', repo)
         self.assertEquals(value, mock_validate.return_value)
 
     @patch('pulp_docker.plugins.distributors.distributor_export.configuration.'

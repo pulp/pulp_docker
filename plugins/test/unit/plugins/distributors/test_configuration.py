@@ -18,58 +18,127 @@ class TestValidateConfig(unittest.TestCase):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'http://www.pulpproject.org/foo'
         }
-        self.assertEquals((True, None), configuration.validate_config(config))
+        repo = Mock(id='nowthisisastory')
+        self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_server_url_fully_qualified_with_port(self):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'http://www.pulpproject.org:440/foo'
         }
-        self.assertEquals((True, None), configuration.validate_config(config))
+        repo = Mock(id='allabouthow')
+        self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_server_url_empty(self):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: ''
         }
+        repo = Mock(id='mylifegotflipturned')
         # This is valid as the default server should be used
-
-        self.assertEquals((True, None), configuration.validate_config(config))
+        self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_server_url_missing_host_and_path(self):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'http://'
         }
+        repo = Mock(id='upsidedown')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1002,
-                                     error_codes.DKR1003], config)
+                                     error_codes.DKR1003], config, repo)
 
     def test_server_url_missing_scheme(self):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'www.pulpproject.org/foo'
         }
+        repo = Mock(id='andidliketotakeaminute')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1001,
-                                     error_codes.DKR1002], config)
+                                     error_codes.DKR1002], config, repo)
 
     def test_configuration_protected_true(self):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_PROTECTED: True
         }, {})
-
-        self.assertEquals((True, None), configuration.validate_config(config))
+        repo = Mock(id='justsitrightthere')
+        self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_configuration_protected_false_str(self):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_PROTECTED: 'false'
         }, {})
-
-        self.assertEquals((True, None), configuration.validate_config(config))
+        repo = Mock(id='illtellyouhowibecametheprince')
+        self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_configuration_protected_bad_str(self):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_PROTECTED: 'apple'
         }, {})
+        repo = Mock(id='ofatowncalledbellaire')
         assert_validation_exception(configuration.validate_config,
-                                    [error_codes.DKR1004], config)
+                                    [error_codes.DKR1004], config, repo)
+
+    def test_invalid_repo_registry_id(self):
+        config = PluginCallConfiguration({
+            constants.CONFIG_KEY_REPO_REGISTRY_ID: 'noUpperCase'
+        }, {})
+        repo = Mock(id='repoid')
+        assert_validation_exception(configuration.validate_config,
+                                    [error_codes.DKR1005], config, repo)
+
+        config2 = PluginCallConfiguration({
+            constants.CONFIG_KEY_REPO_REGISTRY_ID: 'Nouppsercase'
+        }, {})
+        assert_validation_exception(configuration.validate_config,
+                                    [error_codes.DKR1005], config2, repo)
+
+    def test_invalid_default_repo_registry_id(self):
+        config = PluginCallConfiguration({}, {})
+        repo = Mock(id='InvalidRegistry')
+        assert_validation_exception(configuration.validate_config,
+                                    [error_codes.DKR1006], config, repo)
+
+    def test_invalid_default_valid_override_repo_registry_id(self):
+        config = PluginCallConfiguration({
+            constants.CONFIG_KEY_REPO_REGISTRY_ID: 'valid'
+        }, {})
+        repo = Mock(id='ValidRepoInvalidRegistry')
+        try:
+            configuration.validate_config(config, repo)
+        except Exception, e:
+            self.fail(
+                'validate_config unexpectedly raised: {exception}'.format(exception=type(e))
+            )
+
+    def test__is_valid_repo_registry_id(self):
+        """
+        Test repo regisrty id validation
+        """
+        should_be_valid = [
+            'lowercase',
+            'lower-case',
+            'lower_case',
+            '134567890',
+            'alpha-numeric_123',
+            'periods.are.cool',
+            '..............',
+        ]
+        should_not_be_valid = [
+            'things with spaces',
+            'UPPERCASE',
+            'Uppercase',
+            'upperCase',
+            'uppercasE',
+            '$ymbols',
+            '$tuff.th@t.m!ght.h@ve.w%!rd.r#g#x.m*anings()'
+        ]
+        for candidate in should_be_valid:
+            valid = configuration._is_valid_repo_registry_id(candidate)
+            self.assertTrue(valid)
+            self.assertEqual(bool, type(valid))
+
+        for candidate in should_not_be_valid:
+            valid = configuration._is_valid_repo_registry_id(candidate)
+            self.assertFalse(valid)
+            self.assertEqual(bool, type(valid))
 
 
 class TestConfigurationGetters(unittest.TestCase):
