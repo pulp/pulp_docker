@@ -8,5 +8,13 @@ DKR1002 = Error("DKR1002", _("The url specified for %(field) is missing a hostna
                              "The value specified is '%(url)'."), ['field', 'url'])
 DKR1003 = Error("DKR1003", _("The url specified for %(field) is missing a path. "
                              "The value specified is '%(url)'."), ['field', 'url'])
-DKR1004 = Error("DKR1004", _("The value specified for %(field): '%(value)s' is not boolean."),
+DKR1004 = Error("DKR1004", _("The value specified for %(field)s: '%(value)s' is not boolean."),
                 ['field', 'value'])
+DKR1005 = Error("DKR1005", _(
+    "The value specified for %(field)s: '%(value)s' is invalid. Registry id must contain only "
+    "lower case letters, integers, hyphens, and periods."),
+    ['field', 'value'])
+DKR1006 = Error("DKR1006", _(
+    "If %(field)s is not specified, it will default to the id must contain only lower case letters,"
+    " integers, hyphens, and periods. Please either specify a registry id or change the repo id."),
+    ['field', 'value'])

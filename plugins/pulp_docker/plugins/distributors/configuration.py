@@ -1,5 +1,5 @@
-import logging
 import os
+import re
 from urlparse import urlparse
 
 from pulp.server.config import config as server_config
@@ -7,16 +7,17 @@ from pulp.server.exceptions import PulpCodedValidationException
 
 from pulp_docker.common import constants, error_codes
 
-_LOG = logging.getLogger(__name__)
 
-
-def validate_config(config):
+def validate_config(config, repo):
     """
     Validate a configuration
 
     :param config: Pulp configuration for the distributor
     :type  config: pulp.plugins.config.PluginCallConfiguration
-    :raises: PulpCodedValidationException if any validations failed
+    :param repo:   metadata describing the repository to which the
+                   configuration applies
+    :type  repo:   pulp.plugins.model.Repository
+    :raises:       PulpCodedValidationException if any validations failed
     """
     errors = []
     server_url = config.get(constants.CONFIG_KEY_REDIRECT_URL)
@@ -41,6 +42,19 @@ def validate_config(config):
             errors.append(PulpCodedValidationException(error_code=error_codes.DKR1004,
                                                        field=constants.CONFIG_KEY_PROTECTED,
                                                        value=protected))
+
+    # Check that the repo_registry is valid
+    repo_registry_id = config.get(constants.CONFIG_KEY_REPO_REGISTRY_ID)
+    if repo_registry_id and not _is_valid_repo_registry_id(repo_registry_id):
+        errors.append(PulpCodedValidationException(error_code=error_codes.DKR1005,
+                                                   field=constants.CONFIG_KEY_REPO_REGISTRY_ID,
+                                                   value=repo_registry_id))
+    # If the repo_registry_id is not specified, this value defaults to the
+    # repo id, so we need to validate that.
+    elif not repo_registry_id and not _is_valid_repo_registry_id(repo.id):
+        errors.append(PulpCodedValidationException(error_code=error_codes.DKR1006,
+                                                   field=constants.CONFIG_KEY_REPO_REGISTRY_ID,
+                                                   value=repo.id))
 
     if errors:
         raise PulpCodedValidationException(validation_exceptions=errors)
@@ -217,3 +231,16 @@ def get_repo_registry_id(repo, config):
     if not registry:
         registry = repo.id
     return registry
+
+
+def _is_valid_repo_registry_id(repo_registry_id):
+    """
+    Docker registry repos are restricted to lower case letters, numbers, hyphens, underscores, and
+    periods.
+
+    :param repo_registry_id: Docker registry id
+    :type  repo_registry_id: basestring
+    :return:                 True if valid, False if invalid
+    :rtype:                  boolean
+    """
+    return bool(re.match(r"^[a-z0-9-_.]*$", repo_registry_id))
