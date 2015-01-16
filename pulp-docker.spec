@@ -2,7 +2,7 @@
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
 Name: pulp-docker
-Version: 0.2.1
+Version: 0.2.2
 Release: 1%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
@@ -141,6 +141,13 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Fri Jan 16 2015 Chris Duryee <cduryee@redhat.com> 0.2.2-1
+- 1148556 - Validate repo-registry-id to ensure compatibility with Docker
+  (asmacdo@gmail.com)
+- Merge pull request #50 from beav/specfix (cduryee@redhat.com)
+- Merge pull request #49 from barnabycourt/1159828 (bcourt@redhat.com)
+- pulp-docker requires Pulp 2.5 or later (cduryee@redhat.com)
+
 * Fri Nov 21 2014 Chris Duryee <cduryee@redhat.com> 0.2.1-1
 - bump release to 1 (cduryee@redhat.com)
 - 1160272 - Adjusting configuration files' path for docker plugins.
