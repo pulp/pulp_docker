@@ -1,16 +1,15 @@
 from gettext import gettext as _
 import logging
+import shutil
 import tempfile
 
 from pulp.common.config import read_json_config
-from pulp.plugins.conduits.mixins import UnitAssociationCriteria
 from pulp.plugins.importer import Importer
+from pulp.server.db.model.criteria import UnitAssociationCriteria
 import pulp.server.managers.factory as manager_factory
-import shutil
 
 from pulp_docker.common import constants, tarutils
-from pulp_docker.plugins.importers import upload
-from pulp_docker.plugins.importers import sync
+from pulp_docker.plugins.importers import sync, upload
 
 
 _logger = logging.getLogger(__name__)
