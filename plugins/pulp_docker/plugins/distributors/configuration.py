@@ -236,11 +236,11 @@ def get_repo_registry_id(repo, config):
 def _is_valid_repo_registry_id(repo_registry_id):
     """
     Docker registry repos are restricted to lower case letters, numbers, hyphens, underscores, and
-    periods.
+    periods. Additionally, we allow a single slash for namespacing purposes.
 
     :param repo_registry_id: Docker registry id
     :type  repo_registry_id: basestring
     :return:                 True if valid, False if invalid
     :rtype:                  boolean
     """
-    return bool(re.match(r"^[a-z0-9-_.]*$", repo_registry_id))
+    return bool(re.match(r"^[a-z0-9-_.]*/?[a-z0-9-_.]*$", repo_registry_id))

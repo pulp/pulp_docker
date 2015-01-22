@@ -12,9 +12,10 @@ DKR1004 = Error("DKR1004", _("The value specified for %(field)s: '%(value)s' is 
                 ['field', 'value'])
 DKR1005 = Error("DKR1005", _(
     "The value specified for %(field)s: '%(value)s' is invalid. Registry id must contain only "
-    "lower case letters, integers, hyphens, and periods."),
+    "lower case letters, integers, hyphens, periods, and may include a single slash."),
     ['field', 'value'])
 DKR1006 = Error("DKR1006", _(
     "If %(field)s is not specified, it will default to the id must contain only lower case letters,"
-    " integers, hyphens, and periods. Please either specify a registry id or change the repo id."),
+    " integers, hyphens, periods, and may include a single slash. Please specify a valid registry "
+    "id or change the repo id."),
     ['field', 'value'])

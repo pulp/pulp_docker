@@ -76,6 +76,27 @@ class TestValidateConfig(unittest.TestCase):
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1004], config, repo)
 
+    def test_repo_regisrty_id_with_slash(self):
+        """
+        We need to allow a single slash in this field to allow namespacing.
+        """
+        config = PluginCallConfiguration({
+            constants.CONFIG_KEY_REPO_REGISTRY_ID: 'slashes/ok'
+        }, {})
+        repo = Mock(id='repoid')
+        self.assertEquals((True, None), configuration.validate_config(config, repo))
+
+    def test_repo_regisrty_id_with_multiple_slashes(self):
+        """
+        We need to allow only one slash.
+        """
+        config = PluginCallConfiguration({
+            constants.CONFIG_KEY_REPO_REGISTRY_ID: 'slashes/ok/notok'
+        }, {})
+        repo = Mock(id='repoid')
+        assert_validation_exception(configuration.validate_config,
+                                    [error_codes.DKR1005], config, repo)
+
     def test_invalid_repo_registry_id(self):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_REPO_REGISTRY_ID: 'noUpperCase'
