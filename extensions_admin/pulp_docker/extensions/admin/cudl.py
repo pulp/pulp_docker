@@ -153,6 +153,7 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
         value = kwargs.pop(OPT_PROTECTED.keyword, None)
         if value is not None:
             web_config[constants.CONFIG_KEY_PROTECTED] = value
+            export_config[constants.CONFIG_KEY_PROTECTED] = value
 
         value = kwargs.pop(OPT_REDIRECT_URL.keyword, None)
         if value is not None:

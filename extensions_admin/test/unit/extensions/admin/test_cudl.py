@@ -175,7 +175,8 @@ class TestUpdateDockerRepositoryCommand(unittest.TestCase):
                                                            'auto_publish': False,
                                                            'redirect-url': 'bar',
                                                            'repo-registry-id': 'flux'},
-                       'docker_export_distributor_name_cli': {'redirect-url': 'bar',
+                       'docker_export_distributor_name_cli': {'protected': True,
+                                                              'redirect-url': 'bar',
                                                               'repo-registry-id': 'flux'},
                        }
         self.context.server.repo.update.assert_called_once_with('foo-repo', repo_config,
