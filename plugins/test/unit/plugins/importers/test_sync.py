@@ -255,8 +255,7 @@ class TestGetLocalImagesStep(unittest.TestCase):
 
         self.assertTrue(unit is self.step.conduit.init_unit.return_value)
         self.step.conduit.init_unit.assert_called_once_with(constants.IMAGE_TYPE_ID,
-                                                            {'image_id': 'abc123'},
-                                                            {'parent_id': None, 'size': 12},
+                                                            {'image_id': 'abc123'}, {},
                                                             os.path.join(constants.IMAGE_TYPE_ID,
                                                                          'abc123'))
 

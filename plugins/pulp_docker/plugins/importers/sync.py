@@ -200,6 +200,10 @@ class GetLocalImagesStep(GetLocalUnitsStep):
         not just what fields are part of the unit key, but also how to derive
         the storage path.
 
+        Any keys in the "metadata" dict on the returned unit will overwrite the
+        corresponding values that are currently saved in the unit's metadata. In
+        this case, we pass an empty dict, because we don't want to make changes.
+
         :param unit_dict:   a flat dictionary that has all unit key, metadata,
                             etc. keys at the root level, representing a unit
                             in pulp
@@ -210,7 +214,7 @@ class GetLocalImagesStep(GetLocalUnitsStep):
         """
         model = DockerImage(unit_dict['image_id'], unit_dict.get('parent_id'),
                             unit_dict.get('size'))
-        return self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.unit_metadata,
+        return self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, {},
                                             model.relative_path)
 
 
