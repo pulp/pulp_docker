@@ -10,6 +10,7 @@ from nectar.request import DownloadRequest
 from pulp.common.plugins import importer_constants, reporting_constants
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.model import Repository as RepositoryModel, Unit
+from pulp.server.exceptions import MissingValue
 from pulp.server.managers import factory
 
 from pulp_docker.common import constants
@@ -33,7 +34,11 @@ class TestSyncStep(unittest.TestCase):
         self.config = PluginCallConfiguration({}, plugin_config)
         self.step = sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
 
-    def test_init(self):
+    @mock.patch.object(sync.SyncStep, 'validate')
+    def test_init(self, mock_validate):
+        # re-run this with the mock in place
+        self.step = sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
+
         self.assertEqual(self.step.step_id, constants.SYNC_STEP_MAIN)
 
         # make sure the children are present
@@ -51,6 +56,44 @@ class TestSyncStep(unittest.TestCase):
         # these are important because child steps will populate them with data
         self.assertEqual(self.step.available_units, [])
         self.assertEqual(self.step.tags, {})
+
+        mock_validate.assert_called_once_with(self.config)
+
+    def test_validate_pass(self):
+        self.step.validate(self.config)
+
+    def test_validate_no_name_or_feed(self):
+        config = PluginCallConfiguration({}, {})
+
+        try:
+            self.step.validate(config)
+        except MissingValue, e:
+            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
+            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
+        else:
+            raise AssertionError('validation should have failed')
+
+    def test_validate_no_name(self):
+        config = PluginCallConfiguration({}, {importer_constants.KEY_FEED: 'http://foo'})
+
+        try:
+            self.step.validate(config)
+        except MissingValue, e:
+            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
+            self.assertEqual(len(e.property_names), 1)
+        else:
+            raise AssertionError('validation should have failed')
+
+    def test_validate_no_feed(self):
+        config = PluginCallConfiguration({}, {constants.CONFIG_KEY_UPSTREAM_NAME: 'centos'})
+
+        try:
+            self.step.validate(config)
+        except MissingValue, e:
+            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
+            self.assertEqual(len(e.property_names), 1)
+        else:
+            raise AssertionError('validation should have failed')
 
     def test_generate_download_requests(self):
         self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
