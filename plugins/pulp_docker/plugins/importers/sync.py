@@ -9,6 +9,7 @@ from pulp.common.plugins import importer_constants
 from pulp.plugins.util import nectar_config
 from pulp.plugins.util.publish_step import PluginStep, DownloadStep, \
     GetLocalUnitsStep
+from pulp.server.exceptions import MissingValue
 
 from pulp_docker.common import constants
 from pulp_docker.common.models import DockerImage
@@ -20,6 +21,11 @@ _logger = logging.getLogger(__name__)
 
 
 class SyncStep(PluginStep):
+    required_settings = (
+        constants.CONFIG_KEY_UPSTREAM_NAME,
+        importer_constants.KEY_FEED,
+    )
+
     def __init__(self, repo=None, conduit=None, config=None,
                  working_dir=None):
         """
@@ -44,10 +50,12 @@ class SyncStep(PluginStep):
         # populated by GetMetadataStep
         self.tags = {}
 
-        # create a Repository object to interact with
+        self.validate(config)
         download_config = nectar_config.importer_config_to_nectar_config(config.flatten())
         upstream_name = config.get(constants.CONFIG_KEY_UPSTREAM_NAME)
         url = config.get(importer_constants.KEY_FEED)
+
+        # create a Repository object to interact with
         self.index_repository = Repository(upstream_name, download_config, url, working_dir)
 
         self.add_child(GetMetadataStep(working_dir=working_dir))
@@ -61,6 +69,24 @@ class SyncStep(PluginStep):
                                     repo=repo, config=config, working_dir=working_dir,
                                     description=_('Downloading remote files')))
         self.add_child(SaveUnits(working_dir))
+
+    @classmethod
+    def validate(cls, config):
+        """
+        Ensure that any required settings have non-empty values.
+
+        :param config:  config object for the sync
+        :type  config:  pulp.plugins.config.PluginCallConfiguration
+
+        :raises MissingValue:   if any required sync setting is missing
+        """
+        missing = []
+        for key in cls.required_settings:
+            if not config.get(key):
+                missing.append(key)
+
+        if missing:
+            raise MissingValue(missing)
 
     def generate_download_requests(self):
         """
