@@ -154,9 +154,9 @@ class TestSyncStep(unittest.TestCase):
         self.assertTrue(report is self.conduit.build_success_report.return_value)
 
 
-class TestGerMetadataStep(unittest.TestCase):
+class TestGetMetadataStep(unittest.TestCase):
     def setUp(self):
-        super(TestGerMetadataStep, self).setUp()
+        super(TestGetMetadataStep, self).setUp()
         self.working_dir = tempfile.mkdtemp()
         self.repo = RepositoryModel('repo1')
         self.repo.working_dir = self.working_dir
@@ -172,7 +172,7 @@ class TestGerMetadataStep(unittest.TestCase):
         self.index = self.step.parent.index_repository
 
     def tearDown(self):
-        super(TestGerMetadataStep, self).tearDown()
+        super(TestGetMetadataStep, self).tearDown()
         shutil.rmtree(self.working_dir)
 
     def test_updates_tags(self):
