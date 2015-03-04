@@ -152,7 +152,9 @@ The ``busybox`` repository uploaded above can be published for use with `Crane`_
 
 First the docker repository name must be specified, which can
 be different than the ``repo_id``. The repository name should usually have a
-namespace, a ``/``, and then a name. The command below sets the repository name
+namespace, a ``/``, and then a name. Other than the slash between the namespace and the name,
+it is required that this field can contain only lower case letters, integers, hyphens, and periods.
+The command below sets the repository name
 to ``pulpdemo/busybox``::
 
     $ pulp-admin docker repo update --repo-id=busybox --repo-registry-id=pulpdemo/busybox
