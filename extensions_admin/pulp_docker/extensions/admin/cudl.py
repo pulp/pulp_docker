@@ -1,6 +1,7 @@
 from gettext import gettext as _
 
-from pulp.client import arg_utils, parsers
+from okaara import parsers as okaara_parsers
+from pulp.client import arg_utils
 from pulp.client.commands.options import OPTION_REPO_ID
 from pulp.client.commands.repo.cudl import CreateAndConfigureRepositoryCommand
 from pulp.client.commands.repo.cudl import UpdateRepositoryCommand
@@ -16,7 +17,7 @@ d = _('if "true", on each successful sync the repository will automatically be '
       'published; if "false" content will only be available after manually publishing '
       'the repository; defaults to "true"')
 OPT_AUTO_PUBLISH = PulpCliOption('--auto-publish', d, required=False, default='true',
-                                 parse_func=parsers.parse_boolean)
+                                 parse_func=okaara_parsers.parse_boolean)
 
 d = _('The URL that will be used when generating the redirect map for connecting the docker '
       'API to the location the content is stored. '
@@ -29,7 +30,8 @@ OPT_REPO_REGISTRY_ID = PulpCliOption('--repo-registry-id', d, required=False)
 
 d = _('if "true" requests for this repo will be checked for an entitlement certificate authorizing '
       'the server url for this repository; if "false" no authorization checking will be done.')
-OPT_PROTECTED = PulpCliOption('--protected', d, required=False, parse_func=parsers.parse_boolean)
+OPT_PROTECTED = PulpCliOption('--protected', d, required=False,
+                              parse_func=okaara_parsers.parse_boolean)
 
 d = _('Tag a particular image in the repository. The format of the parameter is '
       '"<tag_name>:<image_hash>"; for example: "latest:abc123"')
