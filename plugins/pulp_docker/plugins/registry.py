@@ -3,11 +3,15 @@ import errno
 import json
 import logging
 import os
+import traceback
 import urlparse
 
 from nectar.downloaders.threaded import HTTPThreadedDownloader
 from nectar.listener import AggregatingEventListener
 from nectar.request import DownloadRequest
+from pulp.server import exceptions as pulp_exceptions
+
+from pulp_docker.common import error_codes
 
 
 _logger = logging.getLogger(__name__)
@@ -93,11 +97,20 @@ class Repository(object):
 
         :return:    list of image IDs in the repo
         :rtype:     list
+
+        :raises pulp_exceptions.PulpCodedException: if fetching the IDs fails
         """
         path = self.IMAGES_PATH % self.name
 
         _logger.debug('retrieving image ids from remote registry')
-        raw_data = self._get_single_path(path)
+        try:
+            raw_data = self._get_single_path(path)
+        except IOError:
+            _logger.debug(traceback.format_exc())
+            raise pulp_exceptions.PulpCodedException(error_code=error_codes.DKR1007,
+                                                     repo=self.name,
+                                                     registry=self.registry_url)
+
         return [item['id'] for item in raw_data]
 
     def get_tags(self):

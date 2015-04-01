@@ -1,15 +1,21 @@
 from cStringIO import StringIO
 import json
 import os
+import shutil
 import tempfile
-import unittest
+
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
 
 import mock
 from nectar.config import DownloaderConfig
 from nectar.downloaders.threaded import HTTPThreadedDownloader
 from nectar.report import DownloadReport
 from nectar.request import DownloadRequest
-import shutil
+from pulp.server.exceptions import PulpCodedException
+from pulp_docker.common import error_codes
 
 from pulp_docker.plugins import registry
 
@@ -109,6 +115,15 @@ class TestGetImageIDs(unittest.TestCase):
 
         self.assertEqual(ret, ['abc123'])
         mock_get.assert_called_once_with('/v1/repositories/pulp/crane/images')
+
+    def test_ioerror(self):
+        with mock.patch.object(self.repo, '_get_single_path') as mock_get:
+            mock_get.side_effect = IOError
+
+            with self.assertRaises(PulpCodedException) as assertion:
+                self.repo.get_image_ids()
+
+            self.assertEqual(assertion.exception.error_code, error_codes.DKR1007)
 
 
 class TestGetTags(unittest.TestCase):
