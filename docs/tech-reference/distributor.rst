@@ -37,7 +37,7 @@ Supported keys
 ``repo-registry-id``
  The name that should be used for the repository when it is served by Crane. If specified
  it will be used for the ``repository`` field in the :ref:`redirect file <redirect_file>`.
- If a value is not specified, then repository id is used.
+ If a value is not specified, then repository id is used. 
 
 
 Export Distributor
@@ -78,7 +78,9 @@ Supported keys
 ``repo-registry-id``
  The name that should be used for the repository when it is served by Crane. If specified
  it will be used for the ``repository`` field in the :ref:`redirect file <redirect_file>`.
- If a value is not specified, then repository id is used.
+ If a value is not specified, then repository id is used. Docker requires that this field
+ contains only lower case letters, integers, hyphens, and periods. Additionally a single
+ slash can be used to namespace the repo.
 
 
 .. _redirect_file:
