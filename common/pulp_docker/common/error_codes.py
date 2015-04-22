@@ -19,3 +19,5 @@ DKR1006 = Error("DKR1006", _(
     " integers, hyphens, periods, and may include a single slash. Please specify a valid registry "
     "id or change the repo id."),
     ['field', 'value'])
+DKR1007 = Error("DKR1007", _("Could not fetch repository %(repo)s from registry %(registry)s"),
+                ['repo', 'registry'])
