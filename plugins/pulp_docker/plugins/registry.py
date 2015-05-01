@@ -57,7 +57,16 @@ class Repository(object):
 
         :return:    whatever gets deserialized out of the response body's json
         """
-        url = urlparse.urljoin(self.registry_url, path)
+        # if talking to docker hub, we'll get an endpoint specified, and then we'll have to get
+        # tags from that endpoint instead of talking to the original feed URL.
+        if self.endpoint:
+            # we assume the same scheme that the registry URL used
+            registry_url_parts = urlparse.urlsplit(self.registry_url)
+            parts = urlparse.SplitResult(scheme=registry_url_parts.scheme, netloc=self.endpoint,
+                                         path=path, query=None, fragment=None)
+            url = urlparse.urlunsplit(parts)
+        else:
+            url = urlparse.urljoin(self.registry_url, path)
         request = DownloadRequest(url, StringIO())
         if path.endswith('/images'):
             # this is required by the docker index and indicates that it should
@@ -65,6 +74,9 @@ class Repository(object):
             if request.headers is None:
                 request.headers = {}
             request.headers[self.DOCKER_TOKEN_HEADER] = 'true'
+        # endpoints require auth
+        if self.endpoint:
+            self.add_auth_header(request)
         report = self.downloader.download_one(request)
 
         if report.state == report.DOWNLOAD_FAILED:
