@@ -49,6 +49,49 @@ class TestGetSinglePath(unittest.TestCase):
         self.assertEqual(req.url, 'http://pulpproject.org/v1/repositories/pulp/crane/tags')
 
     @mock.patch.object(HTTPThreadedDownloader, 'download_one')
+    def test_get_tags_from_endpoint(self, mock_download_one):
+        body = json.dumps({'latest': 'abc123'})
+        report = DownloadReport('http://some-endpoint.org/v1/repositories/pulp/crane/tags',
+                                StringIO(body))
+        report.headers = {}
+        mock_download_one.return_value = report
+        self.repo.endpoint = 'some-endpoint.org'
+        # this lets us test that auth was added to the request
+        self.repo.token = 'letmein'
+
+        ret = self.repo._get_single_path('/v1/repositories/pulp/crane/tags')
+
+        self.assertEqual(ret, {'latest': 'abc123'})
+        self.assertEqual(mock_download_one.call_count, 1)
+        self.assertTrue(isinstance(mock_download_one.call_args[0][0], DownloadRequest))
+        req = mock_download_one.call_args[0][0]
+        self.assertEqual(req.url, 'http://some-endpoint.org/v1/repositories/pulp/crane/tags')
+        # make sure the authorization was added, which is usually required by an endpoint
+        self.assertTrue('Authorization' in req.headers)
+
+    @mock.patch.object(HTTPThreadedDownloader, 'download_one')
+    def test_get_tags_from_ssl_endpoint(self, mock_download_one):
+        body = json.dumps({'latest': 'abc123'})
+        report = DownloadReport('https://some-endpoint.org/v1/repositories/pulp/crane/tags',
+                                StringIO(body))
+        report.headers = {}
+        mock_download_one.return_value = report
+        self.repo.endpoint = 'some-endpoint.org'
+        self.repo.registry_url = 'https://pulpproject.org/'
+        # this lets us test that auth was added to the request
+        self.repo.token = 'letmein'
+
+        ret = self.repo._get_single_path('/v1/repositories/pulp/crane/tags')
+
+        self.assertEqual(ret, {'latest': 'abc123'})
+        self.assertEqual(mock_download_one.call_count, 1)
+        self.assertTrue(isinstance(mock_download_one.call_args[0][0], DownloadRequest))
+        req = mock_download_one.call_args[0][0]
+        self.assertEqual(req.url, 'https://some-endpoint.org/v1/repositories/pulp/crane/tags')
+        # make sure the authorization was added, which is usually required by an endpoint
+        self.assertTrue('Authorization' in req.headers)
+
+    @mock.patch.object(HTTPThreadedDownloader, 'download_one')
     def test_get_images(self, mock_download_one):
         body = json.dumps(['abc123'])
         report = DownloadReport('http://pulpproject.org/v1/repositories/pulp/crane/images',
