@@ -15,9 +15,9 @@ DKR1005 = Error("DKR1005", _(
     "lower case letters, integers, hyphens, periods, and may include a single slash."),
     ['field', 'value'])
 DKR1006 = Error("DKR1006", _(
-    "If %(field)s is not specified, it will default to the id must contain only lower case letters,"
-    " integers, hyphens, periods, and may include a single slash. Please specify a valid registry "
-    "id or change the repo id."),
+    "%(field)s may only contain lower case letters, integers, hyphens, periods, and may include "
+    "a single slash. When %(field)s is not specified, the repo-id value is used. In that case the "
+    "repo-id needs to adhere to the same requirements as %(field)s."),
     ['field', 'value'])
 DKR1007 = Error("DKR1007", _("Could not fetch repository %(repo)s from registry %(registry)s"),
                 ['repo', 'registry'])
