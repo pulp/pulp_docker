@@ -18,21 +18,21 @@ class TestValidateConfig(unittest.TestCase):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'http://www.pulpproject.org/foo'
         }
-        repo = Mock(id='nowthisisastory')
+        repo = Mock(repo_id='nowthisisastory')
         self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_server_url_fully_qualified_with_port(self):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'http://www.pulpproject.org:440/foo'
         }
-        repo = Mock(id='allabouthow')
+        repo = Mock(repo_id='allabouthow')
         self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_server_url_empty(self):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: ''
         }
-        repo = Mock(id='mylifegotflipturned')
+        repo = Mock(repo_id='mylifegotflipturned')
         # This is valid as the default server should be used
         self.assertEquals((True, None), configuration.validate_config(config, repo))
 
@@ -40,7 +40,7 @@ class TestValidateConfig(unittest.TestCase):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'http://'
         }
-        repo = Mock(id='upsidedown')
+        repo = Mock(repo_id='upsidedown')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1002,
                                      error_codes.DKR1003], config, repo)
@@ -49,7 +49,7 @@ class TestValidateConfig(unittest.TestCase):
         config = {
             constants.CONFIG_KEY_REDIRECT_URL: 'www.pulpproject.org/foo'
         }
-        repo = Mock(id='andidliketotakeaminute')
+        repo = Mock(repo_id='andidliketotakeaminute')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1001,
                                      error_codes.DKR1002], config, repo)
@@ -58,21 +58,21 @@ class TestValidateConfig(unittest.TestCase):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_PROTECTED: True
         }, {})
-        repo = Mock(id='justsitrightthere')
+        repo = Mock(repo_id='justsitrightthere')
         self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_configuration_protected_false_str(self):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_PROTECTED: 'false'
         }, {})
-        repo = Mock(id='illtellyouhowibecametheprince')
+        repo = Mock(repo_id='illtellyouhowibecametheprince')
         self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_configuration_protected_bad_str(self):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_PROTECTED: 'apple'
         }, {})
-        repo = Mock(id='ofatowncalledbellaire')
+        repo = Mock(repo_id='ofatowncalledbellaire')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1004], config, repo)
 
@@ -83,7 +83,7 @@ class TestValidateConfig(unittest.TestCase):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_REPO_REGISTRY_ID: 'slashes/ok'
         }, {})
-        repo = Mock(id='repoid')
+        repo = Mock(repo_id='repoid')
         self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_repo_regisrty_id_with_multiple_slashes(self):
@@ -93,7 +93,7 @@ class TestValidateConfig(unittest.TestCase):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_REPO_REGISTRY_ID: 'slashes/ok/notok'
         }, {})
-        repo = Mock(id='repoid')
+        repo = Mock(repo_id='repoid')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1005], config, repo)
 
@@ -101,7 +101,7 @@ class TestValidateConfig(unittest.TestCase):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_REPO_REGISTRY_ID: 'noUpperCase'
         }, {})
-        repo = Mock(id='repoid')
+        repo = Mock(repo_id='repoid')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1005], config, repo)
 
@@ -113,7 +113,7 @@ class TestValidateConfig(unittest.TestCase):
 
     def test_invalid_default_repo_registry_id(self):
         config = PluginCallConfiguration({}, {})
-        repo = Mock(id='InvalidRegistry')
+        repo = Mock(repo_id='InvalidRegistry')
         assert_validation_exception(configuration.validate_config,
                                     [error_codes.DKR1006], config, repo)
 
@@ -121,7 +121,7 @@ class TestValidateConfig(unittest.TestCase):
         config = PluginCallConfiguration({
             constants.CONFIG_KEY_REPO_REGISTRY_ID: 'valid'
         }, {})
-        repo = Mock(id='ValidRepoInvalidRegistry')
+        repo = Mock(repo_id='ValidRepoInvalidRegistry')
         try:
             configuration.validate_config(config, repo)
         except Exception, e:
@@ -169,7 +169,7 @@ class TestConfigurationGetters(unittest.TestCase):
         self.publish_dir = os.path.join(self.working_directory, 'publish')
         self.repo_working = os.path.join(self.working_directory, 'work')
 
-        self.repo = Mock(id='foo', working_dir=self.repo_working)
+        self.repo = Mock(repo_id='foo', working_dir=self.repo_working)
         self.config = {
             constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: self.publish_dir
         }
@@ -183,15 +183,15 @@ class TestConfigurationGetters(unittest.TestCase):
 
     def test_get_master_publish_dir(self):
         directory = configuration.get_master_publish_dir(self.repo, self.config)
-        self.assertEquals(directory, os.path.join(self.publish_dir, 'master', self.repo.id))
+        self.assertEquals(directory, os.path.join(self.publish_dir, 'master', self.repo.repo_id))
 
     def test_get_web_publish_dir(self):
         directory = configuration.get_web_publish_dir(self.repo, self.config)
-        self.assertEquals(directory, os.path.join(self.publish_dir, 'web', self.repo.id))
+        self.assertEquals(directory, os.path.join(self.publish_dir, 'web', self.repo.repo_id))
 
     def test_get_repo_relative_path(self):
         directory = configuration.get_repo_relative_path(self.repo, self.config)
-        self.assertEquals(directory, self.repo.id)
+        self.assertEquals(directory, self.repo.repo_id)
 
     def test_get_redirect_url_from_config(self):
         sample_url = 'http://www.pulpproject.org/'
@@ -211,8 +211,8 @@ class TestConfigurationGetters(unittest.TestCase):
     def test_get_redirect_url_generated(self, mock_server_config):
         mock_server_config.get.return_value = 'www.foo.bar'
         computed_result = 'https://www.foo.bar/pulp/docker/baz/'
-        self.assertEquals(computed_result, configuration.get_redirect_url({},
-                                                                          Mock(id='baz')))
+        self.assertEquals(computed_result,
+                          configuration.get_redirect_url({}, Mock(repo_id='baz')))
 
     def test_get_export_repo_filename(self):
         filename = configuration.get_export_repo_filename(self.repo, self.config)

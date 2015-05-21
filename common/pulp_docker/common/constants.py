@@ -32,6 +32,10 @@ SYNC_STEP_GET_LOCAL = 'sync_step_metadata'
 SYNC_STEP_DOWNLOAD = 'sync_step_download'
 SYNC_STEP_SAVE = 'sync_step_save'
 
+UPLOAD_STEP = 'upload_units_step'
+UPLOAD_STEP_METADATA = 'upload_step_metadata'
+UPLOAD_STEP_SAVE = 'upload_step_save'
+
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'
 PUBLISH_STEP_EXPORT_PUBLISHER = 'export_to_tar'

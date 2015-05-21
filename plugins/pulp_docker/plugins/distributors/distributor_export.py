@@ -2,10 +2,10 @@ from gettext import gettext as _
 import copy
 import logging
 import os
-import shutil
 
 from pulp.common.config import read_json_config
 from pulp.plugins.distributor import Distributor
+from pulp.server.db import model
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors.publish_steps import ExportPublisher
@@ -59,7 +59,7 @@ class DockerExportDistributor(Distributor):
         self._publisher = None
         self.canceled = False
 
-    def validate_config(self, repo, config, config_conduit):
+    def validate_config(self, repo_transfer, config, config_conduit):
         """
         Allows the distributor to check the contents of a potential configuration
         for the given repository. This call is made both for the addition of
@@ -78,9 +78,9 @@ class DockerExportDistributor(Distributor):
         have a configured distributor of this type. The distributor configurations
         is found in each repository in the "plugin_configs" field.
 
-        :param repo: metadata describing the repository to which the
+        :param repo_transfer: metadata describing the repository to which the
                      configuration applies
-        :type  repo: pulp.plugins.model.Repository
+        :type  repo_transfer: pulp.plugins.model.Repository
 
         :param config: plugin configuration instance; the proposed repo
                        configuration is found within
@@ -92,9 +92,11 @@ class DockerExportDistributor(Distributor):
         :return: tuple of (bool, str) to describe the result
         :rtype:  tuple
         """
+        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+
         return configuration.validate_config(config, repo)
 
-    def publish_repo(self, repo, publish_conduit, config):
+    def publish_repo(self, repo_transfer, publish_conduit, config):
         """
         Publishes the given repository.
 
@@ -106,8 +108,8 @@ class DockerExportDistributor(Distributor):
         is not the responsibility of the distributor to rollback any changes
         that have been made.
 
-        :param repo: metadata describing the repository
-        :type  repo: pulp.plugins.model.Repository
+        :param repo_transfer: metadata describing the repository
+        :type  repo_transfer: pulp.plugins.model.Repository
 
         :param publish_conduit: provides access to relevant Pulp functionality
         :type  publish_conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
@@ -118,8 +120,10 @@ class DockerExportDistributor(Distributor):
         :return: report describing the publish run
         :rtype:  pulp.plugins.model.PublishReport
         """
+        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+
         self._publisher = ExportPublisher(repo, publish_conduit, config)
-        return self._publisher.publish()
+        return self._publisher.process_lifecycle()
 
     def cancel_publish_repo(self):
         """
@@ -129,7 +133,7 @@ class DockerExportDistributor(Distributor):
         if self._publisher is not None:
             self._publisher.cancel()
 
-    def distributor_removed(self, repo, config):
+    def distributor_removed(self, repo_transfer, config):
         """
         Called when a distributor of this type is removed from a repository.
         This hook allows the distributor to clean up any files that may have
@@ -143,17 +147,13 @@ class DockerExportDistributor(Distributor):
         from the repository and the working directory contents will still be
         wiped by Pulp.
 
-        :param repo: metadata describing the repository
-        :type  repo: pulp.plugins.model.Repository
+        :param repo_transfer: metadata describing the repository
+        :type  repo_transfer: pulp.plugins.model.Repository
 
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        # remove the directories that might have been created for this repo/distributor
-        dir_list = [repo.working_dir]
-
-        for repo_dir in dir_list:
-            shutil.rmtree(repo_dir, ignore_errors=True)
+        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
 
         # Remove the published app file & directory links
         file_list = [os.path.join(configuration.get_export_repo_directory(config),

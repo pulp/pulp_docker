@@ -16,6 +16,9 @@ setup(
         'pulp.distributors': [
             'web_distributor = pulp_docker.plugins.distributors.distributor_web:entry_point',
             'export_distributor = pulp_docker.plugins.distributors.distributor_export:entry_point',
+        ],
+        'pulp.unit_models': [
+            'docker_image=pulp_docker.plugins.db.models:DockerImage'
         ]
     }
 )

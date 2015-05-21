@@ -16,7 +16,7 @@ def validate_config(config, repo):
     :type  config: pulp.plugins.config.PluginCallConfiguration
     :param repo:   metadata describing the repository to which the
                    configuration applies
-    :type  repo:   pulp.plugins.model.Repository
+    :type  repo:   pulp.server.db.model.Repository
     :raises:       PulpCodedValidationException if any validations failed
     """
     errors = []
@@ -51,10 +51,10 @@ def validate_config(config, repo):
                                                    value=repo_registry_id))
     # If the repo_registry_id is not specified, this value defaults to the
     # repo id, so we need to validate that.
-    elif not repo_registry_id and not _is_valid_repo_registry_id(repo.id):
+    elif not repo_registry_id and not _is_valid_repo_registry_id(repo.repo_id):
         errors.append(PulpCodedValidationException(error_code=error_codes.DKR1006,
                                                    field=constants.CONFIG_KEY_REPO_REGISTRY_ID,
-                                                   value=repo.id))
+                                                   value=repo.repo_id))
 
     if errors:
         raise PulpCodedValidationException(validation_exceptions=errors)
@@ -81,13 +81,13 @@ def get_master_publish_dir(repo, config):
     and linked from the directory published by the web server in an atomic action.
 
     :param repo: repository to get the master publishing directory for
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
     :param config: configuration instance
     :type  config: pulp.plugins.config.PluginCallConfiguration or None
     :return: master publishing directory for the given repository
     :rtype:  str
     """
-    return os.path.join(get_root_publish_directory(config), 'master', repo.id)
+    return os.path.join(get_root_publish_directory(config), 'master', repo.repo_id)
 
 
 def get_web_publish_dir(repo, config):
@@ -96,7 +96,7 @@ def get_web_publish_dir(repo, config):
     Returns the global default if not configured.
 
     :param repo: repository to get relative path for
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
     :param config: configuration instance
     :type  config: pulp.plugins.config.PluginCallConfiguration or None
 
@@ -127,12 +127,12 @@ def get_redirect_file_name(repo):
     Get the name to use when generating the redirect file for a repository
 
     :param repo: the repository to get the app file name for
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
 
     :returns: the name to use for the redirect file
     :rtype:  str
     """
-    return '%s.json' % repo.id
+    return '%s.json' % repo.repo_id
 
 
 def get_redirect_url(config, repo):
@@ -142,7 +142,7 @@ def get_redirect_url(config, repo):
     :param config: configuration instance for the repository
     :type  config: pulp.plugins.config.PluginCallConfiguration or dict
     :param repo: repository to get url for
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
 
     """
     redirect_url = config.get(constants.CONFIG_KEY_REDIRECT_URL)
@@ -152,7 +152,7 @@ def get_redirect_url(config, repo):
     else:
         # build the redirect URL from the server config
         server_name = server_config.get('server', 'server_name')
-        redirect_url = 'https://%s/pulp/docker/%s/' % (server_name, repo.id)
+        redirect_url = 'https://%s/pulp/docker/%s/' % (server_name, repo.repo_id)
 
     return redirect_url
 
@@ -162,13 +162,13 @@ def get_repo_relative_path(repo, config):
     Get the configured relative path for the given repository.
 
     :param repo: repository to get relative path for
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
     :param config: configuration instance for the repository
     :type  config: pulp.plugins.config.PluginCallConfiguration or dict
     :return: relative path for the repository
     :rtype:  str
     """
-    return repo.id
+    return repo.repo_id
 
 
 def get_export_repo_directory(config):
@@ -188,13 +188,13 @@ def get_export_repo_filename(repo, config):
     Get the file name for a repository export
 
     :param repo: repository being exported
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
     :param config: configuration instance
     :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
     :return: The file name for the published tar file
     :rtype:  str
     """
-    return '%s.tar' % repo.id
+    return '%s.tar' % repo.repo_id
 
 
 def get_export_repo_file_with_path(repo, config):
@@ -202,7 +202,7 @@ def get_export_repo_file_with_path(repo, config):
     Get the file name to use when exporting a docker repo as a tar file
 
     :param repo: repository being exported
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
     :param config: configuration instance
     :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
     :return: The absolute file name for the tar file that will be exported
@@ -221,7 +221,7 @@ def get_repo_registry_id(repo, config):
     been specified on the repo fail back to the repo id.
 
     :param repo: repository to get relative path for
-    :type  repo: pulp.plugins.model.Repository
+    :type  repo: pulp.server.db.model.Repository
     :param config: configuration instance
     :type  config: pulp.plugins.config.PluginCallConfiguration or NoneType
     :return: The name of the repository as it should be represented in in the Docker API
@@ -229,7 +229,7 @@ def get_repo_registry_id(repo, config):
     """
     registry = config.get(constants.CONFIG_KEY_REPO_REGISTRY_ID)
     if not registry:
-        registry = repo.id
+        registry = repo.repo_id
     return registry
 
 

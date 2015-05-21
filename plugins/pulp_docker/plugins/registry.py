@@ -165,7 +165,8 @@ class Repository(object):
             url = urlparse.urljoin(self.get_image_url(), path)
             destination = os.path.join(self.working_dir, image_id, 'ancestry')
             try:
-                os.mkdir(os.path.split(destination)[0])
+                dirname = os.path.dirname(destination)
+                os.makedirs(dirname)
             except OSError, e:
                 # it's ok if the directory already exists
                 if e.errno != errno.EEXIST:
