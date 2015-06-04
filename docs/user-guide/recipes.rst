@@ -49,7 +49,7 @@ Then create a pulp repository and run an upload command with ``pulp-admin``::
 
     Starting upload of selected units. If this process is stopped through ctrl+c,
     the uploads will be paused and may be resumed later using the resume command or
-    cancelled entirely using the cancel command.
+    canceled entirely using the cancel command.
 
     Uploading: busybox.tar
     [==================================================] 100%
@@ -110,7 +110,7 @@ and any ancestors of that image will not be imported::
 
     Starting upload of selected units. If this process is stopped through ctrl+c,
     the uploads will be paused and may be resumed later using the resume command or
-    cancelled entirely using the cancel command.
+    canceled entirely using the cancel command.
 
     Uploading: tutorial.tar
     [==================================================] 100%
