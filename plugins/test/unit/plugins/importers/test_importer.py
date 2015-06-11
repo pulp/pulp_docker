@@ -190,6 +190,7 @@ class TestValidateConfig(unittest.TestCase):
             self.assertEqual(DockerImporter().validate_config(repo, config), (True, ''))
 
 
+@mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
 class TestRemoveUnit(unittest.TestCase):
 
     def setUp(self):
@@ -198,22 +199,18 @@ class TestRemoveUnit(unittest.TestCase):
         self.config = PluginCallConfiguration({}, {})
         self.mock_unit = mock.Mock(unit_key={'image_id': 'foo'}, metadata={})
 
-    @mock.patch('pulp_docker.plugins.importers.importer.manager_factory.repo_manager')
-    def test_remove_with_tag(self, mock_repo_manager):
-        mock_repo_manager.return_value.get_repo_scratchpad.return_value = \
-            {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
-                        constants.IMAGE_ID_KEY: 'foo'}]}
+    def test_remove_with_tag(self, mock_repo_qs):
+        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
+        mock_repo.scratchpad = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
+                                constants.IMAGE_ID_KEY: 'foo'}]}
         DockerImporter().remove_units(self.repo, [self.mock_unit], self.config)
-        mock_repo_manager.return_value.set_repo_scratchpad.assert_called_once_with(
-            self.repo.id, {u'tags': []}
-        )
+        self.assertEqual(mock_repo.scratchpad['tags'], [])
 
-    @mock.patch('pulp_docker.plugins.importers.importer.manager_factory.repo_manager')
-    def test_remove_without_tag(self, mock_repo_manager):
+    def test_remove_without_tag(self, mock_repo_qs):
         expected_tags = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
                                     constants.IMAGE_ID_KEY: 'bar'}]}
-        mock_repo_manager.return_value.get_repo_scratchpad.return_value = expected_tags
+        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
+        mock_repo.scratchpad = expected_tags
 
         DockerImporter().remove_units(self.repo, [self.mock_unit], self.config)
-        mock_repo_manager.return_value.set_repo_scratchpad.assert_called_once_with(
-            self.repo.id, expected_tags)
+        self.assertEqual(mock_repo.scratchpad['tags'], expected_tags['tags'])

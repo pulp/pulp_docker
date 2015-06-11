@@ -2,12 +2,14 @@ import json
 import os
 import shutil
 import tempfile
-import unittest
+try:
+    import unittest2 as unittest
+except ImportError:
+    import unittest
 
 import mock
 from pulp.plugins.model import Unit
 from pulp.server.managers import factory
-from pulp.server.managers.repo.cud import RepoManager
 
 import data
 from pulp_docker.common import constants
@@ -121,45 +123,45 @@ class TestSaveModels(unittest.TestCase):
             shutil.rmtree(dest)
 
 
-@mock.patch.object(RepoManager, 'get_repo_scratchpad', spec_set=True)
-@mock.patch.object(RepoManager, 'update_repo_scratchpad', spec_set=True)
+@mock.patch('pulp_docker.plugins.importers.tags.model.Repository.objects')
 class TestUpdateTags(unittest.TestCase):
-    def test_basic_update(self, mock_update, mock_get):
-        mock_get.return_value = {'foo': 'other data that should not be part of the update'}
+
+    def test_basic_update(self, mock_repo_qs):
+        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
+        mock_repo.scratchpad = {}
+        upload.update_tags('repo1', data.busybox_tar_path)
+        mock_repo.save.assert_called_once_with()
+        self.assertEqual(
+            mock_repo.scratchpad['tags'], [{constants.IMAGE_TAG_KEY: 'latest',
+                                           constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
+        )
+
+    def test_preserves_existing_tags(self, mock_repo_qs):
+        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
+        mock_repo.scratchpad = {'tags': [{constants.IMAGE_TAG_KEY: 'greatest',
+                                          constants.IMAGE_ID_KEY: data.busybox_ids[1]}]}
 
         upload.update_tags('repo1', data.busybox_tar_path)
 
-        mock_update.assert_called_once_with('repo1',
-                                            {'tags':
-                                                [{constants.IMAGE_TAG_KEY: 'latest',
-                                                  constants.IMAGE_ID_KEY: data.busybox_ids[0]}]})
+        expected_tags = [{constants.IMAGE_TAG_KEY: 'greatest',
+                          constants.IMAGE_ID_KEY: data.busybox_ids[1]},
+                         {constants.IMAGE_TAG_KEY: 'latest',
+                          constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
+        self.assertEqual(mock_repo.scratchpad['tags'], expected_tags)
+        mock_repo.save.assert_called_once_with()
 
-    def test_preserves_existing_tags(self, mock_update, mock_get):
-        mock_get.return_value = {'tags': [{constants.IMAGE_TAG_KEY: 'greatest',
-                                           constants.IMAGE_ID_KEY: data.busybox_ids[1]}]}
-
-        upload.update_tags('repo1', data.busybox_tar_path)
-
-        expected_tags = {
-            'tags': [{constants.IMAGE_TAG_KEY: 'greatest',
-                      constants.IMAGE_ID_KEY: data.busybox_ids[1]},
-                     {constants.IMAGE_TAG_KEY: 'latest',
-                      constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
-        }
-        mock_update.assert_called_once_with('repo1', expected_tags)
-
-    def test_overwrite_existing_duplicate_tags(self, mock_update, mock_get):
-        mock_get.return_value = {'tags': [{constants.IMAGE_TAG_KEY: 'latest',
-                                           constants.IMAGE_ID_KEY: 'original_latest'},
-                                          {constants.IMAGE_TAG_KEY: 'existing',
-                                           constants.IMAGE_ID_KEY: 'existing'}]}
+    def test_overwrite_existing_duplicate_tags(self, mock_repo_qs):
+        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
+        mock_repo.scratchpad = {'tags': [{constants.IMAGE_TAG_KEY: 'latest',
+                                          constants.IMAGE_ID_KEY: 'original_latest'},
+                                         {constants.IMAGE_TAG_KEY: 'existing',
+                                          constants.IMAGE_ID_KEY: 'existing'}]}
 
         upload.update_tags('repo1', data.busybox_tar_path)
 
-        expected_tags = {
-            'tags': [{constants.IMAGE_TAG_KEY: 'existing',
-                      constants.IMAGE_ID_KEY: 'existing'},
-                     {constants.IMAGE_TAG_KEY: 'latest',
-                      constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
-        }
-        mock_update.assert_called_once_with('repo1', expected_tags)
+        expected_tags = [{constants.IMAGE_TAG_KEY: 'existing',
+                          constants.IMAGE_ID_KEY: 'existing'},
+                         {constants.IMAGE_TAG_KEY: 'latest',
+                          constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
+        self.assertEqual(mock_repo.scratchpad['tags'], expected_tags)
+        mock_repo.save.assert_called_once_with()

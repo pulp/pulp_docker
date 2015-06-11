@@ -1,4 +1,5 @@
-from pulp.server.managers import factory
+from pulp.server.db import model
+
 from pulp_docker.common import tags
 
 
@@ -11,7 +12,7 @@ def update_tags(repo_id, new_tags):
     :param new_tags:    dictionary of tag:image_id
     :type  new_tags:    dict
     """
-    repo_manager = factory.repo_manager()
-    scratchpad = repo_manager.get_repo_scratchpad(repo_id)
-    new_tags = tags.generate_updated_tags(scratchpad, new_tags)
-    repo_manager.update_repo_scratchpad(repo_id, {'tags': new_tags})
+    repo_obj = model.Repository.objects.get_repo_or_missing_resource(repo_id)
+    new_tags = tags.generate_updated_tags(repo_obj.scratchpad, new_tags)
+    repo_obj.scratchpad['tags'] = new_tags
+    repo_obj.save()
