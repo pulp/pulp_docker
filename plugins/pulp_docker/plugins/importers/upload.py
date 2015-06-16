@@ -52,6 +52,21 @@ def get_models(metadata, mask_id=''):
     return images
 
 
+def graceful_extract_from_archive(archive, path):
+    possible_paths = [
+        path,
+        os.path.join(".", path),
+        os.path.normpath(path),
+    ]
+    for p in possible_paths:
+        try:
+            return archive.extractfile(p)
+        except KeyError:
+            # log error probably
+            continue
+    raise KeyError("None of the %s paths is present in archive %s", possible_paths, archive)
+
+
 def save_models(conduit, models, ancestry, tarfile_path):
     """
     Given a collection of models, save them to pulp as Units.
@@ -83,11 +98,11 @@ def save_models(conduit, models, ancestry, tarfile_path):
                 # save json file
                 json_src_path = os.path.join(model.image_id, 'json')
                 with open(os.path.join(unit.storage_path, 'json'), 'w') as json_dest:
-                    json_dest.write(archive.extractfile(json_src_path).read())
+                    json_dest.write(graceful_extract_from_archive(archive, json_src_path).read())
                 # save layer file
                 layer_src_path = os.path.join(model.image_id, 'layer.tar')
                 layer_dest_path = os.path.join(unit.storage_path, 'layer')
-                with contextlib.closing(archive.extractfile(layer_src_path)) as layer_src:
+                with contextlib.closing(graceful_extract_from_archive(archive, layer_src_path)) as layer_src:
                     with contextlib.closing(gzip.open(layer_dest_path, 'w')) as layer_dest:
                         # these can be big files, so we chunk them
                         reader = functools.partial(layer_src.read, 4096)
