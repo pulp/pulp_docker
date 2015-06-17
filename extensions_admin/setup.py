@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pulp_docker_extensions_admin',
-    version='1.0.2a1',
+    version='1.0.2b2',
     packages=find_packages(),
     url='http://www.pulpproject.org',
     license='GPLv2+',
