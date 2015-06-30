@@ -5,8 +5,8 @@ import tempfile
 
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
+from pulp.server.db import model
 from pulp.server.db.model.criteria import UnitAssociationCriteria
-import pulp.server.managers.factory as manager_factory
 
 from pulp_docker.common import constants, tarutils
 from pulp_docker.plugins.importers import sync, upload
@@ -242,13 +242,12 @@ class DockerImporter(Importer):
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        repo_manager = manager_factory.repo_manager()
-        scratchpad = repo_manager.get_repo_scratchpad(repo.id)
-        tags = scratchpad.get(u'tags', [])
+        repo_obj = model.Repository.objects.get_repo_or_missing_resource(repo.id)
+        tags = repo_obj.scratchpad.get(u'tags', [])
         unit_ids = set([unit.unit_key[u'image_id'] for unit in units])
         for tag_dict in tags[:]:
             if tag_dict[constants.IMAGE_ID_KEY] in unit_ids:
                 tags.remove(tag_dict)
 
-        scratchpad[u'tags'] = tags
-        repo_manager.set_repo_scratchpad(repo.id, scratchpad)
+        repo_obj.scratchpad[u'tags'] = tags
+        repo_obj.save()
