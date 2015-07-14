@@ -1,167 +1,154 @@
-import json
-import os
-import shutil
-import tempfile
+import stat
 try:
     import unittest2 as unittest
 except ImportError:
     import unittest
 
-import mock
-from pulp.plugins.model import Unit
-from pulp.server.managers import factory
 
-import data
+import mock
+from pulp.common.plugins import reporting_constants
+
 from pulp_docker.common import constants
-from pulp_docker.common.models import DockerImage
 from pulp_docker.plugins.importers import upload
 
 
-factory.initialize()
+class TestAddDockerUnits(unittest.TestCase):
+
+    @mock.patch('pulp_docker.plugins.importers.upload.os.chmod')
+    @mock.patch('pulp_docker.plugins.importers.upload.os.walk')
+    @mock.patch('pulp_docker.plugins.importers.upload.tarfile.open')
+    def test_initialize(self, mock_tarfile_open, mock_walk, mock_chmod):
+        """
+        Test that the initialize properly extracts the archive and then fixes the permissions
+        """
+        parent_step = upload.PluginStep('parent', working_dir='bar')
+        step = upload.AddDockerUnits(tarfile_path='foo')
+        parent_step.add_child(step)
+
+        walk_dirs = ['apple']
+        walk_files = ['pear']
+        mock_walk.return_value = [('fruit', walk_dirs, walk_files)]
+
+        step.initialize()
+
+        # Confirm that the tar was extracted
+        mock_tarfile_open.assert_called_once_with('foo')
+        mock_tarfile_open.return_value.extractall.assert_called_once_wth('bar')
+
+        # Confirm that the file permissions were fixed on the extracted files
+        expected_calls = [mock.call('fruit/apple', stat.S_IXUSR | stat.S_IWUSR | stat.S_IREAD),
+                          mock.call('fruit/pear', stat.S_IXUSR | stat.S_IWUSR | stat.S_IREAD)]
+        self.assertEquals(mock_chmod.call_args_list, expected_calls)
+
+    @mock.patch('pulp_docker.plugins.importers.upload.AddDockerUnits._associate_item')
+    @mock.patch('pulp_docker.plugins.importers.upload.json')
+    @mock.patch('pulp_docker.plugins.importers.upload.tarutils.get_ancestry')
+    def test_process_main(self, mock_get_ancestry, mock_json, mock_associate_item):
+        """
+        Test the association of a single layer
+
+        Mock out the _associate_item in the parent class
+        """
+        step = upload.AddDockerUnits(tarfile_path='foo')
+        step.parent = mock.MagicMock()
+        step.working_dir = 'bar'
+
+        m_open = mock.mock_open()
+        with mock.patch('__builtin__.open', m_open, create=True):
+            step.process_main(mock.Mock(image_id='baz'))
+
+        m_open.assert_called_once_with('bar/baz/ancestry', 'w')
+
+        mock_get_ancestry.assert_called_once_with('baz', step.parent.metadata)
+        mock_json.dump.assert_called_once_with(mock_get_ancestry.return_value, m_open.return_value)
 
 
-metadata = {
-    'id1': {'parent': 'id2', 'size': 1024},
-    'id2': {'parent': 'id3', 'size': 1024},
-    'id3': {'parent': 'id4', 'size': 1024},
-    'id4': {'parent': None, 'size': 1024},
-}
+class TestProcessMetadata(unittest.TestCase):
 
-metadata_shared_parents_multiple_leaves = {
-    'id1': {'parent': 'id2', 'size': 1024},
-    'id2': {'parent': 'id3', 'size': 1024},
-    'id3': {'parent': 'id5', 'size': 1024},
-    'id4': {'parent': 'id2', 'size': 1024},
-    'id5': {'parent': None, 'size': 1024},
-}
+    @mock.patch('pulp_docker.plugins.importers.upload.tarutils.get_tags')
+    @mock.patch('pulp_docker.plugins.importers.upload.tarutils.get_metadata')
+    @mock.patch('pulp_docker.plugins.importers.upload.ProcessMetadata.get_models')
+    @mock.patch('pulp_docker.plugins.importers.upload.ProcessMetadata.get_config')
+    def test_process_main(self, mock_get_config, mock_get_models, mock_get_metadata, mock_tags):
+        step = upload.ProcessMetadata(file_path='foo')
+        mock_get_config.return_value = {constants.CONFIG_KEY_MASK_ID: 'a'}
+        step.parent = mock.MagicMock(metadata=None, available_units=None, tags=None,
+                                     get_config=mock.Mock(return_value='a'))
+        step.process_main()
+        mock_get_metadata.assert_called_once_with('foo')
+        mock_get_models.assert_called_once_with(mock_get_metadata.return_value, 'a')
+        mock_tags.assert_called_once_with('foo')
 
+        self.assertEquals(step.parent.metadata, mock_get_metadata.return_value)
+        self.assertEquals(step.parent.available_units, mock_get_models.return_value)
+        self.assertEquals(step.parent.tags, mock_tags.return_value)
 
-class TestGetModels(unittest.TestCase):
-    def test_full_metadata(self):
-        # Test for simple metadata
-        models = upload.get_models(metadata)
+    @mock.patch('pulp_docker.plugins.importers.upload.tarutils.get_youngest_children')
+    def test_get_models(self, mock_get_children):
+        step = upload.ProcessMetadata(file_path='foo')
 
-        self.assertEqual(len(models), len(metadata))
-        for m in models:
-            self.assertTrue(isinstance(m, DockerImage))
-            self.assertTrue(m.image_id in metadata)
+        metadata = {
+            'id1': {'parent': 'id2', 'size': 1024},
+            'id2': {'parent': 'id3', 'size': 1024},
+            'id3': {'parent': 'id4', 'size': 1024},
+            'id4': {'parent': None, 'size': 1024},
+        }
+        mock_get_children.return_value = ['id1']
+        images = step.get_models(metadata)
 
-        ids = [m.image_id for m in models]
-        self.assertEqual(set(ids), set(metadata.keys()))
+        self.assertTrue(len(images), 4)
+        self.assertEquals(images[0].image_id, 'id1')
+        self.assertEquals(images[0].parent_id, 'id2')
+        self.assertEquals(images[0].size, 1024)
+        self.assertEquals(images[3].image_id, 'id4')
+        self.assertEquals(images[3].parent_id, None)
+        self.assertEquals(images[3].size, 1024)
 
-    def test_full_metadata_shared_parents_multiple_leaves(self):
-        # Test for metadata having shared parents and multiple leaves
-        models = upload.get_models(metadata_shared_parents_multiple_leaves)
+    @mock.patch('pulp_docker.plugins.importers.upload.tarutils.get_youngest_children')
+    def test_get_models_masking(self, mock_get_children):
+        """
+        Test that masking works properly
+        """
+        step = upload.ProcessMetadata(file_path='foo')
 
-        self.assertEqual(len(models), len(metadata_shared_parents_multiple_leaves))
-        for m in models:
-            self.assertTrue(isinstance(m, DockerImage))
-            self.assertTrue(m.image_id in metadata_shared_parents_multiple_leaves)
+        metadata = {
+            'id1': {'parent': 'id2', 'size': 1024},
+            'id2': {'parent': 'id3', 'size': 1024},
+            'id3': {'parent': 'id4', 'size': 1024},
+            'id4': {'parent': None, 'size': 1024},
+        }
+        mock_get_children.return_value = ['id1']
+        images = step.get_models(metadata, mask_id='id3')
 
-        ids = [m.image_id for m in models]
-        self.assertEqual(set(ids), set(metadata_shared_parents_multiple_leaves.keys()))
-
-    def test_mask(self):
-        # Test for simple metadata
-        models = upload.get_models(metadata, mask_id='id3')
-
-        self.assertEqual(len(models), 2)
-        # make sure this only returns the first two and masks the others
-        for m in models:
-            self.assertTrue(m.image_id in ['id1', 'id2'])
-
-    def test_mask_shared_parents_multiple_leaves(self):
-        # Test for metadata having shared parents and multiple leaves
-        models = upload.get_models(metadata_shared_parents_multiple_leaves, mask_id='id3')
-
-        self.assertEqual(len(models), 3)
-        for m in models:
-            self.assertTrue(m.image_id in ['id1', 'id2', 'id4'])
-
-
-class TestSaveModels(unittest.TestCase):
-    def setUp(self):
-        self.conduit = mock.MagicMock()
-
-    @mock.patch('os.path.exists', return_value=True, spec_set=True)
-    def test_path_exists(self, mock_exists):
-        model = DockerImage('abc123', 'xyz789', 1024)
-
-        upload.save_models(self.conduit, [model], (model.image_id,), data.busybox_tar_path)
-
-        self.assertEqual(self.conduit.save_unit.call_count, 1)
-        self.conduit.init_unit.assert_called_once_with(constants.IMAGE_TYPE_ID, model.unit_key,
-                                                       model.unit_metadata, model.relative_path)
-
-        self.conduit.save_unit.assert_called_once_with(self.conduit.init_unit.return_value)
-
-    def test_with_busybox(self):
-        models = [
-            DockerImage(data.busybox_ids[0], data.busybox_ids[1], 1024),
-        ]
-        dest = tempfile.mkdtemp()
-        try:
-            # prepare some state
-            model_dest = os.path.join(dest, models[0].relative_path)
-            unit = Unit(DockerImage.TYPE_ID, models[0].unit_key,
-                        models[0].unit_metadata, model_dest)
-            self.conduit.init_unit.return_value = unit
-
-            # call the save, letting it write files to disk
-            upload.save_models(self.conduit, models, data.busybox_ids, data.busybox_tar_path)
-
-            # assertions!
-            self.conduit.save_unit.assert_called_once_with(unit)
-
-            # make sure the ancestry was computed and saved correctly
-            ancestry = json.load(open(os.path.join(model_dest, 'ancestry')))
-            self.assertEqual(set(ancestry), set(data.busybox_ids))
-            # make sure these files were moved into place
-            self.assertTrue(os.path.exists(os.path.join(model_dest, 'json')))
-            self.assertTrue(os.path.exists(os.path.join(model_dest, 'layer')))
-        finally:
-            shutil.rmtree(dest)
+        self.assertTrue(len(images), 2)
+        self.assertEquals(images[0].image_id, 'id1')
+        self.assertEquals(images[0].parent_id, 'id2')
+        self.assertEquals(images[0].size, 1024)
+        self.assertEquals(images[1].image_id, 'id2')
+        self.assertEquals(images[1].parent_id, 'id3')
+        self.assertEquals(images[1].size, 1024)
 
 
-@mock.patch('pulp_docker.plugins.importers.tags.model.Repository.objects')
-class TestUpdateTags(unittest.TestCase):
+class TestUploadStep(unittest.TestCase):
 
-    def test_basic_update(self, mock_repo_qs):
-        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
-        mock_repo.scratchpad = {}
-        upload.update_tags('repo1', data.busybox_tar_path)
-        mock_repo.save.assert_called_once_with()
-        self.assertEqual(
-            mock_repo.scratchpad['tags'], [{constants.IMAGE_TAG_KEY: 'latest',
-                                           constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
-        )
+    # @mock.patch('pulp_docker.plugins.importers.upload.')
+    def test_init(self):
+        """
+        Validate that the construction works ok
+        """
+        step = upload.UploadStep(file_path='foo_file_path')
+        self.assertEqual(step.step_id, constants.UPLOAD_STEP)
 
-    def test_preserves_existing_tags(self, mock_repo_qs):
-        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
-        mock_repo.scratchpad = {'tags': [{constants.IMAGE_TAG_KEY: 'greatest',
-                                          constants.IMAGE_ID_KEY: data.busybox_ids[1]}]}
+        # make sure the children are present
+        step_ids = set([child.step_id for child in step.children])
+        expected_steps = set((
+            constants.UPLOAD_STEP_METADATA,
+            reporting_constants.SYNC_STEP_GET_LOCAL,
+            constants.UPLOAD_STEP_SAVE
+        ))
 
-        upload.update_tags('repo1', data.busybox_tar_path)
+        self.assertSetEqual(step_ids, expected_steps)
 
-        expected_tags = [{constants.IMAGE_TAG_KEY: 'greatest',
-                          constants.IMAGE_ID_KEY: data.busybox_ids[1]},
-                         {constants.IMAGE_TAG_KEY: 'latest',
-                          constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
-        self.assertEqual(mock_repo.scratchpad['tags'], expected_tags)
-        mock_repo.save.assert_called_once_with()
-
-    def test_overwrite_existing_duplicate_tags(self, mock_repo_qs):
-        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
-        mock_repo.scratchpad = {'tags': [{constants.IMAGE_TAG_KEY: 'latest',
-                                          constants.IMAGE_ID_KEY: 'original_latest'},
-                                         {constants.IMAGE_TAG_KEY: 'existing',
-                                          constants.IMAGE_ID_KEY: 'existing'}]}
-
-        upload.update_tags('repo1', data.busybox_tar_path)
-
-        expected_tags = [{constants.IMAGE_TAG_KEY: 'existing',
-                          constants.IMAGE_ID_KEY: 'existing'},
-                         {constants.IMAGE_TAG_KEY: 'latest',
-                          constants.IMAGE_ID_KEY: data.busybox_ids[0]}]
-        self.assertEqual(mock_repo.scratchpad['tags'], expected_tags)
-        mock_repo.save.assert_called_once_with()
+        # these are important because child steps will populate them with data
+        self.assertEqual(step.available_units, [])
+        self.assertEqual(step.tags, {})

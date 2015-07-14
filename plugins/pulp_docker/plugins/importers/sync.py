@@ -3,18 +3,18 @@ from gettext import gettext as _
 import json
 import logging
 import os
-import shutil
 
 from pulp.common.plugins import importer_constants
 from pulp.plugins.util import nectar_config
 from pulp.plugins.util.publish_step import PluginStep, DownloadStep, \
-    GetLocalUnitsStep
+    GetLocalUnitsStep, SaveUnitsStep
+from pulp.server.controllers import repository as repo_controller
 from pulp.server.exceptions import MissingValue
+from pulp.server.db import model as platform_models
 
-from pulp_docker.common import constants
-from pulp_docker.common.models import DockerImage
-from pulp_docker.plugins.importers import tags
+from pulp_docker.common import constants, tags
 from pulp_docker.plugins.registry import Repository
+from pulp_docker.plugins.db import models
 
 
 _logger = logging.getLogger(__name__)
@@ -26,8 +26,7 @@ class SyncStep(PluginStep):
         importer_constants.KEY_FEED,
     )
 
-    def __init__(self, repo=None, conduit=None, config=None,
-                 working_dir=None):
+    def __init__(self, repo=None, conduit=None, config=None, **kwargs):
         """
         :param repo:        repository to sync
         :type  repo:        pulp.plugins.model.Repository
@@ -35,14 +34,11 @@ class SyncStep(PluginStep):
         :type  conduit:     pulp.plugins.conduits.repo_sync.RepoSyncConduit
         :param config:      config object for the sync
         :type  config:      pulp.plugins.config.PluginCallConfiguration
-        :param working_dir: full path to the directory in which transient files
-                            should be stored before being moved into long-term
-                            storage. This should be deleted by the caller after
-                            step processing is complete.
-        :type  working_dir: basestring
         """
-        super(SyncStep, self).__init__(constants.SYNC_STEP_MAIN, repo, conduit, config,
-                                       working_dir, constants.IMPORTER_TYPE_ID)
+        super(SyncStep, self).__init__(constants.SYNC_STEP_MAIN,
+                                       repo=repo, conduit=conduit,
+                                       config=config, plugin_type=constants.IMPORTER_TYPE_ID,
+                                       **kwargs)
         self.description = _('Syncing Docker Repository')
 
         # Unit keys, populated by GetMetadataStep
@@ -56,19 +52,18 @@ class SyncStep(PluginStep):
         url = config.get(importer_constants.KEY_FEED)
 
         # create a Repository object to interact with
-        self.index_repository = Repository(upstream_name, download_config, url, working_dir)
+        self.index_repository = Repository(upstream_name, download_config, url,
+                                           self.get_working_dir())
 
-        self.add_child(GetMetadataStep(working_dir=working_dir))
+        self.add_child(GetMetadataStep())
         # save this step so its "units_to_download" attribute can be accessed later
-        self.step_get_local_units = GetLocalImagesStep(constants.IMPORTER_TYPE_ID,
-                                                       constants.IMAGE_TYPE_ID,
-                                                       ['image_id'], working_dir)
+        self.step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
         self.add_child(self.step_get_local_units)
         self.add_child(DownloadStep(constants.SYNC_STEP_DOWNLOAD,
                                     downloads=self.generate_download_requests(),
-                                    repo=repo, config=config, working_dir=working_dir,
+                                    repo=repo, config=config,
                                     description=_('Downloading remote files')))
-        self.add_child(SaveUnits(working_dir))
+        self.add_child(SaveDockerUnits())
 
     @classmethod
     def validate(cls, config):
@@ -97,8 +92,8 @@ class SyncStep(PluginStep):
         :return:    generator of DownloadRequest instances
         :rtype:     types.GeneratorType
         """
-        for unit_key in self.step_get_local_units.units_to_download:
-            image_id = unit_key['image_id']
+        for unit in self.step_get_local_units.units_to_download:
+            image_id = unit.image_id
             destination_dir = os.path.join(self.get_working_dir(), image_id)
             try:
                 os.makedirs(destination_dir, mode=0755)
@@ -115,19 +110,9 @@ class SyncStep(PluginStep):
             yield self.index_repository.create_download_request(image_id, 'json', destination_dir)
             yield self.index_repository.create_download_request(image_id, 'layer', destination_dir)
 
-    def sync(self):
-        """
-        actually initiate the sync
-
-        :return:    a final sync report
-        :rtype:     pulp.plugins.model.SyncReport
-        """
-        self.process_lifecycle()
-        return self._build_final_report()
-
 
 class GetMetadataStep(PluginStep):
-    def __init__(self, repo=None, conduit=None, config=None, working_dir=None):
+    def __init__(self, repo=None, conduit=None, config=None, **kwargs):
         """
         :param repo:        repository to sync
         :type  repo:        pulp.plugins.model.Repository
@@ -141,8 +126,8 @@ class GetMetadataStep(PluginStep):
                             step processing is complete.
         :type  working_dir: basestring
         """
-        super(GetMetadataStep, self).__init__(constants.SYNC_STEP_METADATA, repo, conduit, config,
-                                              working_dir, constants.IMPORTER_TYPE_ID)
+        super(GetMetadataStep, self).__init__(constants.SYNC_STEP_METADATA,
+                                              repo=repo, conduit=conduit, config=config, **kwargs)
         self.description = _('Retrieving metadata')
 
     def process_main(self):
@@ -170,8 +155,8 @@ class GetMetadataStep(PluginStep):
         for image_id in tagged_image_ids:
             images_we_need.update(set(self.find_and_read_ancestry_file(image_id, download_dir)))
 
-        # generate unit keys and save them on the parent
-        self.parent.available_units = [dict(image_id=i) for i in images_we_need]
+        # Generate the DockerImage objects and save them on the parent
+        self.parent.available_units = [models.DockerImage(image_id=i) for i in images_we_need]
 
     @staticmethod
     def expand_tag_abbreviations(image_ids, tags):
@@ -218,91 +203,68 @@ class GetMetadataStep(PluginStep):
             return json.load(ancestry_file)
 
 
-class GetLocalImagesStep(GetLocalUnitsStep):
-    def _dict_to_unit(self, unit_dict):
-        """
-        convert a unit dictionary (a flat dict that has all unit key, metadata,
-        etc. keys at the root level) into a Unit object. This requires knowing
-        not just what fields are part of the unit key, but also how to derive
-        the storage path.
+class SaveDockerUnits(SaveUnitsStep):
 
-        Any keys in the "metadata" dict on the returned unit will overwrite the
-        corresponding values that are currently saved in the unit's metadata. In
-        this case, we pass an empty dict, because we don't want to make changes.
-
-        :param unit_dict:   a flat dictionary that has all unit key, metadata,
-                            etc. keys at the root level, representing a unit
-                            in pulp
-        :type  unit_dict:   dict
-
-        :return:    a unit instance
-        :rtype:     pulp.plugins.model.Unit
-        """
-        model = DockerImage(unit_dict['image_id'], unit_dict.get('parent_id'),
-                            unit_dict.get('size'))
-        return self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, {},
-                                            model.relative_path)
-
-
-class SaveUnits(PluginStep):
-    def __init__(self, working_dir):
-        """
-        :param working_dir: full path to the directory into which image files
-                            are downloaded. This directory should contain one
-                            directory for each docker image, with the ID of the
-                            docker image as its name.
-        :type  working_dir: basestring
-        """
-        super(SaveUnits, self).__init__(step_type=constants.SYNC_STEP_SAVE,
-                                        plugin_type=constants.IMPORTER_TYPE_ID,
-                                        working_dir=working_dir)
+    def __init__(self, step_type=constants.SYNC_STEP_SAVE):
+        super(SaveDockerUnits, self).__init__(step_type=step_type)
         self.description = _('Saving images and tags')
 
-    def process_main(self):
+    def get_iterator(self):
         """
-        Gets an iterable of units that were downloaded from the parent step,
-        moves their files into permanent storage, and then saves the unit into
-        the database and into the repository.
+        This method returns an iterator to loop over items.
+        The items created by this iterator will be iterated over by the process_main method.
+
+        :return: a list or other iterable
+        :rtype: iterator of pulp_docker.plugins.db.models.DockerImage
         """
-        _logger.debug(self.description)
-        for unit_key in self.parent.step_get_local_units.units_to_download:
-            image_id = unit_key['image_id']
-            with open(os.path.join(self.working_dir, image_id, 'json')) as json_file:
-                metadata = json.load(json_file)
-            # at least one old docker image did not have a size specified in
-            # its metadata
-            size = metadata.get('Size')
-            # an older version of docker used a lowercase "p"
-            parent = metadata.get('parent', metadata.get('Parent'))
-            model = DockerImage(image_id, parent, size)
-            unit = self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.unit_metadata,
-                                                model.relative_path)
+        # Return a generator so that the platform will show a returned value
+        # if this returns an empty list the platform will call process_main once with item=none
+        return iter(self.parent.step_get_local_units.units_to_download)
 
-            self.move_files(unit)
-            _logger.debug('saving image %s' % image_id)
-            self.get_conduit().save_unit(unit)
-
-        _logger.debug('updating tags for repo %s' % self.get_repo().id)
-        tags.update_tags(self.get_repo().id, self.parent.tags)
-
-    def move_files(self, unit):
+    def process_main(self, item=None):
         """
-        For the given unit, move all of its associated files from the working
-        directory to their permanent location.
+        Associate an individual docker image with our repository
 
-        :param unit:    a pulp unit
-        :type  unit:    pulp.plugins.model.Unit
+        :param item: The individual docker image to associate to a repository
+        :type item: pulp_docker.plugins.db.models.DockerImage
         """
-        image_id = unit.unit_key['image_id']
-        _logger.debug('moving files in to place for image %s' % image_id)
-        source_dir = os.path.join(self.working_dir, image_id)
-        try:
-            os.makedirs(unit.storage_path, mode=0755)
-        except OSError, e:
-            # it's ok if the directory exists
-            if e.errno != errno.EEXIST:
-                _logger.error('could not make directory %s' % unit.storage_path)
-                raise
+        self._associate_item(item)
 
-        for name in ('json', 'ancestry', 'layer'):
-            shutil.move(os.path.join(source_dir, name), os.path.join(unit.storage_path, name))
+    def _associate_item(self, item):
+        """
+        Associate an individual docker image with our repository
+
+        This is in a separate method from process_main so that subclasses can mock it out
+        with their testing.
+
+        :param item: The individual docker image to associate to a repository
+        :type item: pulp_docker.plugins.db.models.DockerImage
+        """
+        image_id = item.image_id
+        with open(os.path.join(self.get_working_dir(), image_id, 'json')) as json_file:
+            metadata = json.load(json_file)
+        # at least one old docker image did not have a size specified in
+        # its metadata
+        size = metadata.get('Size')
+        # an older version of docker used a lowercase "p"
+        parent = metadata.get('parent', metadata.get('Parent'))
+        item.parent_id = parent
+        item.size = size
+        item.set_content(os.path.join(self.get_working_dir(), image_id))
+
+        item.save()
+        repo_controller.associate_single_unit(self.get_repo(), item)
+
+    def finalize(self):
+        """
+        Method called to finalize after process_main has been called.  This will
+        be called even if process_main or initialize raises an exceptions
+        """
+        super(SaveDockerUnits, self).finalize()
+        # Get an updated copy of the repo so that we can update the tags
+        repo = self.get_repo()
+        _logger.debug('updating tags for repo {repo_id}'.format(repo_id=repo.repo_id))
+        if self.parent.tags:
+            new_tags = tags.generate_updated_tags(repo.scratchpad, self.parent.tags)
+            platform_models.Repository.objects(repo_id=repo.repo_id).\
+                update_one(set__scratchpad__tags=new_tags)
