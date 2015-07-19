@@ -1,4 +1,5 @@
 from cStringIO import StringIO
+from gettext import gettext as _
 import errno
 import json
 import logging
@@ -13,16 +14,20 @@ from nectar.request import DownloadRequest
 _logger = logging.getLogger(__name__)
 
 
-class Repository(object):
-    IMAGES_PATH = '/v1/repositories/%s/images'
-    TAGS_PATH = '/v1/repositories/%s/tags'
+class V1Repository(object):
+    """
+    This class represents a Docker v1 repository.
+    """
     ANCESTRY_PATH = '/v1/images/%s/ancestry'
-
     DOCKER_TOKEN_HEADER = 'x-docker-token'
     DOCKER_ENDPOINT_HEADER = 'x-docker-endpoints'
+    IMAGES_PATH = '/v1/repositories/%s/images'
+    TAGS_PATH = '/v1/repositories/%s/tags'
 
     def __init__(self, name, download_config, registry_url, working_dir):
         """
+        Initialize the V1Repository.
+
         :param name:            name of a docker repository
         :type  name:            basestring
         :param download_config: download configuration object
@@ -97,6 +102,20 @@ class Repository(object):
         if self.DOCKER_ENDPOINT_HEADER in headers:
             self.endpoint = headers[self.DOCKER_ENDPOINT_HEADER]
 
+    def add_auth_header(self, request):
+        """
+        Given a download request, add an Authorization header if we have an
+        auth token available.
+
+        :param request: a download request
+        :type  request: nectar.request.DownloadRequest
+        """
+        if self.token:
+            if request.headers is None:
+                request.headers = {}
+            # this emulates what docker itself does
+            request.headers['Authorization'] = 'Token %s' % self.token
+
     def get_image_ids(self):
         """
         Get a list of all images in the upstream repository. This is
@@ -111,6 +130,24 @@ class Repository(object):
         _logger.debug('retrieving image ids from remote registry')
         raw_data = self._get_single_path(path)
         return [item['id'] for item in raw_data]
+
+    def get_image_url(self):
+        """
+        Get a URL for the registry or the endpoint, for use in retrieving image
+        files. The "endpoint" is a host name that might be returned in a header
+        when retrieving repository data above.
+
+        :return:    a url that is either the provided registry url, or if an
+                    endpoint is known, that same url with the host replaced by
+                    the endpoint
+        :rtype:     basestring
+        """
+        if self.endpoint:
+            parts = list(urlparse.urlsplit(self.registry_url))
+            parts[1] = self.endpoint
+            return urlparse.urlunsplit(parts)
+        else:
+            return self.registry_url
 
     def get_tags(self):
         """
@@ -194,34 +231,123 @@ class Repository(object):
         self.add_auth_header(req)
         return req
 
-    def add_auth_header(self, request):
-        """
-        Given a download request, add an Authorization header if we have an
-        auth token available.
 
-        :param request: a download request
-        :type  request: nectar.request.DownloadRequest
-        """
-        if self.token:
-            if request.headers is None:
-                request.headers = {}
-            # this emulates what docker itself does
-            request.headers['Authorization'] = 'Token %s' % self.token
+class V2Repository(object):
+    """
+    This class represents a Docker v2 repository.
+    """
+    API_VERSION_CHECK_PATH = '/v2/'
+    LAYER_PATH = '/v2/{name}/blobs/{digest}'
+    MANIFEST_PATH = '/v2/{name}/manifests/{reference}'
+    TAGS_PATH = '/v2/{name}/tags/list'
 
-    def get_image_url(self):
+    def __init__(self, name, download_config, registry_url, working_dir):
         """
-        Get a URL for the registry or the endpoint, for use in retrieving image
-        files. The "endpoint" is a host name that might be returned in a header
-        when retrieving repository data above.
+        Initialize the V2Repository.
 
-        :return:    a url that is either the provided registry url, or if an
-                    endpoint is known, that same url with the host replaced by
-                    the endpoint
-        :rtype:     basestring
+        :param name:            name of a docker repository
+        :type  name:            basestring
+        :param download_config: download configuration object
+        :type  download_config: nectar.config.DownloaderConfig
+        :param registry_url:    URL for the docker registry
+        :type  registry_url:    basestring
+        :param working_dir:     full path to the directory where files should
+                                be saved
+        :type  working_dir:     basestring
         """
-        if self.endpoint:
-            parts = list(urlparse.urlsplit(self.registry_url))
-            parts[1] = self.endpoint
-            return urlparse.urlunsplit(parts)
-        else:
-            return self.registry_url
+        self.name = name
+        self.download_config = download_config
+        self.registry_url = registry_url
+        self.downloader = HTTPThreadedDownloader(self.download_config, AggregatingEventListener())
+        self.working_dir = working_dir
+
+    def api_version_check(self):
+        """
+        Make a call to the registry URL's /v2/ API call to determine if the registry supports API
+        v2. If it does not, raise NotImplementedError. If it does, return.
+        """
+        _logger.debug('Determining if the registry URL can do v2 of the Docker API.')
+        exception = NotImplementedError('%s is not a Docker v2 registry.' % self.registry_url)
+
+        try:
+            headers, body = self._get_path(self.API_VERSION_CHECK_PATH)
+        except IOError:
+            raise exception
+
+        try:
+            version = headers['Docker-Distribution-API-Version']
+            if version != "registry/2.0":
+                raise exception
+            _logger.debug(_('The docker registry is using API version: %(v)s') % {'v': version})
+        except KeyError:
+            # If the Docker-Distribution-API-Version header isn't present, we will assume that this
+            # is a valid Docker 2.0 API server so that simple file-based webservers can serve as our
+            # remote feed.
+            pass
+
+    def create_blob_download_request(self, digest, destination_dir):
+        """
+        Return a DownloadRequest instance for the given blob digest.
+        It is desirable to download the blob files with a separate
+        downloader (for progress tracking, etc), so we just create the download
+        requests here and let them get processed elsewhere.
+
+        :param digest:          digest of the docker blob you wish to download
+        :type  digest:          basestring
+        :param destination_dir: full path to the directory where file should
+                                be saved
+        :type  destination_dir: basestring
+
+        :return:    a download request instance
+        :rtype:     nectar.request.DownloadRequest
+        """
+        path = self.LAYER_PATH.format(name=self.name, digest=digest)
+        url = urlparse.urljoin(self.registry_url, path)
+        req = DownloadRequest(url, os.path.join(destination_dir, digest))
+        return req
+
+    def get_manifest(self, reference):
+        """
+        Get the manifest and its digest for the given reference.
+
+        :param reference: The reference (tag or digest) of the Manifest you wish to retrieve.
+        :type  reference: basestring
+        :return:          A 2-tuple of the digest and the manifest, both basestrings
+        :rtype:           tuple
+        """
+        path = self.MANIFEST_PATH.format(name=self.name, reference=reference)
+        headers, manifest = self._get_path(path)
+        return headers['docker-content-digest'], manifest
+
+    def get_tags(self):
+        """
+        Get a list of the available tags in the repository.
+
+        :return: A list of basestrings of the available tags in the repository.
+        :rtype:  list
+        """
+        path = self.TAGS_PATH.format(name=self.name)
+        headers, tags = self._get_path(path)
+        return json.loads(tags)['tags']
+
+    def _get_path(self, path):
+        """
+        Retrieve a single path within the upstream registry, and return a 2-tuple of the headers and
+        the response body.
+
+        :param path: a full http path to retrieve that will be urljoin'd to the upstream registry
+                     url.
+        :type  path: basestring
+
+        :return:     (headers, response body)
+        :rtype:      tuple
+        """
+        url = urlparse.urljoin(self.registry_url, path)
+        _logger.debug(_('Retrieving {0}'.format(url)))
+        request = DownloadRequest(url, StringIO())
+        report = self.downloader.download_one(request)
+
+        if report.state == report.DOWNLOAD_FAILED:
+            raise IOError(report.error_msg)
+
+        return report.headers, report.destination.getvalue()

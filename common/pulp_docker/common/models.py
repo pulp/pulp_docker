@@ -3,17 +3,20 @@ This module contains common model objects that are used to describe the data typ
 pulp_docker plugins.
 """
 import json
-import os
 
 from pulp_docker.common import constants
 
 
-class DockerImage(object):
+class Image(object):
+    """
+    This class is used to represent Docker v1 images and Docker v2 blobs.
+    """
     TYPE_ID = constants.IMAGE_TYPE_ID
 
     def __init__(self, image_id, parent_id, size):
         """
-        :param image_id:    unique image ID
+        :param image_id:    For Docker v1 images, this field will store the image_id. For Docker v2
+                            blobs, this field will store the blob's digest.
         :type  image_id:    basestring
         :param parent_id:   parent's unique image ID
         :type  parent_id:   basestring
@@ -42,7 +45,7 @@ class DockerImage(object):
         :return:    the relative path to where this image's directory should live
         :rtype:     basestring
         """
-        return os.path.join(self.TYPE_ID, self.image_id)
+        return self.image_id
 
     @property
     def unit_metadata(self):
@@ -57,7 +60,7 @@ class DockerImage(object):
         }
 
 
-class DockerManifest(object):
+class Manifest(object):
     """
     This model represents a Docker v2, Schema 1 Image Manifest, as described here:
 
@@ -65,7 +68,7 @@ class DockerManifest(object):
     """
     TYPE_ID = 'docker_manifest'
 
-    def __init__(self, name, tag, architecture, digest, fs_layers, history, schema_version,
+    def __init__(self, digest, name, tag, architecture, fs_layers, history, schema_version,
                  signatures):
         """
         Initialize the DockerManifest model with the given attributes. See the class docblock above
@@ -73,15 +76,15 @@ class DockerManifest(object):
         attempts to follow Python naming guidelines for the class attributes, while allowing
         Docker's camelCase names for the inner values on dictionaries.
 
-        :param name:           The name of the image's repository
-        :type  name:           basestring
-        :param tag:            The image's tag
-        :type  tag:            basestring
-        :param architecture:   The host architecture on which the image is intended to run
-        :type  architecture:   basestring
         :param digest:         The content digest of the manifest, as described at
                                https://docs.docker.com/registry/spec/api/#content-digests
         :type  digest:         basestring
+        :param name:           The name of the Manifest's repository
+        :type  name:           basestring
+        :param tag:            The Manifest's tag
+        :type  tag:            basestring
+        :param architecture:   The host architecture on which the image is intended to run
+        :type  architecture:   basestring
         :param fs_layers:      A list of dictionaries. Each dictionary contains one key-value pair
                                that represents a layer of the image. The key is blobSum, and the
                                value is the digest of the referenced layer. See the documentation
@@ -98,10 +101,10 @@ class DockerManifest(object):
                                its formatting.
         :type  signatures:     list
         """
+        self.digest = digest
         self.name = name
         self.tag = tag
         self.architecture = architecture
-        self.digest = digest
         self.fs_layers = fs_layers
         self.history = history
         self.signatures = signatures
@@ -128,32 +131,40 @@ class DockerManifest(object):
         """
         manifest = json.loads(manifest_json)
         return cls(
-            name=manifest['name'], tag=manifest['tag'], architecture=manifest['architecture'],
-            digest=digest, fs_layers=manifest['fsLayers'], history=manifest['history'],
-            schema_version=manifest['schemaVersion'], signatures=manifest['signatures'])
+            digest=digest, name=manifest['name'], tag=manifest['tag'],
+            architecture=manifest['architecture'], fs_layers=manifest['fsLayers'],
+            history=manifest['history'], schema_version=manifest['schemaVersion'],
+            signatures=manifest['signatures'])
 
     @property
-    def to_json(self):
+    def metadata(self):
         """
-        Return a JSON document that represents the DockerManifest object.
+        Return the Manifest's metadata, which is all attributes that are not part of the unit key.
 
-        :return: A JSON document in the Docker v2, Schema 1 Image Manifest format
+        :return: metadata
+        :rtype:  dict
+        """
+        return {
+            'fs_layers': self.fs_layers, 'history': self.history, 'signatures': self.signatures,
+            'schema_version': self.schema_version, 'name': self.name, 'tag': self.tag,
+            'architecture': self.architecture}
+
+    @property
+    def relative_path(self):
+        """
+        The relative path where this Manifest should live
+
+        :return: the relative path to where this Manifest should live
         :rtype:  basestring
         """
-        manifest = {
-            'name': self.name, 'tag': self.tag, 'architecture': self.architecture,
-            'fsLayers': self.fs_layers, 'history': self.history,
-            'schemaVersion': self.schema_version, 'signatures': self.signatures}
-        return json.dumps(manifest)
+        return self.digest
 
     @property
     def unit_key(self):
         """
-        Return the manifest's unit key. The unit key consists of the name, tag, architecture, and
-        fs_layers attributes as described in the __init__() method above.
+        Return the Manifest's unit key, which is the digest.
 
         :return: unit key
         :rtype:  dict
         """
-        return {'name': self.name, 'tag': self.tag, 'architecture': self.architecture,
-                'digest': self.digest}
+        return {'digest': self.digest}

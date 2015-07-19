@@ -14,10 +14,13 @@ import shutil
 from pulp_docker.plugins import registry
 
 
+TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data')
+
+
 class TestInit(unittest.TestCase):
     def test_init(self):
         config = DownloaderConfig()
-        repo = registry.Repository('pulp/crane', config, 'http://pulpproject.org/', '/a/b/c')
+        repo = registry.V1Repository('pulp/crane', config, 'http://pulpproject.org/', '/a/b/c')
 
         self.assertEqual(repo.name, 'pulp/crane')
         self.assertEqual(repo.registry_url, 'http://pulpproject.org/')
@@ -29,8 +32,8 @@ class TestGetSinglePath(unittest.TestCase):
     def setUp(self):
         super(TestGetSinglePath, self).setUp()
         self.config = DownloaderConfig()
-        self.repo = registry.Repository('pulp/crane', self.config,
-                                        'http://pulpproject.org/', '/a/b/c')
+        self.repo = registry.V1Repository('pulp/crane', self.config,
+                                          'http://pulpproject.org/', '/a/b/c')
 
     @mock.patch.object(HTTPThreadedDownloader, 'download_one')
     def test_get_tags(self, mock_download_one):
@@ -141,8 +144,8 @@ class TestGetImageIDs(unittest.TestCase):
     def setUp(self):
         super(TestGetImageIDs, self).setUp()
         self.config = DownloaderConfig()
-        self.repo = registry.Repository('pulp/crane', self.config,
-                                        'http://pulpproject.org/', '/a/b/c')
+        self.repo = registry.V1Repository('pulp/crane', self.config,
+                                          'http://pulpproject.org/', '/a/b/c')
 
     def test_returns_ids(self):
         with mock.patch.object(self.repo, '_get_single_path') as mock_get:
@@ -158,8 +161,8 @@ class TestGetTags(unittest.TestCase):
     def setUp(self):
         super(TestGetTags, self).setUp()
         self.config = DownloaderConfig()
-        self.repo = registry.Repository('pulp/crane', self.config,
-                                        'http://pulpproject.org/', '/a/b/c')
+        self.repo = registry.V1Repository('pulp/crane', self.config,
+                                          'http://pulpproject.org/', '/a/b/c')
 
     def test_returns_tags_as_dict(self):
         with mock.patch.object(self.repo, '_get_single_path') as mock_get:
@@ -196,8 +199,8 @@ class TestGetAncestry(unittest.TestCase):
         super(TestGetAncestry, self).setUp()
         self.working_dir = tempfile.mkdtemp()
         self.config = DownloaderConfig()
-        self.repo = registry.Repository('pulp/crane', self.config,
-                                        'http://pulpproject.org/', self.working_dir)
+        self.repo = registry.V1Repository('pulp/crane', self.config,
+                                          'http://pulpproject.org/', self.working_dir)
 
     def tearDown(self):
         super(TestGetAncestry, self).tearDown()
@@ -267,8 +270,8 @@ class TestAddAuthHeader(unittest.TestCase):
     def setUp(self):
         super(TestAddAuthHeader, self).setUp()
         self.config = DownloaderConfig()
-        self.repo = registry.Repository('pulp/crane', self.config,
-                                        'http://pulpproject.org/', '/a/b/')
+        self.repo = registry.V1Repository('pulp/crane', self.config,
+                                          'http://pulpproject.org/', '/a/b/')
         self.request = DownloadRequest('http://pulpproject.org', '/a/b/c')
 
     def test_add_token(self):
@@ -298,8 +301,8 @@ class TestGetImageURL(unittest.TestCase):
     def setUp(self):
         super(TestGetImageURL, self).setUp()
         self.config = DownloaderConfig()
-        self.repo = registry.Repository('pulp/crane', self.config,
-                                        'http://pulpproject.org/', '/a/b/')
+        self.repo = registry.V1Repository('pulp/crane', self.config,
+                                          'http://pulpproject.org/', '/a/b/')
 
     def test_without_endpoint(self):
         url = self.repo.get_image_url()
@@ -320,3 +323,249 @@ class TestGetImageURL(unittest.TestCase):
         url = self.repo.get_image_url()
 
         self.assertEqual(url, 'https://redhat.com/')
+
+
+class TestV2Repository(unittest.TestCase):
+    """
+    This class contains tests for the V2Repository class. The Docker v2 API is described here:
+
+    https://github.com/docker/distribution/blob/release/2.0/docs/spec/api.md
+    """
+    def test___init__(self):
+        """
+        Assert that __init__() initializes all the correct attributes.
+        """
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+
+        self.assertEqual(r.name, name)
+        self.assertEqual(r.download_config, download_config)
+        self.assertEqual(r.registry_url, registry_url)
+        self.assertEqual(type(r.downloader), HTTPThreadedDownloader)
+        self.assertEqual(r.downloader.config, download_config)
+        self.assertEqual(r.working_dir, working_dir)
+
+    def test_api_version_check_incorrect_header(self):
+        """
+        The the api_version_check() method when the response has the Docker-Distribution-API-Version
+        header, but it is not the correct value for a Docker v2 registry.
+        """
+        def download_one(request):
+            """
+            Mock the download_one() method to manipulate the path.
+            """
+            self.assertEqual(request.url, 'https://registry.example.com/v2/')
+            self.assertEqual(type(request.destination), type(StringIO()))
+            report = DownloadReport(request.url, request.destination)
+            report.download_succeeded()
+            report.headers = {'Docker-Distribution-API-Version': 'WRONG_VALUE!'}
+            report.destination.write("")
+            return report
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=download_one)
+
+        self.assertRaises(NotImplementedError, r.api_version_check)
+
+    def test_api_version_check_ioerror(self):
+        """
+        The the api_version_check() method when _get_path() raises an IOError.
+        """
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+
+        # The IOError will be raised since registry_url isn't a real registry
+        self.assertRaises(NotImplementedError, r.api_version_check)
+
+    def test_api_version_check_missing_header(self):
+        """
+        The the api_version_check() method when the response is missing the
+        Docker-Distribution-API-Version header. Since we want to support servers that are just
+        serving simple directories of files, it should be OK if the header is not present.
+        """
+        def download_one(request):
+            """
+            Mock the download_one() method to manipulate the path.
+            """
+            self.assertEqual(request.url, 'https://registry.example.com/v2/')
+            self.assertEqual(type(request.destination), type(StringIO()))
+            report = DownloadReport(request.url, request.destination)
+            report.download_succeeded()
+            # The Version header is not present
+            report.headers = {}
+            report.destination.write("")
+            return report
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=download_one)
+
+        # This should not raise an Exception
+        r.api_version_check()
+
+    def test_api_version_check_successful(self):
+        """
+        The the api_version_check() method when the registry_url is indeed a Docker v2 registry.
+        """
+        def download_one(request):
+            """
+            Mock the download_one() method to manipulate the path.
+            """
+            self.assertEqual(request.url, 'https://registry.example.com/v2/')
+            self.assertEqual(type(request.destination), type(StringIO()))
+            report = DownloadReport(request.url, request.destination)
+            report.download_succeeded()
+            report.headers = {'Docker-Distribution-API-Version': 'registry/2.0'}
+            report.destination.write("")
+            return report
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=download_one)
+
+        # This should not raise an Exception
+        r.api_version_check()
+
+    def test_class_attributes(self):
+        """
+        Assert the correct class attributes.
+        """
+        self.assertEqual(registry.V2Repository.API_VERSION_CHECK_PATH, '/v2/')
+        self.assertEqual(registry.V2Repository.LAYER_PATH, '/v2/{name}/blobs/{digest}')
+        self.assertEqual(registry.V2Repository.MANIFEST_PATH, '/v2/{name}/manifests/{reference}')
+        self.assertEqual(registry.V2Repository.TAGS_PATH, '/v2/{name}/tags/list')
+
+    def test_create_blob_download_request(self):
+        """
+        Assert correct behavior from create_blob_download_request().
+        """
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        digest = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
+        dest_dir = os.path.join(working_dir, 'destination_unknown')
+
+        request = r.create_blob_download_request(digest, dest_dir)
+
+        self.assertEqual(request.url,
+                         'https://registry.example.com/v2/pulp/blobs/{}'.format(digest))
+        self.assertEqual(request.destination, os.path.join(dest_dir, digest))
+
+    def test_get_manifest(self):
+        """
+        Assert correct behavior from get_manifest().
+        """
+        def download_one(request):
+            """
+            Mock the download_one() method to manipulate the path.
+            """
+            self.assertEqual(request.url,
+                             'https://registry.example.com/v2/pulp/manifests/best_version_ever')
+            self.assertEqual(type(request.destination), type(StringIO()))
+            report = DownloadReport(request.url, request.destination)
+            report.download_succeeded()
+            report.headers = {'Docker-Distribution-API-Version': 'registry/2.0',
+                              'docker-content-digest': digest}
+            report.destination.write(manifest)
+            return report
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=download_one)
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
+            manifest = manifest_file.read()
+
+        d, m = r.get_manifest('best_version_ever')
+
+        self.assertEqual(d, digest)
+        self.assertEqual(m, manifest)
+
+    def test_get_tags(self):
+        """
+        Assert correct behavior from get_tags().
+        """
+        def download_one(request):
+            """
+            Mock the download_one() method to manipulate the path.
+            """
+            self.assertEqual(request.url, 'https://registry.example.com/v2/pulp/tags/list')
+            self.assertEqual(type(request.destination), type(StringIO()))
+            report = DownloadReport(request.url, request.destination)
+            report.download_succeeded()
+            report.headers = {}
+            report.destination.write('{"name": "pulp", "tags": ["best_ever", "latest", "decent"]}')
+            return report
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=download_one)
+
+        tags = r.get_tags()
+
+        self.assertEqual(tags, ["best_ever", "latest", "decent"])
+
+    def test__get_path_failed(self):
+        """
+        Test _get_path() for the case when an IOError is raised by the downloader.
+        """
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+
+        # The request will fail because the requested path does not exist
+        self.assertRaises(IOError, r._get_path, '/some/path')
+
+    def test__get_path_success(self):
+        """
+        Test _get_path() for the case when the download is successful.
+        """
+        def download_one(request):
+            """
+            Mock the download_one() method.
+            """
+            self.assertEqual(request.url, 'https://registry.example.com/some/path')
+            self.assertEqual(type(request.destination), type(StringIO()))
+            report = DownloadReport(request.url, request.destination)
+            report.download_succeeded()
+            report.headers = {'some': 'cool stuff'}
+            report.destination.write("This is the stuff you've been waiting for.")
+            return report
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=download_one)
+
+        headers, body = r._get_path('/some/path')
+
+        self.assertEqual(headers, {'some': 'cool stuff'})
+        self.assertEqual(body, "This is the stuff you've been waiting for.")

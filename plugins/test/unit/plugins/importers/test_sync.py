@@ -1,400 +1,688 @@
-import inspect
-import json
+"""
+This module contains tests for the pulp_docker.plugins.importers.sync module.
+"""
 import os
-import shutil
-import tempfile
 import unittest
+from gettext import gettext as _
 
 import mock
-from nectar.request import DownloadRequest
-from pulp.common.plugins import importer_constants, reporting_constants
-from pulp.plugins.config import PluginCallConfiguration
-from pulp.plugins.model import Repository as RepositoryModel, Unit
-from pulp.server.exceptions import MissingValue
+from pulp.common.plugins import importer_constants
+from pulp.plugins import config as plugin_config, model
+from pulp.server import exceptions
 from pulp.server.managers import factory
 
-from pulp_docker.common import constants
-from pulp_docker.plugins.importers import sync
+from pulp_docker.common import constants, models
 from pulp_docker.plugins import registry
+from pulp_docker.plugins.importers import sync
 
+
+TEST_DATA_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'data')
 
 factory.initialize()
 
 
-class TestSyncStep(unittest.TestCase):
-    def setUp(self):
-        super(TestSyncStep, self).setUp()
+class TestDownloadManifestsStep(unittest.TestCase):
+    """
+    This class contains tests for the DownloadManifestsStep class.
+    """
+    @mock.patch('pulp_docker.plugins.importers.sync.PluginStep.__init__',
+                side_effect=sync.PluginStep.__init__, autospec=True)
+    def test___init__(self, __init__):
+        """
+        Assert correct attributes and calls from __init__().
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+        working_dir = '/some/path'
 
-        self.repo = RepositoryModel('repo1')
-        self.conduit = mock.MagicMock()
-        plugin_config = {
-            constants.CONFIG_KEY_UPSTREAM_NAME: 'pulp/crane',
-            importer_constants.KEY_FEED: 'http://pulpproject.org/',
-        }
-        self.config = PluginCallConfiguration({}, plugin_config)
-        self.step = sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
+        step = sync.DownloadManifestsStep(repo, conduit, config, working_dir)
 
-    @mock.patch.object(sync.SyncStep, 'validate')
-    def test_init(self, mock_validate):
-        # re-run this with the mock in place
-        self.step = sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
+        self.assertEqual(step.description, _('Downloading manifests'))
+        __init__.assert_called_once_with(step, constants.SYNC_STEP_METADATA, repo, conduit, config,
+                                         working_dir, constants.IMPORTER_TYPE_ID)
 
-        self.assertEqual(self.step.step_id, constants.SYNC_STEP_MAIN)
+    @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
+                side_effect=models.Manifest.from_json)
+    @mock.patch('pulp_docker.plugins.importers.sync.PluginStep.process_main')
+    def test_process_main_with_one_layer(self, super_process_main, from_json):
+        """
+        Test process_main() when there is only one layer.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+        working_dir = '/some/path'
+        step = sync.DownloadManifestsStep(repo, conduit, config, working_dir)
+        step.parent = mock.MagicMock()
+        step.parent.parent.index_repository.get_tags.return_value = ['latest']
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_one_layer.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        step.parent.parent.available_units = []
+        step.parent.parent.index_repository.get_manifest.return_value = digest, manifest
+        step.parent.manifests = {}
 
-        # make sure the children are present
-        step_ids = set([child.step_id for child in self.step.children])
-        self.assertTrue(constants.SYNC_STEP_METADATA in step_ids)
-        self.assertTrue(reporting_constants.SYNC_STEP_GET_LOCAL in step_ids)
-        self.assertTrue(constants.SYNC_STEP_DOWNLOAD in step_ids)
-        self.assertTrue(constants.SYNC_STEP_SAVE in step_ids)
+        with mock.patch('__builtin__.open') as mock_open:
+            step.process_main()
 
-        # make sure it instantiated a Repository object
-        self.assertTrue(isinstance(self.step.index_repository, registry.Repository))
-        self.assertEqual(self.step.index_repository.name, 'pulp/crane')
-        self.assertEqual(self.step.index_repository.registry_url, 'http://pulpproject.org/')
+            # Assert that the manifest was written to disk in the working dir
+            mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        # these are important because child steps will populate them with data
-        self.assertEqual(self.step.available_units, [])
-        self.assertEqual(self.step.tags, {})
+        super_process_main.assert_called_once_with()
+        step.parent.parent.index_repository.get_tags.assert_called_once_with()
+        step.parent.parent.index_repository.get_manifest.assert_called_once_with('latest')
+        from_json.assert_called_once_with(manifest, digest)
+        # There should be one manifest that has the correct digest
+        self.assertEqual(len(step.parent.manifests), 1)
+        self.assertEqual(step.parent.manifests[digest].digest, digest)
+        # There should be one layer
+        expected_blob_sum = ('sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6'
+                             'ef')
+        self.assertEqual(
+            step.parent.manifests[digest].fs_layers,
+            [{"blobSum": expected_blob_sum}]
+        )
+        # The layer should have been added to the parent.parent.available_units list
+        self.assertEqual(step.parent.parent.available_units, [{'image_id': expected_blob_sum}])
 
-        mock_validate.assert_called_once_with(self.config)
+    @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
+                side_effect=models.Manifest.from_json)
+    @mock.patch('pulp_docker.plugins.importers.sync.PluginStep.process_main')
+    def test_process_main_with_repeated_layers(self, super_process_main, from_json):
+        """
+        Test process_main() when the various tags contains some layers in common, which is a
+        typical pattern. The available_units set on the SyncStep should only have the layers once
+        each so that we don't try to download them more than once.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+        working_dir = '/some/path'
+        step = sync.DownloadManifestsStep(repo, conduit, config, working_dir)
+        step.parent = mock.MagicMock()
+        step.parent.parent.index_repository.get_tags.return_value = ['latest']
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        step.parent.parent.available_units = []
+        step.parent.parent.index_repository.get_manifest.return_value = digest, manifest
+        step.parent.manifests = {}
 
-    def test_validate_pass(self):
-        self.step.validate(self.config)
+        with mock.patch('__builtin__.open') as mock_open:
+            step.process_main()
 
-    def test_validate_no_name_or_feed(self):
-        config = PluginCallConfiguration({}, {})
+            # Assert that the manifest was written to disk in the working dir
+            mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        try:
-            self.step.validate(config)
-        except MissingValue, e:
-            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
-            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
-        else:
-            raise AssertionError('validation should have failed')
+        super_process_main.assert_called_once_with()
+        step.parent.parent.index_repository.get_tags.assert_called_once_with()
+        step.parent.parent.index_repository.get_manifest.assert_called_once_with('latest')
+        from_json.assert_called_once_with(manifest, digest)
+        # There should be one manifest that has the correct digest
+        self.assertEqual(len(step.parent.manifests), 1)
+        self.assertEqual(step.parent.manifests[digest].digest, digest)
+        # There should be two layers, but oddly one of them is used three times
+        expected_blob_sums = (
+            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef',
+            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11')
+        expected_fs_layers = [{'blobSum': expected_blob_sums[i]} for i in (0, 0, 1, 0)]
+        self.assertEqual(step.parent.manifests[digest].fs_layers, expected_fs_layers)
+        # The layers should have been added to the parent.parent.available_units list, in no
+        # particular order
+        self.assertEqual(set([u['image_id'] for u in step.parent.parent.available_units]),
+                         set(expected_blob_sums))
 
-    def test_validate_no_name(self):
-        config = PluginCallConfiguration({}, {importer_constants.KEY_FEED: 'http://foo'})
+    @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
+                side_effect=models.Manifest.from_json)
+    @mock.patch('pulp_docker.plugins.importers.sync.PluginStep.process_main')
+    def test_process_main_with_unique_layers(self, super_process_main, from_json):
+        """
+        Test process_main() when the various tags all have unique layers.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+        working_dir = '/some/path'
+        step = sync.DownloadManifestsStep(repo, conduit, config, working_dir)
+        step.parent = mock.MagicMock()
+        step.parent.parent.index_repository.get_tags.return_value = ['latest']
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        step.parent.parent.available_units = []
+        step.parent.parent.index_repository.get_manifest.return_value = digest, manifest
+        step.parent.manifests = {}
 
-        try:
-            self.step.validate(config)
-        except MissingValue, e:
-            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
-            self.assertEqual(len(e.property_names), 1)
-        else:
-            raise AssertionError('validation should have failed')
+        with mock.patch('__builtin__.open') as mock_open:
+            step.process_main()
 
-    def test_validate_no_feed(self):
-        config = PluginCallConfiguration({}, {constants.CONFIG_KEY_UPSTREAM_NAME: 'centos'})
+            # Assert that the manifest was written to disk in the working dir
+            mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        try:
-            self.step.validate(config)
-        except MissingValue, e:
-            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
-            self.assertEqual(len(e.property_names), 1)
-        else:
-            raise AssertionError('validation should have failed')
-
-    def test_generate_download_requests(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            generator = self.step.generate_download_requests()
-            self.assertTrue(inspect.isgenerator(generator))
-
-            download_reqs = list(generator)
-
-            self.assertEqual(len(download_reqs), 3)
-            for req in download_reqs:
-                self.assertTrue(isinstance(req, DownloadRequest))
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_requests_correct_urls(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            generator = self.step.generate_download_requests()
-
-            # make sure the urls are correct
-            urls = [req.url for req in generator]
-            self.assertTrue('http://pulpproject.org/v1/images/image1/ancestry' in urls)
-            self.assertTrue('http://pulpproject.org/v1/images/image1/json' in urls)
-            self.assertTrue('http://pulpproject.org/v1/images/image1/layer' in urls)
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_requests_correct_destinations(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            generator = self.step.generate_download_requests()
-
-            # make sure the urls are correct
-            destinations = [req.destination for req in generator]
-            self.assertTrue(os.path.join(self.step.working_dir, 'image1', 'ancestry')
-                            in destinations)
-            self.assertTrue(os.path.join(self.step.working_dir, 'image1', 'json')
-                            in destinations)
-            self.assertTrue(os.path.join(self.step.working_dir, 'image1', 'layer')
-                            in destinations)
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_reqs_creates_dir(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            list(self.step.generate_download_requests())
-
-            # make sure it created the destination directory
-            self.assertTrue(os.path.isdir(os.path.join(self.step.working_dir, 'image1')))
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_reqs_existing_dir(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
-        self.step.working_dir = tempfile.mkdtemp()
-        os.makedirs(os.path.join(self.step.working_dir, 'image1'))
-
-        try:
-            # just make sure this doesn't complain
-            list(self.step.generate_download_requests())
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_reqs_perm_denied(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
-
-        # make sure the permission denies OSError bubbles up
-        self.assertRaises(OSError, list, self.step.generate_download_requests())
-
-    def test_generate_download_reqs_ancestry_exists(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
-        self.step.working_dir = tempfile.mkdtemp()
-        os.makedirs(os.path.join(self.step.working_dir, 'image1'))
-        # simulate the ancestry file already existing
-        open(os.path.join(self.step.working_dir, 'image1/ancestry'), 'w').close()
-
-        try:
-            # there should only be 2 reqs instead of 3, since the ancestry file already exists
-            reqs = list(self.step.generate_download_requests())
-            self.assertEqual(len(reqs), 2)
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_sync(self):
-        with mock.patch.object(self.step, 'process_lifecycle') as mock_process:
-            report = self.step.sync()
-
-        # make sure we called the process_lifecycle method
-        mock_process.assert_called_once_with()
-        # make sure it returned a report generated by the conduit
-        self.assertTrue(report is self.conduit.build_success_report.return_value)
-
-
-class TestGetMetadataStep(unittest.TestCase):
-    def setUp(self):
-        super(TestGetMetadataStep, self).setUp()
-        self.working_dir = tempfile.mkdtemp()
-        self.repo = RepositoryModel('repo1')
-        self.repo.working_dir = self.working_dir
-        self.conduit = mock.MagicMock()
-        plugin_config = {
-            constants.CONFIG_KEY_UPSTREAM_NAME: 'pulp/crane',
-            importer_constants.KEY_FEED: 'http://pulpproject.org/',
-        }
-        self.config = PluginCallConfiguration({}, plugin_config)
-
-        self.step = sync.GetMetadataStep(self.repo, self.conduit, self.config, self.working_dir)
-        self.step.parent = mock.MagicMock()
-        self.index = self.step.parent.index_repository
-
-    def tearDown(self):
-        super(TestGetMetadataStep, self).tearDown()
-        shutil.rmtree(self.working_dir)
-
-    def test_updates_tags(self):
-        self.index.get_tags.return_value = {
-            'latest': 'abc1'
-        }
-        self.index.get_image_ids.return_value = ['abc123']
-        self.step.parent.tags = {}
-        # make the ancestry file and put it in the expected place
-        os.makedirs(os.path.join(self.working_dir, 'abc123'))
-        with open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w') as ancestry:
-            ancestry.write('["abc123"]')
-
-        self.step.process_main()
-
-        self.assertEqual(self.step.parent.tags, {'latest': 'abc123'})
-
-    def test_updates_available_units(self):
-        self.index.get_tags.return_value = {
-            'latest': 'abc1'
-        }
-        self.index.get_image_ids.return_value = ['abc123']
-        self.step.parent.tags = {}
-        # make the ancestry file and put it in the expected place
-        os.makedirs(os.path.join(self.working_dir, 'abc123'))
-        with open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w') as ancestry:
-            ancestry.write('["abc123","xyz789"]')
-
-        self.step.process_main()
-
-        available_ids = [unit_key['image_id'] for unit_key in self.step.parent.available_units]
-        self.assertTrue('abc123' in available_ids)
-        self.assertTrue('xyz789' in available_ids)
-
-    def test_expand_tags_no_abbreviations(self):
-        ids = ['abc123', 'xyz789']
-        tags = {'foo': 'abc123', 'bar': 'abc123', 'baz': 'xyz789'}
-
-        self.step.expand_tag_abbreviations(ids, tags)
-        self.assertEqual(tags['foo'], 'abc123')
-        self.assertEqual(tags['bar'], 'abc123')
-        self.assertEqual(tags['baz'], 'xyz789')
-
-    def test_expand_tags_with_abbreviations(self):
-        ids = ['abc123', 'xyz789']
-        tags = {'foo': 'abc', 'bar': 'abc123', 'baz': 'xyz'}
-
-        self.step.expand_tag_abbreviations(ids, tags)
-        self.assertEqual(tags['foo'], 'abc123')
-        self.assertEqual(tags['bar'], 'abc123')
-        self.assertEqual(tags['baz'], 'xyz789')
-
-    def test_find_and_read_ancestry_file(self):
-        # make the ancestry file and put it in the expected place
-        os.makedirs(os.path.join(self.working_dir, 'abc123'))
-        with open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w') as ancestry:
-            ancestry.write('["abc123","xyz789"]')
-
-        ancester_ids = self.step.find_and_read_ancestry_file('abc123', self.working_dir)
-
-        self.assertEqual(ancester_ids, ['abc123', 'xyz789'])
+        super_process_main.assert_called_once_with()
+        step.parent.parent.index_repository.get_tags.assert_called_once_with()
+        step.parent.parent.index_repository.get_manifest.assert_called_once_with('latest')
+        from_json.assert_called_once_with(manifest, digest)
+        # There should be one manifest that has the correct digest
+        self.assertEqual(len(step.parent.manifests), 1)
+        self.assertEqual(step.parent.manifests[digest].digest, digest)
+        # There should be two layers, but oddly one of them is used three times
+        expected_blob_sums = (
+            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef',
+            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11')
+        expected_fs_layers = [{'blobSum': expected_blob_sums[i]} for i in (0, 0, 1, 0)]
+        self.assertEqual(step.parent.manifests[digest].fs_layers, expected_fs_layers)
+        # The layers should have been added to the parent.parent.available_units list, in no
+        # particular order
+        self.assertEqual(set([u['image_id'] for u in step.parent.parent.available_units]),
+                         set(expected_blob_sums))
 
 
 class TestGetLocalImagesStep(unittest.TestCase):
+    """
+    This class contains tests for the GetLocalImagesStep class.
+    """
+    def test__dict_to_unit(self):
+        """
+        Assert correct behavior from the _dict_to_unit() method.
+        """
+        step = sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID, constants.IMAGE_TYPE_ID,
+                                       ['image_id'], '/working/dir')
+        step.conduit = mock.MagicMock()
 
-    def setUp(self):
-        super(TestGetLocalImagesStep, self).setUp()
-        self.working_dir = tempfile.mkdtemp()
-        self.step = sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID,
-                                            constants.IMAGE_TYPE_ID,
-                                            ['image_id'], self.working_dir)
-        self.step.conduit = mock.MagicMock()
+        unit = step._dict_to_unit({'image_id': 'abc123', 'parent_id': None, 'size': 12})
 
-    def tearDown(self):
-        super(TestGetLocalImagesStep, self).tearDown()
-        shutil.rmtree(self.working_dir)
-
-    def test_dict_to_unit(self):
-        unit = self.step._dict_to_unit({'image_id': 'abc123', 'parent_id': None, 'size': 12})
-
-        self.assertTrue(unit is self.step.conduit.init_unit.return_value)
-        self.step.conduit.init_unit.assert_called_once_with(constants.IMAGE_TYPE_ID,
-                                                            {'image_id': 'abc123'}, {},
-                                                            os.path.join(constants.IMAGE_TYPE_ID,
-                                                                         'abc123'))
+        self.assertTrue(unit is step.conduit.init_unit.return_value)
+        step.conduit.init_unit.assert_called_once_with(
+            constants.IMAGE_TYPE_ID, {'image_id': 'abc123'}, {}, 'abc123')
 
 
-class TestSaveUnits(unittest.TestCase):
-    def setUp(self):
-        super(TestSaveUnits, self).setUp()
-        self.working_dir = tempfile.mkdtemp()
-        self.dest_dir = tempfile.mkdtemp()
-        self.step = sync.SaveUnits(self.working_dir)
-        self.step.repo = RepositoryModel('repo1')
-        self.step.conduit = mock.MagicMock()
-        self.step.parent = mock.MagicMock()
-        self.step.parent.step_get_local_units.units_to_download = [{'image_id': 'abc123'}]
+class TestGetLocalManifestsStep(unittest.TestCase):
+    """
+    This class contains tests for the GetLocalManifestsStep class.
+    """
+    def test__dict_to_unit(self):
+        """
+        Assert correct behavior from the _dict_to_unit() method.
+        """
+        step = sync.GetLocalManifestsStep(constants.IMPORTER_TYPE_ID, models.Manifest.TYPE_ID,
+                                          ['digest'], '/working/dir')
+        step.conduit = mock.MagicMock()
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        manifest = models.Manifest.from_json(manifest, digest)
+        step.parent = mock.MagicMock()
+        step.parent.parent.step_get_metadata.manifests = {digest: manifest}
 
-        self.unit = Unit(constants.IMAGE_TYPE_ID, {'image_id': 'abc123'},
-                         {'parent': None, 'size': 2}, os.path.join(self.dest_dir, 'abc123'))
+        unit = step._dict_to_unit({'digest': digest})
 
-    def tearDown(self):
-        super(TestSaveUnits, self).tearDown()
-        shutil.rmtree(self.working_dir)
-        shutil.rmtree(self.dest_dir)
+        self.assertTrue(unit is step.conduit.init_unit.return_value)
+        step.conduit.init_unit.assert_called_once_with(
+            manifest.TYPE_ID, manifest.unit_key, manifest.metadata, manifest.relative_path)
 
-    def _write_empty_files(self):
-        os.makedirs(os.path.join(self.working_dir, 'abc123'))
-        open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w').close()
-        open(os.path.join(self.working_dir, 'abc123/json'), 'w').close()
-        open(os.path.join(self.working_dir, 'abc123/layer'), 'w').close()
 
-    def _write_files_legit_metadata(self):
-        os.makedirs(os.path.join(self.working_dir, 'abc123'))
-        open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w').close()
-        open(os.path.join(self.working_dir, 'abc123/layer'), 'w').close()
-        # write just enough metadata to make the step happy
-        with open(os.path.join(self.working_dir, 'abc123/json'), 'w') as json_file:
-            json.dump({'Size': 2, 'Parent': 'xyz789'}, json_file)
+class TestGetMetadataStep(unittest.TestCase):
+    """
+    This class contains tests for the GetMetadataStep class.
+    """
+    @mock.patch('pulp_docker.plugins.importers.sync.DownloadManifestsStep.__init__',
+                return_value=None)
+    @mock.patch('pulp_docker.plugins.importers.sync.GetLocalManifestsStep.__init__',
+                return_value=None)
+    def test___init__(self, get_local_manifests_step___init__, download_manifests_step___init__):
+        """
+        Assert that __init__() establishes the correct attributes and child tasks.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+        working_dir = '/some/path'
 
-    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
-    def test_process_main_moves_files(self, mock_update_tags):
-        self._write_files_legit_metadata()
+        step = sync.GetMetadataStep(repo, conduit, config, working_dir)
 
-        with mock.patch.object(self.step, 'move_files') as mock_move_files:
-            self.step.process_main()
+        self.assertEqual(step.description, _('Retrieving metadata'))
+        self.assertEqual(step.manifests, {})
+        # Make sure the children are set up
+        self.assertEqual(len(step.children), 2)
+        self.assertEqual(type(step.children[0]), sync.DownloadManifestsStep)
+        self.assertEqual(type(step.children[1]), sync.GetLocalManifestsStep)
+        self.assertEqual(step.children[1], step.step_get_local_units)
+        download_manifests_step___init__.assert_called_once_with(repo, conduit, config, working_dir)
+        get_local_manifests_step___init__.assert_called_once_with(
+            constants.IMPORTER_TYPE_ID, models.Manifest.TYPE_ID, ['digest'], working_dir)
 
-        expected_unit = self.step.conduit.init_unit.return_value
-        mock_move_files.assert_called_once_with(expected_unit)
+    def test_available_units(self):
+        """
+        Assert correct operation from the available_units property.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+        working_dir = '/some/path'
+        step = sync.GetMetadataStep(repo, conduit, config, working_dir)
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        manifest = models.Manifest.from_json(manifest, digest)
+        step.manifests = {digest: manifest}
 
-    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
-    def test_process_main_saves_unit(self, mock_update_tags):
-        self._write_files_legit_metadata()
+        self.assertEqual(step.available_units, [{'digest': digest}])
 
-        with mock.patch.object(self.step, 'move_files'):
-            self.step.process_main()
 
-        expected_unit = self.step.conduit.init_unit.return_value
-        self.step.conduit.save_unit.assert_called_once_with(expected_unit)
+class TestSaveUnitsStep(unittest.TestCase):
+    """
+    This class contains tests for the SaveUnitsStep class.
+    """
+    @mock.patch('pulp_docker.plugins.importers.sync.PluginStep.__init__',
+                side_effect=sync.PluginStep.__init__, autospec=True)
+    def test___init__(self, super___init__):
+        """
+        Assert the correct operation of the __init__() method.
+        """
+        working_dir = '/working/dir/'
 
-    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
-    def test_process_main_updates_tags(self, mock_update_tags):
-        self._write_files_legit_metadata()
-        self.step.parent.tags = {'latest': 'abc123'}
+        step = sync.SaveUnitsStep(working_dir)
 
-        with mock.patch.object(self.step, 'move_files'):
-            self.step.process_main()
+        super___init__.assert_called_once_with(
+            step, step_type=constants.SYNC_STEP_SAVE, plugin_type=constants.IMPORTER_TYPE_ID,
+            working_dir=working_dir)
+        self.assertEqual(step.description, _('Saving manifests and blobs'))
 
-        mock_update_tags.assert_called_once_with(self.step.repo.id, {'latest': 'abc123'})
+    @mock.patch('pulp_docker.plugins.importers.sync.shutil.move')
+    def test__move_files_with_image(self, move):
+        """
+        Assert correct operation from the _move_files() method with an Image unit.
+        """
+        working_dir = '/working/dir/'
+        step = sync.SaveUnitsStep(working_dir)
+        unit_key = {'image_id': 'some_id'}
+        metadata = {'some': 'metadata'}
+        storage_path = '/a/cool/storage/path'
+        unit = model.Unit(models.Image.TYPE_ID, unit_key, metadata, storage_path)
 
-    def test_move_files_make_dir(self):
-        self._write_empty_files()
+        step._move_file(unit)
 
-        self.step.move_files(self.unit)
+        move.assert_called_once_with('/working/dir/some_id', storage_path)
 
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
+    @mock.patch('pulp_docker.plugins.importers.sync.shutil.move')
+    def test__move_files_with_manifest(self, move):
+        """
+        Assert correct operation from the _move_files() method with a Manifest unit.
+        """
+        working_dir = '/working/dir/'
+        step = sync.SaveUnitsStep(working_dir)
+        unit_key = {'digest': 'some_digest'}
+        metadata = {'some': 'metadata'}
+        storage_path = '/a/cool/storage/path'
+        unit = model.Unit(models.Manifest.TYPE_ID, unit_key, metadata, storage_path)
 
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
+        step._move_file(unit)
 
-    def test_move_files_dir_exists(self):
-        self._write_empty_files()
-        os.makedirs(os.path.join(self.dest_dir, 'abc123'))
+        move.assert_called_once_with('/working/dir/some_digest', storage_path)
 
-        self.step.move_files(self.unit)
+    @mock.patch('pulp_docker.plugins.importers.sync.SaveUnitsStep._move_file')
+    def test_process_main_new_images(self, _move_file):
+        """
+        Test process_main() when there are new images that were downloaded.
+        """
+        working_dir = '/working/dir/'
+        step = sync.SaveUnitsStep(working_dir)
+        blob_sizes = {
+            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef': 256,
+            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11': 42}
+        step.parent = mock.MagicMock()
+        step.parent.step_get_local_units.units_to_download = [
+            {'image_id': digest} for digest in sorted(blob_sizes.keys())]
 
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
+        def fake_init_unit(type_id, unit_key, metadata, path):
+            """
+            Return the two units for the two blobs for two invocations of init_unit.
+            """
+            return model.Unit(type_id, unit_key, metadata, path)
 
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
+        def fake_stat(path):
+            """
+            Return a fake stat result for the given path.
+            """
+            return (None, None, None, None, None, None, blob_sizes[path.split('/')[-1]])
 
-    def test_move_files_makedirs_fails(self):
-        self.unit.storage_path = '/a/b/c'
+        step.parent.get_conduit.return_value.init_unit.side_effect = fake_init_unit
 
-        # make sure that a permission denied error bubbles up
-        self.assertRaises(OSError, self.step.move_files, self.unit)
+        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
+            stat.side_effect = fake_stat
+
+            step.process_main()
+
+            # Each image should have been stat'd for its size
+            self.assertEqual(
+                [call[1] for call in stat.mock_calls],
+                [(os.path.join(working_dir, digest),) for digest in sorted(blob_sizes.keys())])
+
+        # Both units should have been moved
+        self.assertEqual(_move_file.call_count, 2)
+        self.assertEqual(set([call[1][0].unit_key['image_id'] for call in _move_file.mock_calls]),
+                         set([d for d in blob_sizes.keys()]))
+        # Both units should have been saved
+        self.assertEqual(step.parent.get_conduit.return_value.save_unit.call_count, 2)
+        self.assertEqual(
+            set([call[1][0].unit_key['image_id'] for call in
+                 step.parent.get_conduit.return_value.save_unit.mock_calls]),
+            set([d for d in blob_sizes.keys()]))
+        # The Units should have been initialized with the proper sizes
+        self.assertEqual(
+            set([call[1][0].metadata['size'] for call in
+                 step.parent.get_conduit.return_value.save_unit.mock_calls]),
+            set([s for k, s in blob_sizes.items()]))
+
+    @mock.patch('pulp_docker.plugins.importers.sync.SaveUnitsStep._move_file')
+    def test_process_main_new_images_and_manifests(self, _move_file):
+        """
+        Test process_main() when there are new images and manifests that were downloaded.
+        """
+        working_dir = '/working/dir/'
+        step = sync.SaveUnitsStep(working_dir)
+        # Simulate two newly downloaded blobs
+        blob_sizes = {
+            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef': 256,
+            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11': 42}
+        step.parent = mock.MagicMock()
+        step.parent.step_get_local_units.units_to_download = [
+            {'image_id': digest} for digest in sorted(blob_sizes.keys())]
+        # Simulate one newly downloaded manifest
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        manifest = models.Manifest.from_json(manifest, digest)
+        step.parent.step_get_metadata.manifests = {digest: manifest}
+        step.parent.step_get_metadata.step_get_local_units.units_to_download = [{'digest': digest}]
+
+        def fake_init_unit(type_id, unit_key, metadata, path):
+            """
+            Return the Unit for the invocation of init_unit.
+            """
+            return model.Unit(type_id, unit_key, metadata, path)
+
+        def fake_stat(path):
+            """
+            Return a fake stat result for the given path.
+            """
+            return (None, None, None, None, None, None, blob_sizes[path.split('/')[-1]])
+
+        step.parent.get_conduit.return_value.init_unit.side_effect = fake_init_unit
+
+        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
+            stat.side_effect = fake_stat
+
+            step.process_main()
+
+            # Each image should have been stat'd for its size
+            self.assertEqual([call[1] for call in stat.mock_calls],
+                             [(os.path.join(working_dir, d),) for d in sorted(blob_sizes.keys())])
+
+        # All three units should have been moved
+        self.assertEqual(_move_file.call_count, 3)
+        self.assertEqual(_move_file.mock_calls[0][1][0].unit_key, {'digest': digest})
+        self.assertEqual([call[1][0].unit_key for call in _move_file.mock_calls[1:3]],
+                         [{'image_id': d} for d in sorted(blob_sizes.keys())])
+        # All three units should have been saved
+        self.assertEqual(step.parent.get_conduit.return_value.save_unit.call_count, 3)
+        self.assertEqual(
+            step.parent.get_conduit.return_value.save_unit.mock_calls[0][1][0].unit_key,
+            {'digest': digest})
+        self.assertEqual(
+            [call[1][0].unit_key['image_id'] for call in
+                step.parent.get_conduit.return_value.save_unit.mock_calls[1:3]],
+            [d for d in sorted(blob_sizes.keys())])
+        # The Units' metadata should have been initialized properly
+        self.assertEqual(
+            step.parent.get_conduit.return_value.save_unit.mock_calls[0][1][0].metadata['name'],
+            'hello-world')
+        self.assertEqual(
+            set([call[1][0].metadata['size'] for call in
+                step.parent.get_conduit.return_value.save_unit.mock_calls[1:3]]),
+            set([s for k, s in sorted(blob_sizes.items())]))
+
+    @mock.patch('pulp_docker.plugins.importers.sync.SaveUnitsStep._move_file')
+    def test_process_main_new_manifests(self, _move_file):
+        """
+        Test process_main() when there are new manifests that were downloaded.
+        """
+        working_dir = '/working/dir/'
+        step = sync.SaveUnitsStep(working_dir)
+        step.parent = mock.MagicMock()
+        # Simulate 0 new blobs
+        step.parent.step_get_local_units.units_to_download = []
+        # Simulate one newly downloaded manifest
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        manifest = models.Manifest.from_json(manifest, digest)
+        step.parent.step_get_metadata.manifests = {digest: manifest}
+        step.parent.step_get_metadata.step_get_local_units.units_to_download = [{'digest': digest}]
+
+        def fake_init_unit(type_id, unit_key, metadata, path):
+            """
+            Return the Unit for the invocation of init_unit.
+            """
+            return model.Unit(type_id, unit_key, metadata, path)
+
+        step.parent.get_conduit.return_value.init_unit.side_effect = fake_init_unit
+
+        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
+            step.process_main()
+
+            # stat() should not have been called since there weren't any new images
+            self.assertEqual(stat.call_count, 0)
+
+        # The new manifest should have been moved
+        self.assertEqual(_move_file.call_count, 1)
+        self.assertEqual(_move_file.mock_calls[0][1][0].unit_key, {'digest': digest})
+        # The manifest should have been saved
+        self.assertEqual(step.parent.get_conduit.return_value.save_unit.call_count, 1)
+        self.assertEqual(
+            step.parent.get_conduit.return_value.save_unit.mock_calls[0][1][0].unit_key,
+            {'digest': digest})
+        # The Manifest's metadata should have been initialized properly
+        self.assertEqual(
+            step.parent.get_conduit.return_value.save_unit.mock_calls[0][1][0].metadata['name'],
+            'hello-world')
+
+    @mock.patch('pulp_docker.plugins.importers.sync.SaveUnitsStep._move_file')
+    def test_process_main_no_units(self, _move_file):
+        """
+        When there are no units that were new to download nothing should happen.
+        """
+        working_dir = '/working/dir/'
+        step = sync.SaveUnitsStep(working_dir)
+        step.parent = mock.MagicMock()
+        # Simulate 0 new blobs
+        step.parent.step_get_local_units.units_to_download = []
+        # Simulate 0 new manifests
+        step.parent.step_get_metadata.manifests = {}
+        step.parent.step_get_metadata.step_get_local_units.units_to_download = []
+
+        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
+            step.process_main()
+
+            # stat() should not have been called since there weren't any new images
+            self.assertEqual(stat.call_count, 0)
+
+        # Nothing should have been moved
+        self.assertEqual(_move_file.call_count, 0)
+        # Nothing should have been saved
+        self.assertEqual(step.parent.get_conduit.return_value.save_unit.call_count, 0)
+
+
+class TestSyncStep(unittest.TestCase):
+    """
+    This class contains tests for the SyncStep class.
+    """
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check')
+    def test___init___with_v2_registry(self, api_version_check, _validate):
+        """
+        Test the __init__() method when the V2Repository does not raise a NotImplementedError with
+        the api_version_check() method, indicating that the feed URL is a Docker v2 registry.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = plugin_config.PluginCallConfiguration(
+            {},
+            {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
+             importer_constants.KEY_MAX_DOWNLOADS: 25})
+        working_dir = '/some/path'
+
+        step = sync.SyncStep(repo, conduit, config, working_dir)
+
+        self.assertEqual(step.description, _('Syncing Docker Repository'))
+        # The config should get validated
+        _validate.assert_called_once_with(config)
+        # available_units should have been initialized to an empty list
+        self.assertEqual(step.available_units, [])
+        # Ensure that the index_repository was initialized correctly
+        self.assertEqual(type(step.index_repository), registry.V2Repository)
+        self.assertEqual(step.index_repository.name, 'busybox')
+        self.assertEqual(step.index_repository.download_config.max_concurrent, 25)
+        self.assertEqual(step.index_repository.registry_url, 'https://registry.example.com')
+        self.assertEqual(step.index_repository.working_dir, working_dir)
+        # The version check should have happened, and since we mocked it, it will not raise an error
+        api_version_check.assert_called_once_with()
+        # The correct children should be in place in the right order
+        self.assertEqual(
+            [type(child) for child in step.children],
+            [sync.GetMetadataStep, sync.GetLocalImagesStep, sync.DownloadStep, sync.SaveUnitsStep])
+        # Ensure the first step was initialized correctly
+        self.assertEqual(step.children[0].repo, repo)
+        self.assertEqual(step.children[0].conduit, conduit)
+        self.assertEqual(step.children[0].config, config)
+        self.assertEqual(step.children[0].working_dir, working_dir)
+        # And the second step
+        self.assertEqual(step.children[1].plugin_type, constants.IMPORTER_TYPE_ID)
+        self.assertEqual(step.children[1].unit_type, models.Image.TYPE_ID)
+        self.assertEqual(step.children[1].unit_key_fields, ['image_id'])
+        self.assertEqual(step.children[1].working_dir, working_dir)
+        # And the third step
+        self.assertEqual(step.children[2].step_type, constants.SYNC_STEP_DOWNLOAD)
+        self.assertEqual(step.children[2].repo, repo)
+        self.assertEqual(step.children[2].config, config)
+        self.assertEqual(step.children[2].working_dir, working_dir)
+        self.assertEqual(step.children[2].description, _('Downloading remote files'))
+        # And the final step
+        self.assertEqual(step.children[3].working_dir, working_dir)
+
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    def test___init___without_v2_registry(self, _validate):
+        """
+        Test the __init__() method when the V2Repository raises a NotImplementedError with the
+        api_version_check() method, indicating that the feed URL is not a Docker v2 registry.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        # This feed does not implement a registry, so it will raise the NotImplementedError
+        config = plugin_config.PluginCallConfiguration(
+            {},
+            {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
+             importer_constants.KEY_MAX_DOWNLOADS: 25})
+        working_dir = '/some/path'
+
+        self.assertRaises(NotImplementedError, sync.SyncStep, repo, conduit, config, working_dir)
+
+        # The config should get validated
+        _validate.assert_called_once_with(config)
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', mock.MagicMock())
+    def test_generate_download_requests(self):
+        """
+        Assert correct operation of the generate_download_requests() method.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = plugin_config.PluginCallConfiguration(
+            {},
+            {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
+             importer_constants.KEY_MAX_DOWNLOADS: 25})
+        working_dir = '/some/path'
+        step = sync.SyncStep(repo, conduit, config, working_dir)
+        step.step_get_local_units.units_to_download = [
+            {'image_id': i} for i in ['cool', 'stuff']]
+
+        requests = step.generate_download_requests()
+
+        requests = list(requests)
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[0].url, 'https://registry.example.com/v2/busybox/blobs/cool')
+        self.assertEqual(requests[0].destination, '/some/path/cool')
+        self.assertEqual(requests[0].data, None)
+        self.assertEqual(requests[0].headers, None)
+        self.assertEqual(requests[1].url, 'https://registry.example.com/v2/busybox/blobs/stuff')
+        self.assertEqual(requests[1].destination, '/some/path/stuff')
+        self.assertEqual(requests[1].data, None)
+        self.assertEqual(requests[1].headers, None)
+
+    def test_required_settings(self):
+        """
+        Assert that the required_settings class attribute is set correctly.
+        """
+        self.assertEqual(sync.SyncStep.required_settings,
+                         (constants.CONFIG_KEY_UPSTREAM_NAME, importer_constants.KEY_FEED))
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', mock.MagicMock())
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._build_final_report')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep.process_lifecycle')
+    def test_sync(self, process_lifecycle, _build_final_report):
+        """
+        Assert correct operation of the sync() method.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = plugin_config.PluginCallConfiguration(
+            {},
+            {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
+             importer_constants.KEY_MAX_DOWNLOADS: 25})
+        working_dir = '/some/path'
+        step = sync.SyncStep(repo, conduit, config, working_dir)
+
+        step.sync()
+
+        process_lifecycle.assert_called_once_with()
+        _build_final_report.assert_called_once_with()
+
+    def test__validate_missing_one_key(self):
+        """
+        Test the _validate() method when one required config key is missing.
+        """
+        config = plugin_config.PluginCallConfiguration(
+            {}, {'upstream_name': 'busybox', importer_constants.KEY_MAX_DOWNLOADS: 25})
+
+        try:
+            sync.SyncStep._validate(config)
+            self.fail('An Exception should have been raised, but was not!')
+        except exceptions.MissingValue as e:
+            self.assertEqual(e.property_names, ['feed'])
+
+    def test__validate_missing_two_keys(self):
+        """
+        Test the _validate() method when two required config keys are missing.
+        """
+        config = plugin_config.PluginCallConfiguration(
+            {}, {importer_constants.KEY_MAX_DOWNLOADS: 25})
+
+        try:
+            sync.SyncStep._validate(config)
+            self.fail('An Exception should have been raised, but was not!')
+        except exceptions.MissingValue as e:
+            self.assertEqual(set(e.property_names), set(['upstream_name', 'feed']))
+
+    def test__validate_success_case(self):
+        """
+        Assert that _validate() returns sucessfully when all required config keys are present.
+        """
+        config = plugin_config.PluginCallConfiguration(
+            {},
+            {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
+             importer_constants.KEY_MAX_DOWNLOADS: 25})
+
+        # This should not raise an Exception
+        sync.SyncStep._validate(config)

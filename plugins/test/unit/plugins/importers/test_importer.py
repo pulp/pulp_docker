@@ -6,8 +6,7 @@ from pulp.plugins.importer import Importer
 from pulp.plugins.model import Repository
 
 import data
-from pulp_docker.common import constants
-from pulp_docker.common.models import DockerImage
+from pulp_docker.common import constants, models
 from pulp_docker.plugins.importers.importer import DockerImporter, entry_point
 from pulp_docker.plugins.importers import upload
 
@@ -56,6 +55,21 @@ class TestSyncRepo(unittest.TestCase):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
         mock_sync_step.return_value.sync.assert_called_once_with()
+
+    @mock.patch('pulp_docker.plugins.importers.v1_sync.SyncStep')
+    def test_fall_back_to_v1(self, v1_sync_step, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        """
+        Ensure that the sync_repo() method falls back to Docker v1 if Docker v2 isn't available.
+        """
+        # Simulate the v2 API being unavailable
+        mock_sync_step.side_effect = NotImplementedError()
+
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        v1_sync_step.assert_called_once_with(
+            repo=self.repo, conduit=self.sync_conduit, config=self.config,
+            working_dir=mock_mkdtemp.return_value)
+        v1_sync_step.return_value.sync.assert_called_once_with()
 
     def test_makes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
@@ -113,12 +127,12 @@ class TestUploadUnit(unittest.TestCase):
         DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
                                      {}, data.busybox_tar_path, self.conduit, self.config)
 
-        models = mock_save.call_args[0][1]
+        images = mock_save.call_args[0][1]
 
-        for model in models:
-            self.assertTrue(isinstance(model, DockerImage))
+        for image in images:
+            self.assertTrue(isinstance(image, models.Image))
 
-        ids = [m.image_id for m in models]
+        ids = [i.image_id for i in images]
 
         self.assertEqual(tuple(ids), data.busybox_ids)
 

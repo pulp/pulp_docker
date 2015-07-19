@@ -96,7 +96,7 @@ class PublishImagesStep(UnitPublishStep):
         Link the unit to the image content directory and the package_dir
 
         :param unit: The unit to process
-        :type unit: pulp_docker.common.models.DockerImage
+        :type unit:  pulp_docker.common.models.Image
         """
         self.redirect_context.add_unit_metadata(unit)
         target_base = os.path.join(self.get_web_directory(), unit.unit_key['image_id'])

@@ -24,7 +24,7 @@ def get_models(metadata, mask_id=''):
                         will be excluded.
     :type  mask_id:     basestring
 
-    :return:    list of models.DockerImage instances
+    :return:    list of models.Image instances
     :rtype:     list
     """
     images = []
@@ -42,7 +42,7 @@ def get_models(metadata, mask_id=''):
                 # This will avoid adding multiple images with a same id, which can happen
                 # in case of parents with multiple children.
                 existing_image_ids.add(image_id)
-                images.append(models.DockerImage(image_id, parent_id, size))
+                images.append(models.Image(image_id, parent_id, size))
 
             if parent_id == mask_id:
                 break
@@ -58,7 +58,7 @@ def save_models(conduit, models, ancestry, tarfile_path):
 
     :param conduit:         the conduit provided by pulp
     :type  conduit:         pulp.plugins.conduits.unit_add.UnitAddConduit
-    :param models:          collection of models.DockerImage instances to save
+    :param models:          collection of models.Image instances to save
     :type  models:          list
     :param ancestry:        a tuple of image IDs where the first is the image_id
                             passed in, and each successive ID is the parent image of

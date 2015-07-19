@@ -10,7 +10,7 @@
         "id": "docker_manifest",
         "display_name": "Docker Manifest",
         "description": "Docker Manifest",
-        "unit_key": ["name", "tag", "architecture", "digest"],
-        "search_indexes": []
+        "unit_key": ["digest"],
+        "search_indexes": ["name", "tag"]
     }
 ]}
