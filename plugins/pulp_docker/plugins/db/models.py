@@ -1,9 +1,9 @@
 from mongoengine import (IntField, StringField)
 
-from pulp.server.db.model import ContentUnit
+from pulp.server.db.model import FileContentUnit
 
 
-class DockerImage(ContentUnit):
+class DockerImage(FileContentUnit):
     image_id = StringField(required=True)
     parent_id = StringField()
     size = IntField()
