@@ -7,23 +7,72 @@ import json
 from pulp_docker.common import constants
 
 
+class Blob(object):
+    """
+    This class is used to represent Docker v2 blobs.
+    """
+    TYPE_ID = 'docker_blob'
+
+    def __init__(self, digest):
+        """
+        Initialize the Blob.
+
+        :param image_id:    This field will store the blob's digest.
+        :type  image_id:    basestring
+        """
+        self.digest = digest
+
+    @property
+    def unit_key(self):
+        """
+        Return the Blob's unit key.
+
+        :return:    unit key
+        :rtype:     dict
+        """
+        return {
+            'digest': self.digest
+        }
+
+    @property
+    def metadata(self):
+        """
+        A blob has no metadata, so return an empty dictionary.
+
+        :return: Empty dictionary
+        :rtype:  dict
+        """
+        return {}
+
+    @property
+    def relative_path(self):
+        """
+        Return the Blob's relative path for filesystem storage.
+
+        :return:    the relative path to where this Blob should live
+        :rtype:     basestring
+        """
+        return self.digest
+
+
 class Image(object):
     """
-    This class is used to represent Docker v1 images and Docker v2 blobs.
+    This class is used to represent Docker v1 images.
     """
     TYPE_ID = constants.IMAGE_TYPE_ID
 
     def __init__(self, image_id, parent_id, size):
         """
-        :param image_id:    For Docker v1 images, this field will store the image_id. For Docker v2
-                            blobs, this field will store the blob's digest.
-        :type  image_id:    basestring
-        :param parent_id:   parent's unique image ID
-        :type  parent_id:   basestring
-        :param size:        size of the image in bytes, as reported by docker.
-                            This can be None, because some very old docker images
-                            do not contain it in their metadata.
-        :type  size:        int or NoneType
+        Initialize the Image.
+
+        :param image_id:  The Image's id.
+        :type  image_id:  basestring
+        :param parent_id: parent's unique image ID
+        :type  parent_id: basestring
+        :param size:      size of the image in bytes, as reported by docker.
+                          This can be None, because some very old docker images
+                          do not contain it in their metadata.
+        :type  size:      int or NoneType
         """
         self.image_id = image_id
         self.parent_id = parent_id
@@ -32,6 +81,8 @@ class Image(object):
     @property
     def unit_key(self):
         """
+        Return the Image's unit key.
+
         :return:    unit key
         :rtype:     dict
         """
@@ -42,6 +93,8 @@ class Image(object):
     @property
     def relative_path(self):
         """
+        Return the Image's relative path for filesystem storage.
+
         :return:    the relative path to where this image's directory should live
         :rtype:     basestring
         """
@@ -50,6 +103,8 @@ class Image(object):
     @property
     def unit_metadata(self):
         """
+        Return the Image's Metadata.
+
         :return:    a subset of the complete docker metadata about this image,
                     including only what pulp_docker cares about
         :rtype:     dict
@@ -86,9 +141,9 @@ class Manifest(object):
         :param architecture:   The host architecture on which the image is intended to run
         :type  architecture:   basestring
         :param fs_layers:      A list of dictionaries. Each dictionary contains one key-value pair
-                               that represents a layer of the image. The key is blobSum, and the
-                               value is the digest of the referenced layer. See the documentation
-                               referenced in the class docblock for more information.
+                               that represents a layer (a Blob) of the image. The key is blobSum,
+                               and the value is the digest of the referenced layer. See the
+                               documentation referenced in the class docblock for more information.
         :type  fs_layers:      list
         :param history:        This is a list of unstructured historical data for v1 compatibility.
                                Each member is a dictionary with a "v1Compatibility" key that indexes

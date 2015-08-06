@@ -13,12 +13,31 @@ from pulp.plugins.model import Repository as RepositoryModel, Unit
 from pulp.server.exceptions import MissingValue
 from pulp.server.managers import factory
 
-from pulp_docker.common import constants
+from pulp_docker.common import constants, models
 from pulp_docker.plugins.importers import v1_sync
 from pulp_docker.plugins import registry
 
 
 factory.initialize()
+
+
+class TestGetLocalImagesStep(unittest.TestCase):
+    """
+    This class contains tests for the GetLocalImagesStep class.
+    """
+    def test__dict_to_unit(self):
+        """
+        Assert correct behavior from the _dict_to_unit() method.
+        """
+        step = v1_sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID, models.Image.TYPE_ID,
+                                          ['image_id'], '/working/dir')
+        step.conduit = mock.MagicMock()
+
+        unit = step._dict_to_unit({'image_id': 'abc123'})
+
+        self.assertTrue(unit is step.conduit.init_unit.return_value)
+        step.conduit.init_unit.assert_called_once_with(
+            models.Image.TYPE_ID, {'image_id': 'abc123'}, {}, 'abc123')
 
 
 class TestSyncStep(unittest.TestCase):

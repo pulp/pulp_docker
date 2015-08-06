@@ -10,12 +10,12 @@ from gettext import gettext as _
 
 from pulp.common.plugins import importer_constants
 from pulp.plugins.util import nectar_config
-from pulp.plugins.util.publish_step import PluginStep, DownloadStep
+from pulp.plugins.util.publish_step import DownloadStep, GetLocalUnitsStep, PluginStep
 from pulp.server.exceptions import MissingValue
 
 from pulp_docker.common import constants, models
 from pulp_docker.plugins import registry
-from pulp_docker.plugins.importers import sync, tags
+from pulp_docker.plugins.importers import tags
 
 
 _logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ class SyncStep(PluginStep):
 
         self.add_child(GetMetadataStep(working_dir=working_dir))
         # save this step so its "units_to_download" attribute can be accessed later
-        self.step_get_local_units = sync.GetLocalImagesStep(
+        self.step_get_local_units = GetLocalImagesStep(
             constants.IMPORTER_TYPE_ID, constants.IMAGE_TYPE_ID, ['image_id'], working_dir)
         self.add_child(self.step_get_local_units)
         self.add_child(DownloadStep(constants.SYNC_STEP_DOWNLOAD,
@@ -217,6 +217,29 @@ class GetMetadataStep(PluginStep):
         """
         with open(os.path.join(parent_dir, image_id, 'ancestry')) as ancestry_file:
             return json.load(ancestry_file)
+
+
+class GetLocalImagesStep(GetLocalUnitsStep):
+    def _dict_to_unit(self, unit_dict):
+        """
+        convert a unit dictionary (a flat dict that has all unit key, metadata,
+        etc. keys at the root level) into a Unit object. This requires knowing
+        not just what fields are part of the unit key, but also how to derive
+        the storage path.
+        Any keys in the "metadata" dict on the returned unit will overwrite the
+        corresponding values that are currently saved in the unit's metadata. In
+        this case, we pass an empty dict, because we don't want to make changes.
+        :param unit_dict:   a flat dictionary that has all unit key, metadata,
+                            etc. keys at the root level, representing a unit
+                            in pulp
+        :type  unit_dict:   dict
+        :return:    a unit instance
+        :rtype:     pulp.plugins.model.Unit
+        """
+        model = models.Image(unit_dict['image_id'], unit_dict.get('parent_id'),
+                             unit_dict.get('size'))
+        return self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, {},
+                                            model.relative_path)
 
 
 class SaveUnits(PluginStep):

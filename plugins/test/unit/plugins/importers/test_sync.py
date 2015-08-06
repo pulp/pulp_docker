@@ -84,7 +84,7 @@ class TestDownloadManifestsStep(unittest.TestCase):
             [{"blobSum": expected_blob_sum}]
         )
         # The layer should have been added to the parent.parent.available_units list
-        self.assertEqual(step.parent.parent.available_units, [{'image_id': expected_blob_sum}])
+        self.assertEqual(step.parent.parent.available_units, [{'digest': expected_blob_sum}])
 
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
                 side_effect=models.Manifest.from_json)
@@ -130,7 +130,7 @@ class TestDownloadManifestsStep(unittest.TestCase):
         self.assertEqual(step.parent.manifests[digest].fs_layers, expected_fs_layers)
         # The layers should have been added to the parent.parent.available_units list, in no
         # particular order
-        self.assertEqual(set([u['image_id'] for u in step.parent.parent.available_units]),
+        self.assertEqual(set([u['digest'] for u in step.parent.parent.available_units]),
                          set(expected_blob_sums))
 
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
@@ -175,27 +175,27 @@ class TestDownloadManifestsStep(unittest.TestCase):
         self.assertEqual(step.parent.manifests[digest].fs_layers, expected_fs_layers)
         # The layers should have been added to the parent.parent.available_units list, in no
         # particular order
-        self.assertEqual(set([u['image_id'] for u in step.parent.parent.available_units]),
+        self.assertEqual(set([u['digest'] for u in step.parent.parent.available_units]),
                          set(expected_blob_sums))
 
 
-class TestGetLocalImagesStep(unittest.TestCase):
+class TestGetLocalBlobsStep(unittest.TestCase):
     """
-    This class contains tests for the GetLocalImagesStep class.
+    This class contains tests for the GetLocalBlobsStep class.
     """
     def test__dict_to_unit(self):
         """
         Assert correct behavior from the _dict_to_unit() method.
         """
-        step = sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID, constants.IMAGE_TYPE_ID,
-                                       ['image_id'], '/working/dir')
+        step = sync.GetLocalBlobsStep(constants.IMPORTER_TYPE_ID, models.Blob.TYPE_ID,
+                                      ['digest'], '/working/dir')
         step.conduit = mock.MagicMock()
 
-        unit = step._dict_to_unit({'image_id': 'abc123', 'parent_id': None, 'size': 12})
+        unit = step._dict_to_unit({'digest': 'abc123'})
 
         self.assertTrue(unit is step.conduit.init_unit.return_value)
         step.conduit.init_unit.assert_called_once_with(
-            constants.IMAGE_TYPE_ID, {'image_id': 'abc123'}, {}, 'abc123')
+            models.Blob.TYPE_ID, {'digest': 'abc123'}, {}, 'abc123')
 
 
 class TestGetLocalManifestsStep(unittest.TestCase):
@@ -291,20 +291,20 @@ class TestSaveUnitsStep(unittest.TestCase):
         self.assertEqual(step.description, _('Saving manifests and blobs'))
 
     @mock.patch('pulp_docker.plugins.importers.sync.shutil.move')
-    def test__move_files_with_image(self, move):
+    def test__move_files_with_blob(self, move):
         """
-        Assert correct operation from the _move_files() method with an Image unit.
+        Assert correct operation from the _move_files() method with a Blob unit.
         """
         working_dir = '/working/dir/'
         step = sync.SaveUnitsStep(working_dir)
-        unit_key = {'image_id': 'some_id'}
-        metadata = {'some': 'metadata'}
+        unit_key = {'digest': 'some_digest'}
+        metadata = {}
         storage_path = '/a/cool/storage/path'
-        unit = model.Unit(models.Image.TYPE_ID, unit_key, metadata, storage_path)
+        unit = model.Unit(models.Blob.TYPE_ID, unit_key, metadata, storage_path)
 
         step._move_file(unit)
 
-        move.assert_called_once_with('/working/dir/some_id', storage_path)
+        move.assert_called_once_with('/working/dir/some_digest', storage_path)
 
     @mock.patch('pulp_docker.plugins.importers.sync.shutil.move')
     def test__move_files_with_manifest(self, move):
@@ -323,18 +323,18 @@ class TestSaveUnitsStep(unittest.TestCase):
         move.assert_called_once_with('/working/dir/some_digest', storage_path)
 
     @mock.patch('pulp_docker.plugins.importers.sync.SaveUnitsStep._move_file')
-    def test_process_main_new_images(self, _move_file):
+    def test_process_main_new_blobs(self, _move_file):
         """
-        Test process_main() when there are new images that were downloaded.
+        Test process_main() when there are new Blobs that were downloaded.
         """
         working_dir = '/working/dir/'
         step = sync.SaveUnitsStep(working_dir)
-        blob_sizes = {
-            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef': 256,
-            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11': 42}
+        digests = (
+            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef',
+            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11')
         step.parent = mock.MagicMock()
         step.parent.step_get_local_units.units_to_download = [
-            {'image_id': digest} for digest in sorted(blob_sizes.keys())]
+            {'digest': digest} for digest in digests]
 
         def fake_init_unit(type_id, unit_key, metadata, path):
             """
@@ -342,61 +342,43 @@ class TestSaveUnitsStep(unittest.TestCase):
             """
             return model.Unit(type_id, unit_key, metadata, path)
 
-        def fake_stat(path):
-            """
-            Return a fake stat result for the given path.
-            """
-            return (None, None, None, None, None, None, blob_sizes[path.split('/')[-1]])
-
         step.parent.get_conduit.return_value.init_unit.side_effect = fake_init_unit
 
-        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
-            stat.side_effect = fake_stat
-
-            step.process_main()
-
-            # Each image should have been stat'd for its size
-            self.assertEqual(
-                [call[1] for call in stat.mock_calls],
-                [(os.path.join(working_dir, digest),) for digest in sorted(blob_sizes.keys())])
+        step.process_main()
 
         # Both units should have been moved
         self.assertEqual(_move_file.call_count, 2)
-        self.assertEqual(set([call[1][0].unit_key['image_id'] for call in _move_file.mock_calls]),
-                         set([d for d in blob_sizes.keys()]))
+        self.assertEqual([call[1][0].unit_key['digest'] for call in _move_file.mock_calls],
+                         [d for d in digests])
         # Both units should have been saved
         self.assertEqual(step.parent.get_conduit.return_value.save_unit.call_count, 2)
         self.assertEqual(
-            set([call[1][0].unit_key['image_id'] for call in
-                 step.parent.get_conduit.return_value.save_unit.mock_calls]),
-            set([d for d in blob_sizes.keys()]))
-        # The Units should have been initialized with the proper sizes
-        self.assertEqual(
-            set([call[1][0].metadata['size'] for call in
-                 step.parent.get_conduit.return_value.save_unit.mock_calls]),
-            set([s for k, s in blob_sizes.items()]))
+            [call[1][0].unit_key['digest'] for call in
+             step.parent.get_conduit.return_value.save_unit.mock_calls],
+            [d for d in digests])
 
     @mock.patch('pulp_docker.plugins.importers.sync.SaveUnitsStep._move_file')
-    def test_process_main_new_images_and_manifests(self, _move_file):
+    def test_process_main_new_blobs_and_manifests(self, _move_file):
         """
-        Test process_main() when there are new images and manifests that were downloaded.
+        Test process_main() when there are new Blobs and manifests that were downloaded.
         """
         working_dir = '/working/dir/'
         step = sync.SaveUnitsStep(working_dir)
         # Simulate two newly downloaded blobs
-        blob_sizes = {
-            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef': 256,
-            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11': 42}
+        blob_digests = (
+            'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef',
+            'sha256:cc8567d70002e957612902a8e985ea129d831ebe04057d88fb644857caa45d11')
         step.parent = mock.MagicMock()
         step.parent.step_get_local_units.units_to_download = [
-            {'image_id': digest} for digest in sorted(blob_sizes.keys())]
+            {'digest': digest} for digest in blob_digests]
         # Simulate one newly downloaded manifest
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
-        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        manifest = models.Manifest.from_json(manifest, digest)
-        step.parent.step_get_metadata.manifests = {digest: manifest}
-        step.parent.step_get_metadata.step_get_local_units.units_to_download = [{'digest': digest}]
+        manifest_digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        manifest = models.Manifest.from_json(manifest, manifest_digest)
+        step.parent.step_get_metadata.manifests = {manifest_digest: manifest}
+        step.parent.step_get_metadata.step_get_local_units.units_to_download = [
+            {'digest': manifest_digest}]
 
         def fake_init_unit(type_id, unit_key, metadata, path):
             """
@@ -404,45 +386,28 @@ class TestSaveUnitsStep(unittest.TestCase):
             """
             return model.Unit(type_id, unit_key, metadata, path)
 
-        def fake_stat(path):
-            """
-            Return a fake stat result for the given path.
-            """
-            return (None, None, None, None, None, None, blob_sizes[path.split('/')[-1]])
-
         step.parent.get_conduit.return_value.init_unit.side_effect = fake_init_unit
 
-        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
-            stat.side_effect = fake_stat
-
-            step.process_main()
-
-            # Each image should have been stat'd for its size
-            self.assertEqual([call[1] for call in stat.mock_calls],
-                             [(os.path.join(working_dir, d),) for d in sorted(blob_sizes.keys())])
+        step.process_main()
 
         # All three units should have been moved
         self.assertEqual(_move_file.call_count, 3)
-        self.assertEqual(_move_file.mock_calls[0][1][0].unit_key, {'digest': digest})
+        self.assertEqual(_move_file.mock_calls[0][1][0].unit_key, {'digest': manifest_digest})
         self.assertEqual([call[1][0].unit_key for call in _move_file.mock_calls[1:3]],
-                         [{'image_id': d} for d in sorted(blob_sizes.keys())])
+                         [{'digest': d} for d in blob_digests])
         # All three units should have been saved
         self.assertEqual(step.parent.get_conduit.return_value.save_unit.call_count, 3)
         self.assertEqual(
             step.parent.get_conduit.return_value.save_unit.mock_calls[0][1][0].unit_key,
-            {'digest': digest})
+            {'digest': manifest_digest})
         self.assertEqual(
-            [call[1][0].unit_key['image_id'] for call in
+            [call[1][0].unit_key['digest'] for call in
                 step.parent.get_conduit.return_value.save_unit.mock_calls[1:3]],
-            [d for d in sorted(blob_sizes.keys())])
+            [d for d in blob_digests])
         # The Units' metadata should have been initialized properly
         self.assertEqual(
             step.parent.get_conduit.return_value.save_unit.mock_calls[0][1][0].metadata['name'],
             'hello-world')
-        self.assertEqual(
-            set([call[1][0].metadata['size'] for call in
-                step.parent.get_conduit.return_value.save_unit.mock_calls[1:3]]),
-            set([s for k, s in sorted(blob_sizes.items())]))
 
     @mock.patch('pulp_docker.plugins.importers.sync.SaveUnitsStep._move_file')
     def test_process_main_new_manifests(self, _move_file):
@@ -470,11 +435,7 @@ class TestSaveUnitsStep(unittest.TestCase):
 
         step.parent.get_conduit.return_value.init_unit.side_effect = fake_init_unit
 
-        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
-            step.process_main()
-
-            # stat() should not have been called since there weren't any new images
-            self.assertEqual(stat.call_count, 0)
+        step.process_main()
 
         # The new manifest should have been moved
         self.assertEqual(_move_file.call_count, 1)
@@ -503,11 +464,7 @@ class TestSaveUnitsStep(unittest.TestCase):
         step.parent.step_get_metadata.manifests = {}
         step.parent.step_get_metadata.step_get_local_units.units_to_download = []
 
-        with mock.patch('pulp_docker.plugins.importers.sync.os.stat') as stat:
-            step.process_main()
-
-            # stat() should not have been called since there weren't any new images
-            self.assertEqual(stat.call_count, 0)
+        step.process_main()
 
         # Nothing should have been moved
         self.assertEqual(_move_file.call_count, 0)
@@ -552,7 +509,7 @@ class TestSyncStep(unittest.TestCase):
         # The correct children should be in place in the right order
         self.assertEqual(
             [type(child) for child in step.children],
-            [sync.GetMetadataStep, sync.GetLocalImagesStep, sync.DownloadStep, sync.SaveUnitsStep])
+            [sync.GetMetadataStep, sync.GetLocalBlobsStep, sync.DownloadStep, sync.SaveUnitsStep])
         # Ensure the first step was initialized correctly
         self.assertEqual(step.children[0].repo, repo)
         self.assertEqual(step.children[0].conduit, conduit)
@@ -560,8 +517,8 @@ class TestSyncStep(unittest.TestCase):
         self.assertEqual(step.children[0].working_dir, working_dir)
         # And the second step
         self.assertEqual(step.children[1].plugin_type, constants.IMPORTER_TYPE_ID)
-        self.assertEqual(step.children[1].unit_type, models.Image.TYPE_ID)
-        self.assertEqual(step.children[1].unit_key_fields, ['image_id'])
+        self.assertEqual(step.children[1].unit_type, models.Blob.TYPE_ID)
+        self.assertEqual(step.children[1].unit_key_fields, ['digest'])
         self.assertEqual(step.children[1].working_dir, working_dir)
         # And the third step
         self.assertEqual(step.children[2].step_type, constants.SYNC_STEP_DOWNLOAD)
@@ -606,7 +563,7 @@ class TestSyncStep(unittest.TestCase):
         working_dir = '/some/path'
         step = sync.SyncStep(repo, conduit, config, working_dir)
         step.step_get_local_units.units_to_download = [
-            {'image_id': i} for i in ['cool', 'stuff']]
+            {'digest': i} for i in ['cool', 'stuff']]
 
         requests = step.generate_download_requests()
 

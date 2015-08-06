@@ -1,13 +1,10 @@
 """
-This module contains the primary sync entry point. Most of the code in this module is for syncing
-Docker v2 registries, but if the feed_url is determined not to be a v2 registry this module will
-call the SyncStep found in pulp_docker.plugins.importers.v1_sync instead.
+This module contains the primary sync entry point for Docker v2 registries.
 """
 from gettext import gettext as _
 import logging
 import os
 import shutil
-import stat
 
 from pulp.common.plugins import importer_constants
 from pulp.plugins.util import nectar_config
@@ -23,9 +20,7 @@ _logger = logging.getLogger(__name__)
 
 class SyncStep(PluginStep):
     """
-    This PluginStep is the primary entry point into a repository sync against a Docker registry. It
-    will work for either v1 or v2 registries, though if the registry is determined to be a v1
-    registry it will simply create the old v1 SyncStep as its only child step.
+    This PluginStep is the primary entry point into a repository sync against a Docker v2 registry.
     """
     # The sync will fail if these settings are not provided in the config
     required_settings = (constants.CONFIG_KEY_UPSTREAM_NAME, importer_constants.KEY_FEED)
@@ -37,7 +32,7 @@ class SyncStep(PluginStep):
         required keys are present. It then constructs some needed items (such as a download config),
         and determines whether the feed URL is a Docker v2 registry or not. If it is, it
         instantiates child tasks that are appropriate for syncing a v2 registry, and if it is not it
-        instantiates the old v1 SyncStep as its only child step.
+        raises a NotImplementedError.
 
         :param repo:        repository to sync
         :type  repo:        pulp.plugins.model.Repository
@@ -60,7 +55,7 @@ class SyncStep(PluginStep):
         upstream_name = config.get(constants.CONFIG_KEY_UPSTREAM_NAME)
         url = config.get(importer_constants.KEY_FEED)
         # The GetMetadataStep will set this to a list of dictionaries of the form
-        # {'image_id': digest}.
+        # {'digest': digest}.
         self.available_units = []
 
         # Create a Repository object to interact with.
@@ -74,8 +69,8 @@ class SyncStep(PluginStep):
                                                  working_dir=working_dir)
         self.add_child(self.step_get_metadata)
         # save this step so its "units_to_download" attribute can be accessed later
-        self.step_get_local_units = GetLocalImagesStep(
-            constants.IMPORTER_TYPE_ID, constants.IMAGE_TYPE_ID, ['image_id'], self.working_dir)
+        self.step_get_local_units = GetLocalBlobsStep(
+            constants.IMPORTER_TYPE_ID, models.Blob.TYPE_ID, ['digest'], self.working_dir)
         self.add_child(self.step_get_local_units)
         self.add_child(
             DownloadStep(
@@ -94,8 +89,8 @@ class SyncStep(PluginStep):
         :rtype:     types.GeneratorType
         """
         for unit_key in self.step_get_local_units.units_to_download:
-            image_id = unit_key['image_id']
-            yield self.index_repository.create_blob_download_request(image_id,
+            digest = unit_key['digest']
+            yield self.index_repository.create_blob_download_request(digest,
                                                                      self.get_working_dir())
 
     def sync(self):
@@ -207,11 +202,11 @@ class DownloadManifestsStep(PluginStep):
                 available_blobs.add(layer['blobSum'])
 
         # Update the available units with the blobs we learned about
-        available_blobs = [{'image_id': d} for d in available_blobs]
+        available_blobs = [{'digest': d} for d in available_blobs]
         self.parent.parent.available_units.extend(available_blobs)
 
 
-class GetLocalImagesStep(GetLocalUnitsStep):
+class GetLocalBlobsStep(GetLocalUnitsStep):
     def _dict_to_unit(self, unit_dict):
         """
         convert a unit dictionary (a flat dict that has all unit key, metadata,
@@ -231,8 +226,7 @@ class GetLocalImagesStep(GetLocalUnitsStep):
         :return:    a unit instance
         :rtype:     pulp.plugins.model.Unit
         """
-        model = models.Image(unit_dict['image_id'], unit_dict.get('parent_id'),
-                             unit_dict.get('size'))
+        model = models.Blob(unit_dict['digest'])
         return self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, {},
                                             model.relative_path)
 
@@ -295,15 +289,13 @@ class SaveUnitsStep(PluginStep):
             _logger.debug('saving manifest %s' % model.digest)
             self.get_conduit().save_unit(unit)
 
-        # Save the Images
+        # Save the Blobs
         for unit_key in self.parent.step_get_local_units.units_to_download:
-            image_id = unit_key['image_id']
-            size = os.stat(os.path.join(self.working_dir, unit_key['image_id']))[stat.ST_SIZE]
-            model = models.Image(image_id, None, size)
-            unit = self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.unit_metadata,
+            model = models.Blob(unit_key['digest'])
+            unit = self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.metadata,
                                                 model.relative_path)
             self._move_file(unit)
-            _logger.debug('saving Image %s' % image_id)
+            _logger.debug('saving Blob %s' % unit_key)
             self.get_conduit().save_unit(unit)
 
     def _move_file(self, unit):
@@ -314,9 +306,5 @@ class SaveUnitsStep(PluginStep):
         :param unit: a pulp unit
         :type  unit: pulp.plugins.model.Unit
         """
-        if unit.type_id == models.Image.TYPE_ID:
-            filename = unit.unit_key['image_id']
-        elif unit.type_id == models.Manifest.TYPE_ID:
-            filename = unit.unit_key['digest']
         _logger.debug('moving files in to place for Unit {}'.format(unit))
-        shutil.move(os.path.join(self.working_dir, filename), unit.storage_path)
+        shutil.move(os.path.join(self.working_dir, unit.unit_key['digest']), unit.storage_path)

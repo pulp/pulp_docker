@@ -34,6 +34,57 @@ class TestBasics(unittest.TestCase):
         self.assertEqual(metadata.get('size'), 1024)
 
 
+class TestBlob(unittest.TestCase):
+    """
+    This class contains tests for the Blob class.
+    """
+    def test___init__(self):
+        """
+        Assert correct behavior from the __init__() method.
+        """
+        digest = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
+
+        blob = models.Blob(digest)
+
+        self.assertEqual(blob.digest, digest)
+
+    def test_type_id(self):
+        """
+        Assert that the TYPE_ID attribute is correct.
+        """
+        self.assertEqual(models.Blob.TYPE_ID, 'docker_blob')
+
+    def test_unit_key(self):
+        """
+        Assert correct behavior from the unit_key() method.
+        """
+        digest = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
+
+        blob = models.Blob(digest)
+
+        self.assertEqual(blob.unit_key, {'digest': digest})
+
+    def test_metadata(self):
+        """
+        Assert correct behavior from the metadata() method.
+        """
+        digest = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
+
+        blob = models.Blob(digest)
+
+        self.assertEqual(blob.metadata, {})
+
+    def test_relative_path(self):
+        """
+        Assert correct behavior from the relative_path() method.
+        """
+        digest = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
+
+        blob = models.Blob(digest)
+
+        self.assertEqual(blob.relative_path, digest)
+
+
 class TestManifest(unittest.TestCase):
     """
     This class contains tests for the Manifest class.
