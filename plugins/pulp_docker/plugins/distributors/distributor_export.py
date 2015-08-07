@@ -8,7 +8,7 @@ from pulp.common.config import read_json_config
 from pulp.plugins.distributor import Distributor
 
 from pulp_docker.common import constants
-from pulp_docker.plugins.distributors.publish_steps import ExportPublisher
+from pulp_docker.plugins.distributors.v1_publish_steps import ExportPublisher
 from pulp_docker.plugins.distributors import configuration
 
 
