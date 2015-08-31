@@ -9,6 +9,7 @@ from pulp.server.db.model.criteria import UnitAssociationCriteria
 import pulp.server.managers.factory as manager_factory
 
 from pulp_docker.common import constants, tarutils
+from pulp_docker.common.models import Image, Manifest, Blob
 from pulp_docker.plugins.importers import sync, upload, v1_sync
 
 
@@ -44,7 +45,7 @@ class DockerImporter(Importer):
         return {
             'id': constants.IMPORTER_TYPE_ID,
             'display_name': _('Docker Importer'),
-            'types': [constants.IMAGE_TYPE_ID]
+            'types': [Image.TYPE_ID, Manifest.TYPE_ID, Blob.TYPE_ID]
         }
 
     def sync_repo(self, repo, sync_conduit, config):
@@ -193,10 +194,27 @@ class DockerImporter(Importer):
         :return: list of Unit instances that were saved to the destination repository
         :rtype:  list
         """
+        units_added = []
+        units_added.extend(DockerImporter._import_images(import_conduit, units))
+        units_added.extend(DockerImporter._import_manifests(import_conduit, units))
+        return units_added
+
+    @staticmethod
+    def _import_images(conduit, units):
+        """
+        Import images and referenced images.
+
+        :param conduit: provides access to relevant Pulp functionality
+        :type conduit: pulp.plugins.conduits.unit_import.ImportUnitConduit
+        :param units: optional list of pre-filtered units to import
+        :type  units: list of pulp.plugins.model.Unit
+        :return: list of units that were copied to the destination repository
+        :rtype:  list
+        """
         # Determine which units are being copied
         if units is None:
             criteria = UnitAssociationCriteria(type_ids=[constants.IMAGE_TYPE_ID])
-            units = import_conduit.get_source_units(criteria=criteria)
+            units = conduit.get_source_units(criteria=criteria)
 
         # Associate to the new repository
         known_units = set()
@@ -207,7 +225,9 @@ class DockerImporter(Importer):
 
             # Associate the units to the repository
             for u in units:
-                import_conduit.associate_unit(u)
+                if u.type_id != constants.IMAGE_TYPE_ID:
+                    continue
+                conduit.associate_unit(u)
                 units_added.append(u)
                 known_units.add(u.unit_key['image_id'])
                 parent_id = u.metadata.get('parent_id')
@@ -220,11 +240,57 @@ class DockerImporter(Importer):
                 unit_filter = {'image_id': {'$in': list(units_to_add)}}
                 criteria = UnitAssociationCriteria(type_ids=[constants.IMAGE_TYPE_ID],
                                                    unit_filters=unit_filter)
-                units = import_conduit.get_source_units(criteria=criteria)
+                units = conduit.get_source_units(criteria=criteria)
             else:
                 # Break out of the loop since there were no units to add to the list
                 break
 
+        return units_added
+
+    @staticmethod
+    def _import_manifests(conduit, units):
+        """
+        Import manifests and referenced blobs.
+
+        :param conduit: provides access to relevant Pulp functionality
+        :type conduit: pulp.plugins.conduits.unit_import.ImportUnitConduit
+        :param units: optional list of pre-filtered units to import
+        :type  units: list of pulp.plugins.model.Unit
+        :return: list of units that were copied to the destination repository
+        :rtype:  list
+        """
+        units_added = []
+
+        # All manifests if not specified
+
+        if units is None:
+            criteria = UnitAssociationCriteria(type_ids=[Manifest.TYPE_ID])
+            units = conduit.get_source_units(criteria=criteria)
+
+        # Add manifests and catalog referenced blobs
+
+        blob_digests = set()
+        for unit in units:
+            if unit.type_id != Manifest.TYPE_ID:
+                continue
+            manifest = unit
+            conduit.associate_unit(manifest)
+            units_added.append(manifest)
+            for layer in manifest.metadata['fs_layers']:
+                digest = layer['blobSum']
+                blob_digests.add(digest)
+
+        # Add referenced blobs
+
+        unit_filter = {
+            'digest': {
+                '$in': sorted(blob_digests)
+            }
+        }
+        criteria = UnitAssociationCriteria(type_ids=[Blob.TYPE_ID], unit_filters=unit_filter)
+        for blob in conduit.get_source_units(criteria=criteria):
+            conduit.associate_unit(blob)
+            units_added.append(blob)
         return units_added
 
     def validate_config(self, repo, config):
@@ -251,13 +317,87 @@ class DockerImporter(Importer):
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        repo_manager = manager_factory.repo_manager()
-        scratchpad = repo_manager.get_repo_scratchpad(repo.id)
-        tags = scratchpad.get(u'tags', [])
-        unit_ids = set([unit.unit_key[u'image_id'] for unit in units])
-        for tag_dict in tags[:]:
-            if tag_dict[constants.IMAGE_ID_KEY] in unit_ids:
-                tags.remove(tag_dict)
+        self._purge_unreferenced_tags(repo, units)
+        self._purge_orphaned_blobs(repo, units)
 
+    @staticmethod
+    def _purge_unreferenced_tags(repo, units):
+        """
+        Purge tags associated with images in the repository.
+
+        :param repo: The affected repository.
+        :type  repo: pulp.plugins.model.Repository
+        :param units: List of removed units.
+        :type  units: list of: pulp.plugins.model.AssociatedUnit
+        """
+        unit_ids = set()
+        manager = manager_factory.repo_manager()
+        scratchpad = manager.get_repo_scratchpad(repo.id)
+        for unit in units:
+            if unit.type_id != Image.TYPE_ID:
+                continue
+            unit_ids.add(unit.unit_key[u'image_id'])
+        tags = scratchpad.get(u'tags', [])
+        for tag in tags[:]:
+            if tag[constants.IMAGE_ID_KEY] not in unit_ids:
+                continue
+            tags.remove(tag)
         scratchpad[u'tags'] = tags
-        repo_manager.set_repo_scratchpad(repo.id, scratchpad)
+        manager.set_repo_scratchpad(repo.id, scratchpad)
+
+    @staticmethod
+    def _purge_orphaned_blobs(repo, units):
+        """
+        Purge blobs associated with removed manifests when no longer
+        referenced by any remaining manifests.
+
+        :param repo: The affected repository.
+        :type  repo: pulp.plugins.model.Repository
+        :param units: List of removed units.
+        :type  units: list of: pulp.plugins.model.AssociatedUnit
+        """
+        # Find blob digests referenced by removed manifests (orphaned)
+
+        orphaned = set()
+        for unit in units:
+            if unit.type_id != Manifest.TYPE_ID:
+                continue
+            manifest = unit
+            for layer in manifest.metadata['fs_layers']:
+                digest = layer['blobSum']
+                orphaned.add(digest)
+
+        # Find blob digests still referenced by other manifests (adopted)
+
+        if not orphaned:
+            # nothing orphaned
+            return
+        adopted = set()
+        manager = manager_factory.repo_unit_association_query_manager()
+        for manifest in manager.get_units_by_type(repo.id, Manifest.TYPE_ID):
+            for layer in manifest.metadata['fs_layers']:
+                digest = layer['blobSum']
+                adopted.add(digest)
+
+        # Remove unreferenced blobs
+
+        orphaned = orphaned.difference(adopted)
+        if not orphaned:
+            # all adopted
+            return
+
+        unit_filter = {
+            'digest': {
+                '$in': sorted(orphaned)
+            }
+        }
+        criteria = UnitAssociationCriteria(
+            type_ids=[Blob.TYPE_ID],
+            unit_filters=unit_filter)
+        manager = manager_factory.repo_unit_association_manager()
+        manager.unassociate_by_criteria(
+            repo_id=repo.id,
+            criteria=criteria,
+            owner_type='',  # unused
+            owner_id='',    # unused
+            notify_plugins=False)

@@ -17,8 +17,8 @@ class Blob(object):
         """
         Initialize the Blob.
 
-        :param image_id:    This field will store the blob's digest.
-        :type  image_id:    basestring
+        :param digest:    This field will store the blob's digest.
+        :type  digest:    basestring
         """
         self.digest = digest
 
