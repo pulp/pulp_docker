@@ -38,6 +38,15 @@ DESC_EXPORT_FILE = _('the full path for an export file; if specified, the reposi
                      'exported as a tar file to the given file on the server.  '
                      'The web server\'s user must have the permission to write the file specified.')
 
+SECTION_SEARCH = 'search'
+DESC_SEARCH = _('content search commands')
+
+SECTION_COPY = 'copy'
+DESC_COPY = _('content copy commands')
+
+SECTION_REMOVE = 'remove'
+DESC_REMOVE = _('content removal commands')
+
 SECTION_MANIFEST = 'manifest'
 DESC_MANIFEST = _('manifest management commands')
 
@@ -69,9 +78,7 @@ def add_upload_section(context, parent_section):
     :type  parent_section:  pulp.client.extensions.extensions.PulpCliSection
     """
     upload_section = parent_section.create_subsection(SECTION_UPLOADS, DESC_UPLOADS)
-
     upload_section.add_command(UploadDockerImageCommand(context))
-
     return upload_section
 
 
@@ -85,33 +92,62 @@ def add_repo_section(context, parent_section):
     :type  parent_section:  pulp.client.extensions.extensions.PulpCliSection
     """
     repo_section = parent_section.create_subsection(SECTION_REPO, DESC_REPO)
-
     repo_section.add_command(CreateDockerRepositoryCommand(context))
     repo_section.add_command(cudl.DeleteRepositoryCommand(context))
     repo_section.add_command(UpdateDockerRepositoryCommand(context))
-    repo_section.add_command(ImageRemoveCommand(context))
-    repo_section.add_command(ImageCopyCommand(context))
-    repo_section.add_command(ImageSearchCommand(context))
     repo_section.add_command(ListDockerRepositoriesCommand(context))
-    add_manifest_section(context, repo_section)
-
+    add_search_section(context, repo_section)
+    add_copy_section(context, repo_section)
+    add_remove_section(context, repo_section)
     return repo_section
 
 
-def add_manifest_section(context, parent_section):
+def add_search_section(context, parent_section):
     """
-    Add a manifest section to the parent section.
+    Add the search section to the parent section.
 
     :param context: pulp context
     :type  context: pulp.client.extensions.core.ClientContext
-    :param parent_section: section of the CLI to which the manifest section
+    :param parent_section: section of the CLI to which the this section
         should be added
     :type  parent_section: pulp.client.extensions.extensions.PulpCliSection
     """
-    section = parent_section.create_subsection(SECTION_MANIFEST, DESC_MANIFEST)
+    section = parent_section.create_subsection(SECTION_SEARCH, DESC_SEARCH)
+    section.add_command(ImageSearchCommand(context))
     section.add_command(ManifestSearchCommand(context))
+    return section
+
+
+def add_copy_section(context, parent_section):
+    """
+    Add the copy section to the parent section.
+
+    :param context: pulp context
+    :type  context: pulp.client.extensions.core.ClientContext
+    :param parent_section: section of the CLI to which the this section
+        should be added
+    :type  parent_section: pulp.client.extensions.extensions.PulpCliSection
+    """
+    section = parent_section.create_subsection(SECTION_COPY, DESC_COPY)
+    section.add_command(ImageCopyCommand(context))
     section.add_command(ManifestCopyCommand(context))
+    return section
+
+
+def add_remove_section(context, parent_section):
+    """
+    Add the remove section to the parent section.
+
+    :param context: pulp context
+    :type  context: pulp.client.extensions.core.ClientContext
+    :param parent_section: section of the CLI to which the this section
+        should be added
+    :type  parent_section: pulp.client.extensions.extensions.PulpCliSection
+    """
+    section = parent_section.create_subsection(SECTION_REMOVE, DESC_REMOVE)
+    section.add_command(ImageRemoveCommand(context))
     section.add_command(ManifestRemoveCommand(context))
+    return section
 
 
 def add_sync_section(context, parent_section):
