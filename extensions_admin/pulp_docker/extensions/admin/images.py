@@ -32,7 +32,7 @@ def get_formatter_for_type(type_id):
 
 class ImageCopyCommand(UnitCopyCommand):
 
-    def __init__(self, context, name='copy', description=DESC_COPY):
+    def __init__(self, context, name='image', description=DESC_COPY):
         super(ImageCopyCommand, self).__init__(context, name=name, description=description,
                                                method=self.run, type_id=constants.IMAGE_TYPE_ID)
 
@@ -54,7 +54,7 @@ class ImageRemoveCommand(UnitRemoveCommand):
     Class for executing unit remove commands for docker image units
     """
 
-    def __init__(self, context, name='remove', description=DESC_REMOVE):
+    def __init__(self, context, name='image', description=DESC_REMOVE):
         UnitRemoveCommand.__init__(self, context, name=name, description=description,
                                    type_id=constants.IMAGE_TYPE_ID)
 
@@ -73,7 +73,7 @@ class ImageRemoveCommand(UnitRemoveCommand):
 
 class ImageSearchCommand(DisplayUnitAssociationsCommand):
     def __init__(self, context):
-        super(ImageSearchCommand, self).__init__(self.run, name='images', description=DESC_SEARCH)
+        super(ImageSearchCommand, self).__init__(self.run, name='image', description=DESC_SEARCH)
         self.context = context
         self.prompt = context.prompt
 

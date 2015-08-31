@@ -36,7 +36,7 @@ class TestManifestSearchCommand(TestCase):
         context = Mock()
         command = ManifestSearchCommand(context)
         self.assertEqual(command.context, context)
-        self.assertEqual(command.name, 'search')
+        self.assertEqual(command.name, 'manifest')
         self.assertEqual(command.prompt, context.prompt)
         self.assertFalse(command.description is None)
         self.assertEqual(command.method, command.run)
@@ -64,7 +64,7 @@ class TestManifestCopyCommand(TestCase):
     def test_init(self):
         context = Mock(config={'output': {'poll_frequency_in_seconds': 10}})
         command = ManifestCopyCommand(context)
-        self.assertEqual(command.name, 'copy')
+        self.assertEqual(command.name, 'manifest')
         self.assertFalse(command.description is None)
         self.assertEqual(command.context, context)
         self.assertEqual(command.method, command.run)
@@ -82,7 +82,7 @@ class TestManifestRemoveCommand(TestCase):
     def test_init(self):
         context = Mock(config={'output': {'poll_frequency_in_seconds': 10}})
         command = ManifestRemoveCommand(context)
-        self.assertEqual(command.name, 'remove')
+        self.assertEqual(command.name, 'manifest')
         self.assertFalse(command.description is None)
         self.assertEqual(command.context, context)
         self.assertEqual(command.method, command.run)

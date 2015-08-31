@@ -43,7 +43,7 @@ class ManifestSearchCommand(DisplayUnitAssociationsCommand):
         :type  context: pulp.client.extensions.core.ClientContext
         """
         super(ManifestSearchCommand, self).__init__(
-            name='search',
+            name='manifest',
             description=DESC_SEARCH,
             method=self.run)
         self.context = context
@@ -75,7 +75,7 @@ class ManifestCopyCommand(UnitCopyCommand):
         """
         super(ManifestCopyCommand, self).__init__(
             context,
-            name='copy',
+            name='manifest',
             description=DESC_COPY,
             method=self.run,
             type_id=Manifest.TYPE_ID)
@@ -105,7 +105,7 @@ class ManifestRemoveCommand(UnitRemoveCommand):
         :type  context: pulp.client.extensions.core.ClientContext
         """
         super(ManifestRemoveCommand, self).__init__(
-            name='remove',
+            name='manifest',
             description=DESC_REMOVE,
             context=context,
             method=self.run,
