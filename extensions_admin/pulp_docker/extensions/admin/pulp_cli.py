@@ -10,6 +10,8 @@ from pulp_docker.extensions.admin.cudl import UpdateDockerRepositoryCommand
 from pulp_docker.extensions.admin.images import ImageCopyCommand
 from pulp_docker.extensions.admin.images import ImageRemoveCommand
 from pulp_docker.extensions.admin.images import ImageSearchCommand
+from pulp_docker.extensions.admin.manifest import (
+    ManifestSearchCommand, ManifestCopyCommand, ManifestRemoveCommand)
 from pulp_docker.extensions.admin.upload import UploadDockerImageCommand
 from pulp_docker.extensions.admin.repo_list import ListDockerRepositoriesCommand
 
@@ -35,6 +37,9 @@ DESC_EXPORT_RUN = _('triggers an immediate export of a repository to a tar file'
 DESC_EXPORT_FILE = _('the full path for an export file; if specified, the repository will be '
                      'exported as a tar file to the given file on the server.  '
                      'The web server\'s user must have the permission to write the file specified.')
+
+SECTION_MANIFEST = 'manifest'
+DESC_MANIFEST = _('manifest management commands')
 
 OPTION_EXPORT_FILE = PulpCliOption('--export-file', DESC_EXPORT_FILE, required=False)
 
@@ -88,8 +93,25 @@ def add_repo_section(context, parent_section):
     repo_section.add_command(ImageCopyCommand(context))
     repo_section.add_command(ImageSearchCommand(context))
     repo_section.add_command(ListDockerRepositoriesCommand(context))
+    add_manifest_section(context, repo_section)
 
     return repo_section
+
+
+def add_manifest_section(context, parent_section):
+    """
+    Add a manifest section to the parent section.
+
+    :param context: pulp context
+    :type  context: pulp.client.extensions.core.ClientContext
+    :param parent_section: section of the CLI to which the manifest section
+        should be added
+    :type  parent_section: pulp.client.extensions.extensions.PulpCliSection
+    """
+    section = parent_section.create_subsection(SECTION_MANIFEST, DESC_MANIFEST)
+    section.add_command(ManifestSearchCommand(context))
+    section.add_command(ManifestCopyCommand(context))
+    section.add_command(ManifestRemoveCommand(context))
 
 
 def add_sync_section(context, parent_section):
