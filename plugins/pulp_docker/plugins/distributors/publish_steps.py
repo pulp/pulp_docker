@@ -72,6 +72,7 @@ class V2WebPublisher(publish_step.PublishStep):
         self.add_child(self.publish_manifests_step)
         self.add_child(PublishTagsStep())
         self.add_child(atomic_publish_step)
+        self.add_child(RedirectFileStep(app_publish_location))
 
 
 class PublishBlobsStep(publish_step.UnitPublishStep):
@@ -181,3 +182,35 @@ class PublishTagsStep(publish_step.PublishStep):
             self.parent.publish_manifests_step._create_symlink(
                 unit.storage_path,
                 os.path.join(self.parent.publish_manifests_step.get_manifests_directory(), tag))
+
+
+class RedirectFileStep(publish_step.PublishStep):
+    """
+    This step creates the JSON file that describes the published repository for Crane to use.
+    """
+    def __init__(self, app_publish_location):
+        """
+        Initialize the step.
+
+        :param app_publish_location: The full path to the location of the JSON file that this step
+                                     will generate.
+        :type  app_publish_location: basestring
+        """
+        super(RedirectFileStep, self).__init__(constants.PUBLISH_STEP_REDIRECT_FILE)
+        self.app_publish_location = app_publish_location
+
+    def process_main(self):
+        """
+        Publish the JSON file for Crane.
+        """
+        registry = configuration.get_repo_registry_id(self.get_repo(), self.get_config())
+        redirect_url = configuration.get_redirect_url(self.get_config(), self.get_repo())
+
+        redirect_data = {
+            'type': 'pulp-docker-redirect', 'version': 2, 'repository': self.get_repo().id,
+            'repo-registry-id': registry, 'url': redirect_url,
+            'protected': self.get_config().get('protected', False)}
+
+        misc.mkdir(os.path.dirname(self.app_publish_location))
+        with open(self.app_publish_location, 'w') as app_file:
+            app_file.write(json.dumps(redirect_data))
