@@ -1,14 +1,10 @@
-import logging
 import os
-
 
 from pulp.server.compat import json
 from pulp.plugins.util.metadata_writer import JSONArrayFileContext
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors import configuration
-
-_LOG = logging.getLogger(__name__)
 
 
 class RedirectFileContext(JSONArrayFileContext):

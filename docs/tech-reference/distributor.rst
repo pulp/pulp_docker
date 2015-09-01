@@ -85,26 +85,56 @@ Supported keys
 
 .. _redirect_file:
 
-Redirect File
--------------
+V2 Redirect File
+----------------
 
-The distributors generate a json file with the details of the repository contents.
+For Docker v2 content, the distributors generate a json file with the details of the repository
+contents.
 
 The file is JSON formatted with the following keys
 
-* **type** *(string)* - the type of the file. This will always be "pulp-docker-redirect"
-* **version** *(int)* - version of the format for the file. Currently version 1
-* **repository** *(string)* - the name of the repository this file is describing
+* **type** *(string)* - the type of the file. This will always be "pulp-docker-redirect".
+* **version** *(int)* - version of the format for the file. For Docker v2, this will be 2.
+* **repository** *(string)* - the name of the repository this file is describing.
 * **repo-registry-id** *(string)* - the name that will be used for this repository in the Docker
-  registry
-* **url** *(string)* - the url for access to the repositories content
+  registry.
+* **url** *(string)* - the url for access to the repository's content.
 * **protected** *(bool)* - whether or not the repository should be protected by an entitlement
   certificate.
-* **images** *(array)* - an array of objects describing each image/layer in the repository
 
-  * **id** *(str)* - the image id for the image
+Example Redirect File Contents::
 
-* **tags** *(obj)* - an object containing key, value paris of "tag-name":"image-id"
+ {
+  "type":"pulp-docker-redirect",
+  "version":2,
+  "repository":"docker",
+  "repo-registry-id":"redhat/docker",
+  "url":"http://www.foo.com/docker",
+  "protected": true
+ }
+
+
+V1 Redirect File
+----------------
+
+For legacy Docker v1 content, the distributors generate a json file with the details of the
+repository contents.
+
+The file is JSON formatted with the following keys
+
+* **type** *(string)* - the type of the file. This will always be "pulp-docker-redirect".
+* **version** *(int)* - version of the format for the file. For Docker v1, this will be 1.
+* **repository** *(string)* - the name of the repository this file is describing.
+* **repo-registry-id** *(string)* - the name that will be used for this repository in the Docker
+  registry.
+* **url** *(string)* - the url for access to the repository's content.
+* **protected** *(bool)* - whether or not the repository should be protected by an entitlement
+  certificate.
+* **images** *(array)* - an array of objects describing each image/layer in the repository.
+
+  * **id** *(str)* - the image id for the image.
+
+* **tags** *(obj)* - an object containing key, value paris of "tag-name":"image-id".
 
 Example Redirect File Contents::
 
@@ -123,5 +153,3 @@ Example Redirect File Contents::
     ],
   "tags": {"latest": "769b9341d937a3dba9e460f664b4f183a6cecdd62b337220a28b3deb50ee0a02"}
  }
-
-
