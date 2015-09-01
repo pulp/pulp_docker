@@ -3,6 +3,7 @@ This module contains common model objects that are used to describe the data typ
 pulp_docker plugins.
 """
 import json
+import os
 
 from pulp_docker.common import constants
 
@@ -98,7 +99,7 @@ class Image(object):
         :return:    the relative path to where this image's directory should live
         :rtype:     basestring
         """
-        return self.image_id
+        return os.path.join(self.TYPE_ID, self.image_id)
 
     @property
     def unit_metadata(self):

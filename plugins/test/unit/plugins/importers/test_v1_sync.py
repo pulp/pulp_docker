@@ -37,7 +37,7 @@ class TestGetLocalImagesStep(unittest.TestCase):
 
         self.assertTrue(unit is step.conduit.init_unit.return_value)
         step.conduit.init_unit.assert_called_once_with(
-            models.Image.TYPE_ID, {'image_id': 'abc123'}, {}, 'abc123')
+            models.Image.TYPE_ID, {'image_id': 'abc123'}, {}, 'docker_image/abc123')
 
 
 class TestSyncStep(unittest.TestCase):

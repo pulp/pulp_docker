@@ -24,7 +24,7 @@ class TestBasics(unittest.TestCase):
     def test_relative_path(self):
         image = models.Image('abc', 'xyz', 1024)
 
-        self.assertEqual(image.relative_path, 'abc')
+        self.assertEqual(image.relative_path, 'docker_image/abc')
 
     def test_metadata(self):
         image = models.Image('abc', 'xyz', 1024)
