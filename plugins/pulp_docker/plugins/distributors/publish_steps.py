@@ -61,10 +61,12 @@ class V2WebPublisher(publish_step.PublishStep):
         app_file = configuration.get_redirect_file_name(repo)
         app_publish_location = os.path.join(
             configuration.get_app_publish_dir(config, docker_api_version), app_file)
+        self.working_dir = os.path.join(self.get_working_dir(), docker_api_version)
+        misc.mkdir(self.working_dir)
         self.web_working_dir = os.path.join(self.get_working_dir(), 'web')
         master_publish_dir = configuration.get_master_publish_dir(repo, config, docker_api_version)
         atomic_publish_step = publish_step.AtomicDirectoryPublishStep(
-            self.get_working_dir(), [('', publish_dir), (app_file, app_publish_location)],
+            self.get_working_dir(), [('web', publish_dir), (app_file, app_publish_location)],
             master_publish_dir, step_type=constants.PUBLISH_STEP_OVER_HTTP)
         atomic_publish_step.description = _('Making v2 files available via web.')
         self.add_child(PublishBlobsStep())
@@ -106,7 +108,7 @@ class PublishBlobsStep(publish_step.UnitPublishStep):
         :return: The path to where blobs should be published.
         :rtype:  basestring
         """
-        return os.path.join(self.get_working_dir(), 'blobs')
+        return os.path.join(self.parent.get_working_dir(), 'blobs')
 
 
 class PublishManifestsStep(publish_step.UnitPublishStep):
@@ -149,7 +151,7 @@ class PublishManifestsStep(publish_step.UnitPublishStep):
         :return: The path to where Manifests should be published.
         :rtype:  basestring
         """
-        return os.path.join(self.get_working_dir(), 'manifests')
+        return os.path.join(self.parent.get_working_dir(), 'manifests')
 
 
 class PublishTagsStep(publish_step.PublishStep):
@@ -172,7 +174,7 @@ class PublishTagsStep(publish_step.PublishStep):
         :param unit: The unit to process
         :type unit:  pulp_docker.common.models.Tag
         """
-        tags_path = os.path.join(self.get_working_dir(), 'tags')
+        tags_path = os.path.join(self.parent.get_working_dir(), 'tags')
         misc.mkdir(tags_path)
         with open(os.path.join(tags_path, 'list'), 'w') as list_file:
             list_file.write(json.dumps(list(self.parent.tags)))

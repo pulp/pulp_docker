@@ -1,6 +1,7 @@
 from gettext import gettext as _
 import os
 
+from pulp.plugins.util import misc
 from pulp.plugins.util.publish_step import PublishStep, UnitPublishStep, \
     AtomicDirectoryPublishStep, SaveTarFilePublishStep
 
@@ -32,6 +33,8 @@ class WebPublisher(PublishStep):
         app_file = configuration.get_redirect_file_name(repo)
         app_publish_location = os.path.join(
             configuration.get_app_publish_dir(config, docker_api_version), app_file)
+        self.working_dir = os.path.join(self.get_working_dir(), docker_api_version)
+        misc.mkdir(self.working_dir)
         self.web_working_dir = os.path.join(self.get_working_dir(), 'web')
         master_publish_dir = configuration.get_master_publish_dir(repo, config, docker_api_version)
         atomic_publish_step = AtomicDirectoryPublishStep(self.get_working_dir(),
@@ -64,7 +67,7 @@ class ExportPublisher(PublishStep):
 
         self.add_child(PublishImagesStep())
         tar_file = configuration.get_export_repo_file_with_path(repo, config, 'v1')
-        self.add_child(SaveTarFilePublishStep(self.get_working_dir(), tar_file))
+        self.add_child(SaveTarFilePublishStep(self.parent.get_working_dir(), tar_file))
 
 
 class PublishImagesStep(UnitPublishStep):
@@ -83,7 +86,7 @@ class PublishImagesStep(UnitPublishStep):
         """
         Initialize the metadata contexts
         """
-        self.redirect_context = RedirectFileContext(self.get_working_dir(),
+        self.redirect_context = RedirectFileContext(self.parent.get_working_dir(),
                                                     self.get_conduit(),
                                                     self.parent.config,
                                                     self.get_repo())
@@ -114,4 +117,4 @@ class PublishImagesStep(UnitPublishStep):
         """
         Get the directory where the files published to the web have been linked
         """
-        return os.path.join(self.get_working_dir(), 'web')
+        return os.path.join(self.parent.get_working_dir(), 'web')
