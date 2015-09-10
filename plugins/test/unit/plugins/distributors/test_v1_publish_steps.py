@@ -49,10 +49,12 @@ class TestPublishImagesStep(unittest.TestCase):
             touch(os.path.join(self.content_directory, file_name))
         unit = Mock(unit_key={'image_id': 'foo_image'}, storage_path=self.content_directory)
         step.get_working_dir = Mock(return_value=self.publish_directory)
+
         step.process_unit(unit)
+
         step.redirect_context.add_unit_metadata.assert_called_once_with(unit)
         for file_name in file_list:
-            self.assertTrue(os.path.exists(os.path.join(self.publish_directory, 'web',
+            self.assertTrue(os.path.exists(os.path.join(self.working_directory, 'web',
                                                         'foo_image', file_name)))
 
     def test_finalize(self):
@@ -102,7 +104,9 @@ class TestExportPublisher(unittest.TestCase):
         mock_config = {
             constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: self.publish_dir
         }
+
         publisher = v1_publish_steps.ExportPublisher(self.repo, mock_conduit, mock_config)
+
         self.assertTrue(isinstance(publisher.children[0], v1_publish_steps.PublishImagesStep))
         self.assertTrue(isinstance(publisher.children[1], v1_publish_steps.SaveTarFilePublishStep))
         tar_step = publisher.children[1]
