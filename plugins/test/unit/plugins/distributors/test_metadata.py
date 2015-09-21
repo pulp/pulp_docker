@@ -6,7 +6,7 @@ from mock import Mock, call
 from pulp.common.compat import json
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
-from pulp.server.db.model import Repository
+from pulp.server.db.models import Repository
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.db import models

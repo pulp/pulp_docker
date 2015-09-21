@@ -13,7 +13,7 @@ from pulp.devel.unit.util import touch
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.util.publish_step import PublishStep
-from pulp.server.db.model import Repository
+from pulp.server.db.models import Repository
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors import publish_steps

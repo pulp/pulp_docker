@@ -1,6 +1,6 @@
 from mongoengine import (IntField, StringField)
 
-from pulp.server.db.model import FileContentUnit
+from pulp.server.db.models import FileContentUnit
 
 
 class DockerImage(FileContentUnit):

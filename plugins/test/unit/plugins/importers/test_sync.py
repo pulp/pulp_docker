@@ -12,7 +12,7 @@ import mock
 from nectar.request import DownloadRequest
 from pulp.common.plugins import importer_constants, reporting_constants
 from pulp.plugins.config import PluginCallConfiguration
-from pulp.server.db import model as platform_model
+from pulp.server.db import models as platform_model
 from pulp.server.exceptions import MissingValue
 
 from pulp_docker.common import constants

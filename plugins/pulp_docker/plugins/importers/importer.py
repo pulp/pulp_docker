@@ -3,7 +3,7 @@ import logging
 
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
-from pulp.server.db import model
+from pulp.server.db import models
 from pulp.server.db.model.criteria import UnitAssociationCriteria
 
 from pulp_docker.common import constants
@@ -75,7 +75,7 @@ class DockerImporter(Importer):
         :return: report of the details of the sync
         :rtype:  pulp.plugins.model.SyncReport
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
 
         self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config)
 
@@ -123,7 +123,7 @@ class DockerImporter(Importer):
                             'details':      json-serializable object, providing details
         :rtype:           dict
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
 
         upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config)
         upload_step.process_lifecycle()
@@ -232,7 +232,7 @@ class DockerImporter(Importer):
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
         tags = repo.scratchpad.get(u'tags', [])
         unit_ids = set([unit.unit_key[u'image_id'] for unit in units])
         for tag_dict in tags[:]:

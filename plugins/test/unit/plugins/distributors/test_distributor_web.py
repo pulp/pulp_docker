@@ -8,7 +8,7 @@ from pulp.devel.unit.util import touch
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.distributor import Distributor
-from pulp.server.db.model import Repository
+from pulp.server.db.models import Repository
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors.distributor_web import DockerWebDistributor, entry_point
@@ -43,7 +43,7 @@ class TestBasics(unittest.TestCase):
         self.assertEqual(metadata['types'], [constants.IMAGE_TYPE_ID])
         self.assertTrue(len(metadata['display_name']) > 0)
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
+    @patch('pulp_docker.plugins.distributors.distributor_web.models.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.validate_config')
     def test_validate_config(self, mock_validate, m_repo_objects):
         repo = Mock(id='bar')
@@ -53,7 +53,7 @@ class TestBasics(unittest.TestCase):
             'foo', m_repo_objects.get_repo_or_missing_resource.return_value)
         self.assertEquals(value, mock_validate.return_value)
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
+    @patch('pulp_docker.plugins.distributors.distributor_web.models.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_app_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_master_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_web_publish_dir')
@@ -71,7 +71,7 @@ class TestBasics(unittest.TestCase):
 
         self.assertEquals(0, len(os.listdir(self.working_dir)))
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
+    @patch('pulp_docker.plugins.distributors.distributor_web.models.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_app_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_master_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_web_publish_dir')
@@ -86,7 +86,7 @@ class TestBasics(unittest.TestCase):
         self.distributor.distributor_removed(repo, config)
         self.assertEquals(0, len(os.listdir(self.working_dir)))
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
+    @patch('pulp_docker.plugins.distributors.distributor_web.models.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.WebPublisher')
     def test_publish_repo(self, mock_publisher, m_repo_objects):
         repo = Repository('test')

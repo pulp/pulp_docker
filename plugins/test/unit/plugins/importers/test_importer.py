@@ -3,7 +3,7 @@ import unittest
 import mock
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.importer import Importer
-from pulp.server.db.model import Repository
+from pulp.server.db.models import Repository
 
 import data
 from pulp_docker.common import constants
@@ -35,7 +35,7 @@ class TestBasics(unittest.TestCase):
 class TestSyncRepo(unittest.TestCase):
 
     @mock.patch('pulp_docker.plugins.importers.importer.sync.SyncStep')
-    @mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
+    @mock.patch('pulp_docker.plugins.importers.importer.models.Repository.objects')
     def test_calls_process_lifecycle(self, m_repo_objects, mock_sync_step):
         repo = mock.Mock(id='repo1')
         sync_conduit = mock.MagicMock()
@@ -69,7 +69,7 @@ class TestCancel(unittest.TestCase):
 class TestUploadUnit(unittest.TestCase):
 
     @mock.patch('pulp_docker.plugins.importers.importer.upload.UploadStep')
-    @mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
+    @mock.patch('pulp_docker.plugins.importers.importer.models.Repository.objects')
     def test_calls_process_lifecycle(self, m_repo_objects, m_step):
         repo = mock.Mock(id='repo1')
         conduit = mock.MagicMock()
@@ -127,7 +127,7 @@ class TestValidateConfig(unittest.TestCase):
             self.assertEqual(DockerImporter().validate_config(repo, config), (True, ''))
 
 
-@mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
+@mock.patch('pulp_docker.plugins.importers.importer.models.Repository.objects')
 class TestRemoveUnit(unittest.TestCase):
 
     def setUp(self):

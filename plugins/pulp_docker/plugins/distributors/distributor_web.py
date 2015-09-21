@@ -6,7 +6,7 @@ import shutil
 
 from pulp.common.config import read_json_config
 from pulp.plugins.distributor import Distributor
-from pulp.server.db import model
+from pulp.server.db import models
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors.publish_steps import WebPublisher
@@ -93,7 +93,7 @@ class DockerWebDistributor(Distributor):
         :return: tuple of (bool, str) to describe the result
         :rtype:  tuple
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
         return configuration.validate_config(config, repo)
 
     def publish_repo(self, repo_transfer, publish_conduit, config):
@@ -121,7 +121,7 @@ class DockerWebDistributor(Distributor):
         :rtype:  pulp.plugins.model.PublishReport
         """
         _logger.debug('Publishing docker repository: %s' % repo_transfer.id)
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
 
         self._publisher = WebPublisher(repo, publish_conduit, config)
         return self._publisher.process_lifecycle()
@@ -155,7 +155,7 @@ class DockerWebDistributor(Distributor):
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
 
         # remove the directories that might have been created for this repo/distributor
         dir_list = [configuration.get_master_publish_dir(repo, config),
