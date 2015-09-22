@@ -197,22 +197,22 @@ class TestConfigurationGetters(unittest.TestCase):
         sample_url = 'http://www.pulpproject.org/'
         conduit = Mock(repo_id=sample_url)
         url = configuration.get_redirect_url({constants.CONFIG_KEY_REDIRECT_URL: sample_url},
-                                             conduit)
+                                             conduit, 'v1')
         self.assertEquals(sample_url, url)
 
     def test_get_redirect_url_from_config_trailing_slash(self):
         sample_url = 'http://www.pulpproject.org'
         conduit = Mock(repo_id=sample_url)
         url = configuration.get_redirect_url({constants.CONFIG_KEY_REDIRECT_URL: sample_url},
-                                             conduit)
+                                             conduit, 'v1')
         self.assertEquals(sample_url + '/', url)
 
     @patch('pulp_docker.plugins.distributors.configuration.server_config')
     def test_get_redirect_url_generated(self, mock_server_config):
         mock_server_config.get.return_value = 'www.foo.bar'
-        computed_result = 'https://www.foo.bar/pulp/docker/baz/'
+        computed_result = 'https://www.foo.bar/pulp/docker/v1/baz/'
         self.assertEquals(computed_result, configuration.get_redirect_url({},
-                                                                          Mock(id='baz')))
+                                                                          Mock(id='baz'), 'v1'))
 
     def test_get_export_repo_filename(self):
         filename = configuration.get_export_repo_filename(self.repo, self.config)

@@ -204,7 +204,7 @@ class RedirectFileStep(publish_step.PublishStep):
         Publish the JSON file for Crane.
         """
         registry = configuration.get_repo_registry_id(self.get_repo(), self.get_config())
-        redirect_url = configuration.get_redirect_url(self.get_config(), self.get_repo())
+        redirect_url = configuration.get_redirect_url(self.get_config(), self.get_repo(), 'v2')
 
         redirect_data = {
             'type': 'pulp-docker-redirect', 'version': 2, 'repository': self.get_repo().id,

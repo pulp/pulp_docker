@@ -35,7 +35,7 @@ class RedirectFileContext(JSONArrayFileContext):
 
         self.registry = configuration.get_repo_registry_id(repo, config)
 
-        self.redirect_url = configuration.get_redirect_url(config, repo)
+        self.redirect_url = configuration.get_redirect_url(config, repo, 'v1')
         if config.get('protected', False):
             self.protected = "true"
         else:

@@ -143,15 +143,18 @@ def get_redirect_file_name(repo):
     return '%s.json' % repo.id
 
 
-def get_redirect_url(config, repo):
+def get_redirect_url(config, repo, docker_api_version):
     """
     Get the redirect URL for a given repo & configuration
 
-    :param config: configuration instance for the repository
-    :type  config: pulp.plugins.config.PluginCallConfiguration or dict
-    :param repo: repository to get url for
-    :type  repo: pulp.plugins.model.Repository
-
+    :param config:             configuration instance for the repository
+    :type  config:             pulp.plugins.config.PluginCallConfiguration or dict
+    :param repo:               repository to get url for
+    :type  repo:               pulp.plugins.model.Repository
+    :param docker_api_version: The Docker API version that is being published ('v1' or 'v2')
+    :type  docker_api_version: basestring
+    :return:                   The redirect URL for the given config, repo, and Docker version
+    :rtype:                    basestring
     """
     redirect_url = config.get(constants.CONFIG_KEY_REDIRECT_URL)
     if redirect_url:
@@ -160,7 +163,7 @@ def get_redirect_url(config, repo):
     else:
         # build the redirect URL from the server config
         server_name = server_config.get('server', 'server_name')
-        redirect_url = 'https://%s/pulp/docker/%s/' % (server_name, repo.id)
+        redirect_url = 'https://%s/pulp/docker/%s/%s/' % (server_name, docker_api_version, repo.id)
 
     return redirect_url
 
