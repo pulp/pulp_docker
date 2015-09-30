@@ -138,7 +138,7 @@ class PublishManifestsStep(publish_step.UnitPublishStep):
         # Keep track of the newest Manifest we've seen with this tag by looking for the one with the
         # newest id
         if unit.metadata['tag'] not in self.parent.tags or \
-                unit._id > self.parent.tags[unit.metadata['tag']]:
+                unit.id > self.parent.tags[unit.metadata['tag']]:
             self.parent.tags[unit.metadata['tag']] = unit
 
         self._create_symlink(unit.storage_path,
