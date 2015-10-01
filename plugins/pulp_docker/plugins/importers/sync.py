@@ -261,7 +261,7 @@ class SaveUnits(PluginStep):
     def process_main(self):
         """
         Gets an iterable of units that were downloaded from the parent step,
-        moves their files into permanent storage, and then saves the unit into
+        copies their files into permanent storage, and then saves the unit into
         the database and into the repository.
         """
         _logger.debug(self.description)
@@ -278,16 +278,16 @@ class SaveUnits(PluginStep):
             unit = self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.unit_metadata,
                                                 model.relative_path)
 
-            self.move_files(unit)
+            self.copy_files(unit)
             _logger.debug('saving image %s' % image_id)
             self.get_conduit().save_unit(unit)
 
         _logger.debug('updating tags for repo %s' % self.get_repo().id)
         tags.update_tags(self.get_repo().id, self.parent.tags)
 
-    def move_files(self, unit):
+    def copy_files(self, unit):
         """
-        For the given unit, move all of its associated files from the working
+        For the given unit, copy all of its associated files from the working
         directory to their permanent location.
 
         :param unit:    a pulp unit
@@ -305,4 +305,4 @@ class SaveUnits(PluginStep):
                 raise
 
         for name in ('json', 'ancestry', 'layer'):
-            shutil.move(os.path.join(source_dir, name), os.path.join(unit.storage_path, name))
+            shutil.copy(os.path.join(source_dir, name), os.path.join(unit.storage_path, name))
