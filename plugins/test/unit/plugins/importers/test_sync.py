@@ -337,20 +337,20 @@ class TestSaveUnits(unittest.TestCase):
             json.dump({'Size': 2, 'Parent': 'xyz789'}, json_file)
 
     @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
-    def test_process_main_moves_files(self, mock_update_tags):
+    def test_process_main_copy_files(self, mock_update_tags):
         self._write_files_legit_metadata()
 
-        with mock.patch.object(self.step, 'move_files') as mock_move_files:
+        with mock.patch.object(self.step, 'copy_files') as mock_copy_files:
             self.step.process_main()
 
         expected_unit = self.step.conduit.init_unit.return_value
-        mock_move_files.assert_called_once_with(expected_unit)
+        mock_copy_files.assert_called_once_with(expected_unit)
 
     @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
     def test_process_main_saves_unit(self, mock_update_tags):
         self._write_files_legit_metadata()
 
-        with mock.patch.object(self.step, 'move_files'):
+        with mock.patch.object(self.step, 'copy_files'):
             self.step.process_main()
 
         expected_unit = self.step.conduit.init_unit.return_value
@@ -361,40 +361,40 @@ class TestSaveUnits(unittest.TestCase):
         self._write_files_legit_metadata()
         self.step.parent.tags = {'latest': 'abc123'}
 
-        with mock.patch.object(self.step, 'move_files'):
+        with mock.patch.object(self.step, 'copy_files'):
             self.step.process_main()
 
         mock_update_tags.assert_called_once_with(self.step.repo.id, {'latest': 'abc123'})
 
-    def test_move_files_make_dir(self):
+    def test_copy_files_make_dir(self):
         self._write_empty_files()
 
-        self.step.move_files(self.unit)
+        self.step.copy_files(self.unit)
 
         self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
         self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
         self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
 
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
 
-    def test_move_files_dir_exists(self):
+    def test_copy_files_dir_exists(self):
         self._write_empty_files()
         os.makedirs(os.path.join(self.dest_dir, 'abc123'))
 
-        self.step.move_files(self.unit)
+        self.step.copy_files(self.unit)
 
         self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
         self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
         self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
 
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
+        self.assertTrue(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
 
-    def test_move_files_makedirs_fails(self):
+    def test_copy_files_makedirs_fails(self):
         self.unit.storage_path = '/a/b/c'
 
         # make sure that a permission denied error bubbles up
-        self.assertRaises(OSError, self.step.move_files, self.unit)
+        self.assertRaises(OSError, self.step.copy_files, self.unit)
