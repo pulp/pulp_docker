@@ -28,6 +28,7 @@ LINKS = (
     ('plugins/etc/httpd/conf.d/pulp_docker.conf', '/etc/httpd/conf.d/pulp_docker.conf'),
     ('plugins/etc/pulp/server/plugins.conf.d/docker_distributor.json',
      '/etc/pulp/server/plugins.conf.d/docker_distributor.json'),
+    ('plugins/types/docker.json', DIR_PLUGINS + '/types/docker.json'),
 )
 
 
