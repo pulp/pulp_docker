@@ -25,10 +25,10 @@ class RedirectFileContext(JSONArrayFileContext):
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
         :param repo: Pulp managed repository
-        :type  repo: pulp.server.db.model.Repository
+        :type  repo: pulp.plugins.model.Repository
         """
 
-        self.repo_id = repo.repo_id
+        self.repo_id = repo.id
         metadata_file_path = os.path.join(working_dir,
                                           configuration.get_redirect_file_name(repo))
         super(RedirectFileContext, self).__init__(metadata_file_path)
@@ -68,11 +68,12 @@ class RedirectFileContext(JSONArrayFileContext):
         Add the specific metadata for this unit
 
         :param unit: The docker unit to add to the images metadata file
-        :type unit: pulp_docker.plugins.db.models.DockerImage
+        :type unit: pulp.plugins.model.AssociatedUnit
         """
         super(RedirectFileContext, self).add_unit_metadata(unit)
+        image_id = unit.unit_key['image_id']
         unit_data = {
-            'id': unit.image_id
+            'id': image_id
         }
         string_representation = json.dumps(unit_data)
         self.metadata_file_handle.write(string_representation)

@@ -7,8 +7,8 @@ from mock import Mock, MagicMock, patch
 from pulp.devel.unit.util import touch
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
+from pulp.plugins.model import Repository
 from pulp.plugins.distributor import Distributor
-from pulp.server.db.model import Repository
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors.distributor_web import DockerWebDistributor, entry_point
@@ -43,63 +43,56 @@ class TestBasics(unittest.TestCase):
         self.assertEqual(metadata['types'], [constants.IMAGE_TYPE_ID])
         self.assertTrue(len(metadata['display_name']) > 0)
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.validate_config')
-    def test_validate_config(self, mock_validate, m_repo_objects):
-        repo = Mock(id='bar')
-        m_repo_objects.get_repo_or_missing_resource.return_value = Mock(repo_id='bar')
+    def test_validate_config(self, mock_validate):
+        repo = Mock()
         value = self.distributor.validate_config(repo, 'foo', Mock())
-        mock_validate.assert_called_once_with(
-            'foo', m_repo_objects.get_repo_or_missing_resource.return_value)
+        mock_validate.assert_called_once_with('foo', repo)
         self.assertEquals(value, mock_validate.return_value)
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_app_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_master_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_web_publish_dir')
-    def test_distributor_removed(self, mock_web, mock_master, mock_app, m_repo_objects):
-        m_repo_objects.get_repo_or_missing_resource.return_value = Mock(repo_id='bar')
+    def test_distributor_removed(self, mock_web, mock_master, mock_app):
+
         mock_app.return_value = os.path.join(self.working_dir)
         mock_web.return_value = os.path.join(self.working_dir, 'web')
         mock_master.return_value = os.path.join(self.working_dir, 'master')
+        working_dir = os.path.join(self.working_dir, 'working')
         os.makedirs(mock_web.return_value)
         os.makedirs(mock_master.return_value)
-        repo = Mock(id='bar')
+        repo = Mock(id='bar', working_dir=working_dir)
         config = {}
         touch(os.path.join(self.working_dir, 'bar.json'))
         self.distributor.distributor_removed(repo, config)
 
         self.assertEquals(0, len(os.listdir(self.working_dir)))
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_app_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_master_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_web_publish_dir')
-    def test_distributor_removed_files_missing(self, mock_web, mock_master, mock_app,
-                                               m_repo_objects):
-        m_repo_objects.get.return_value = Repository(repo_id='bar')
+    def test_distributor_removed_files_missing(self, mock_web, mock_master, mock_app):
         mock_app.return_value = os.path.join(self.working_dir)
         mock_web.return_value = os.path.join(self.working_dir, 'web')
         mock_master.return_value = os.path.join(self.working_dir, 'master')
-        repo = Mock(id='bar')
+        working_dir = os.path.join(self.working_dir, 'working')
+        repo = Mock(id='bar', working_dir=working_dir)
         config = {}
         self.distributor.distributor_removed(repo, config)
         self.assertEquals(0, len(os.listdir(self.working_dir)))
 
-    @patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
     @patch('pulp_docker.plugins.distributors.distributor_web.WebPublisher')
-    def test_publish_repo(self, mock_publisher, m_repo_objects):
+    def test_publish_repo(self, mock_publisher):
         repo = Repository('test')
-        m_repo_objects.get.return_value = Repository(repo_id='test')
         config = PluginCallConfiguration(None, None)
         conduit = RepoPublishConduit(repo.id, 'foo_repo')
         self.distributor.publish_repo(repo, conduit, config)
 
-        mock_publisher.return_value.process_lifecycle.assert_called_once_with()
+        mock_publisher.return_value.assert_called_once()
 
     def test_cancel_publish_repo(self):
         self.distributor._publisher = MagicMock()
         self.distributor.cancel_publish_repo()
         self.assertTrue(self.distributor.canceled)
 
-        self.distributor._publisher.cancel.assert_called_once_with()
+        self.distributor._publisher.cancel.assert_called_once()
