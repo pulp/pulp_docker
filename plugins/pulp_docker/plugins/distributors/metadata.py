@@ -25,7 +25,7 @@ class RedirectFileContext(JSONArrayFileContext):
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
         :param repo: Pulp managed repository
-        :type  repo: pulp.server.db.model.Repository
+        :type  repo: pulp.server.db.models.Repository
         """
 
         self.repo_id = repo.repo_id

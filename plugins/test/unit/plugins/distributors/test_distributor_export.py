@@ -8,7 +8,7 @@ from pulp.devel.unit.util import touch
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.distributor import Distributor
-from pulp.server.db.model import Repository
+from pulp.server.db.models import Repository
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors.distributor_export import DockerExportDistributor, entry_point
@@ -27,7 +27,7 @@ class TestEntryPoint(unittest.TestCase):
         self.assertTrue(isinstance(config, dict))
 
 
-@patch('pulp_docker.plugins.distributors.distributor_web.model.Repository.objects')
+@patch('pulp_docker.plugins.distributors.distributor_web.models.Repository.objects')
 class TestBasics(unittest.TestCase):
 
     def setUp(self):

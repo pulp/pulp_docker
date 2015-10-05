@@ -5,7 +5,7 @@ import os
 
 from pulp.common.config import read_json_config
 from pulp.plugins.distributor import Distributor
-from pulp.server.db import model
+from pulp.server.db import models
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors.publish_steps import ExportPublisher
@@ -92,7 +92,7 @@ class DockerExportDistributor(Distributor):
         :return: tuple of (bool, str) to describe the result
         :rtype:  tuple
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
 
         return configuration.validate_config(config, repo)
 
@@ -120,7 +120,7 @@ class DockerExportDistributor(Distributor):
         :return: report describing the publish run
         :rtype:  pulp.plugins.model.PublishReport
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
 
         self._publisher = ExportPublisher(repo, publish_conduit, config)
         return self._publisher.process_lifecycle()
@@ -153,7 +153,7 @@ class DockerExportDistributor(Distributor):
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
+        repo = models.Repository.objects.get_repo_or_missing_resource(repo_id=repo_transfer.id)
 
         # Remove the published app file & directory links
         file_list = [os.path.join(configuration.get_export_repo_directory(config),

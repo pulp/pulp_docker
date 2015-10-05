@@ -10,7 +10,7 @@ from pulp.plugins.util.publish_step import PluginStep, DownloadStep, \
     GetLocalUnitsStep, SaveUnitsStep
 from pulp.server.controllers import repository as repo_controller
 from pulp.server.exceptions import MissingValue
-from pulp.server.db import model as platform_models
+from pulp.server.db import models as platform_models
 
 from pulp_docker.common import constants, tags
 from pulp_docker.plugins.registry import Repository
