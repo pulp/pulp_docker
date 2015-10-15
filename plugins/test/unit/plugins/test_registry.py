@@ -493,7 +493,7 @@ class TestV2Repository(unittest.TestCase):
         working_dir = '/a/working/dir'
         r = registry.V2Repository(name, download_config, registry_url, working_dir)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
-        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        digest = 'sha256:46356a7d9575b4cee21e7867b1b83a51788610b7719a616096d943b44737ad9a'
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
 

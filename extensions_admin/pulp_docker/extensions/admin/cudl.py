@@ -54,7 +54,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
 
     def __init__(self, context):
         CreateAndConfigureRepositoryCommand.__init__(self, context)
-        ImporterConfigMixin.__init__(self, include_ssl=False, include_sync=True,
+        ImporterConfigMixin.__init__(self, include_ssl=True, include_sync=True,
                                      include_unit_policy=False)
         self.add_option(OPT_AUTO_PUBLISH)
         self.add_option(OPT_REDIRECT_URL)
@@ -126,7 +126,7 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
 
     def __init__(self, context):
         UpdateRepositoryCommand.__init__(self, context)
-        ImporterConfigMixin.__init__(self, include_ssl=False, include_sync=True,
+        ImporterConfigMixin.__init__(self, include_ssl=True, include_sync=True,
                                      include_unit_policy=False)
         self.add_option(OPTION_TAG)
         self.add_option(OPTION_REMOVE_TAG)

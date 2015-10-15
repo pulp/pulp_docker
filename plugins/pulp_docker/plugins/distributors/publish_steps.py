@@ -177,7 +177,10 @@ class PublishTagsStep(publish_step.PublishStep):
         tags_path = os.path.join(self.parent.get_working_dir(), 'tags')
         misc.mkdir(tags_path)
         with open(os.path.join(tags_path, 'list'), 'w') as list_file:
-            list_file.write(json.dumps(list(self.parent.tags)))
+            tag_data = {
+                'name': configuration.get_repo_registry_id(self.get_repo(), self.get_config()),
+                'tags': list(self.parent.tags)}
+            list_file.write(json.dumps(tag_data))
 
         # Add the links to make Manifests accessible by tags as well
         for tag, unit in self.parent.tags.items():
