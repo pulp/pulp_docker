@@ -10,6 +10,8 @@ from nectar.downloaders.threaded import HTTPThreadedDownloader
 from nectar.listener import AggregatingEventListener
 from nectar.request import DownloadRequest
 
+from pulp_docker.common import models
+
 
 _logger = logging.getLogger(__name__)
 
@@ -317,7 +319,21 @@ class V2Repository(object):
         """
         path = self.MANIFEST_PATH.format(name=self.name, reference=reference)
         headers, manifest = self._get_path(path)
-        return headers['docker-content-digest'], manifest
+
+        digest_header = 'docker-content-digest'
+        if digest_header in headers:
+            expected_digest = headers[digest_header]
+            # The digest is formatted as algorithm:sum, so let's ask our hasher to use the same
+            # algorithm as we received in the headers.
+            digest = models.Manifest.digest(manifest, expected_digest.split(':')[0])
+            if digest != expected_digest:
+                msg = _('The Manifest digest does not match the expected value. The remote '
+                        'feed announced a digest of {e}, but the downloaded digest was {d}.')
+                msg = msg.format(e=expected_digest, d=digest)
+                raise IOError(msg)
+        else:
+            digest = models.Manifest.digest(manifest)
+        return digest, manifest
 
     def get_tags(self):
         """
