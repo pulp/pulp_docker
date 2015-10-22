@@ -156,7 +156,8 @@ class DockerExportDistributor(Distributor):
             shutil.rmtree(repo_dir, ignore_errors=True)
 
         # Remove the published app file & directory links
-        file_list = [os.path.join(configuration.get_export_repo_directory(config),
+        file_list = [os.path.join(configuration.get_export_repo_directory(config, "v1"),
+                                  configuration.get_export_repo_directory(config, "v2"),
                                   configuration.get_export_repo_filename(repo, config))]
 
         for file_name in file_list:
