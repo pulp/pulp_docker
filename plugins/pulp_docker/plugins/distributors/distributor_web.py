@@ -153,15 +153,20 @@ class DockerWebDistributor(Distributor):
         """
         # remove the directories that might have been created for this repo/distributor
         dir_list = [repo.working_dir,
-                    configuration.get_master_publish_dir(repo, config),
-                    configuration.get_web_publish_dir(repo, config)]
+                    configuration.get_master_publish_dir(repo, config, "v1"),
+                    configuration.get_master_publish_dir(repo, config, "v2"),
+                    configuration.get_web_publish_dir(repo, config, "v1"),
+                    configuration.get_web_publish_dir(repo, config, "v2")]
 
         for repo_dir in dir_list:
             shutil.rmtree(repo_dir, ignore_errors=True)
 
         # Remove the published app file & directory links
-        dir_list = [configuration.get_web_publish_dir(repo, config),
-                    os.path.join(configuration.get_app_publish_dir(config),
+        dir_list = [configuration.get_web_publish_dir(repo, config, "v1"),
+                    configuration.get_web_publish_dir(repo, config, "v2"),
+                    os.path.join(configuration.get_app_publish_dir(config, "v1"),
+                                 configuration.get_redirect_file_name(repo)),
+                    os.path.join(configuration.get_app_publish_dir(config, "v2"),
                                  configuration.get_redirect_file_name(repo))]
 
         for repo_dir in dir_list:
