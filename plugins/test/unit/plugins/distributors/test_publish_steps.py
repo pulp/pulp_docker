@@ -24,11 +24,12 @@ class TestPublishImagesStep(unittest.TestCase):
         os.makedirs(self.working_directory)
         os.makedirs(self.publish_directory)
         os.makedirs(self.content_directory)
-        repo = Repository('foo_repo_id', working_dir=self.working_directory)
+        repo = Repository('foo_repo_id')
         config = PluginCallConfiguration(None, None)
         conduit = RepoPublishConduit(repo.id, 'foo_repo')
         conduit.get_repo_scratchpad = Mock(return_value={u'tags': {}})
-        self.parent = PublishStep('test-step', repo, conduit, config)
+        self.parent = PublishStep('test-step', repo, conduit, config,
+                                  working_dir=self.working_directory)
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir)
@@ -76,7 +77,9 @@ class TestWebPublisher(unittest.TestCase):
 
     @patch('pulp_docker.plugins.distributors.publish_steps.AtomicDirectoryPublishStep')
     @patch('pulp_docker.plugins.distributors.publish_steps.PublishImagesStep')
-    def test_init(self, mock_images_step, mock_web_publish_step):
+    @patch('pulp_docker.plugins.distributors.publish_steps.WebPublisher.'
+           'get_working_dir', return_value='export/dir')
+    def test_init(self, get_working_dir, mock_images_step, mock_web_publish_step):
         mock_conduit = Mock()
         mock_config = {
             constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: self.publish_dir
@@ -97,7 +100,9 @@ class TestExportPublisher(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.working_directory)
 
-    def test_init(self):
+    @patch('pulp_docker.plugins.distributors.publish_steps.ExportPublisher.'
+           'get_working_dir', return_value='export/dir')
+    def test_init(self, get_working_dir):
         mock_conduit = Mock()
         mock_config = {
             constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: self.publish_dir
@@ -106,6 +111,6 @@ class TestExportPublisher(unittest.TestCase):
         self.assertTrue(isinstance(publisher.children[0], publish_steps.PublishImagesStep))
         self.assertTrue(isinstance(publisher.children[1], publish_steps.SaveTarFilePublishStep))
         tar_step = publisher.children[1]
-        self.assertEquals(tar_step.source_dir, self.working_temp)
+        self.assertEquals(tar_step.source_dir, 'export/dir')
         self.assertEquals(tar_step.publish_file,
                           os.path.join(self.publish_dir, 'export/repo/foo.tar'))

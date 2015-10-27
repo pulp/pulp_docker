@@ -60,9 +60,7 @@ class SyncStep(PluginStep):
 
         self.add_child(GetMetadataStep(working_dir=working_dir))
         # save this step so its "units_to_download" attribute can be accessed later
-        self.step_get_local_units = GetLocalImagesStep(constants.IMPORTER_TYPE_ID,
-                                                       constants.IMAGE_TYPE_ID,
-                                                       ['image_id'], working_dir)
+        self.step_get_local_units = GetLocalImagesStep(constants.IMPORTER_TYPE_ID)
         self.add_child(self.step_get_local_units)
         self.add_child(DownloadStep(constants.SYNC_STEP_DOWNLOAD,
                                     downloads=self.generate_download_requests(),

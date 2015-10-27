@@ -32,7 +32,7 @@ class TestSyncStep(unittest.TestCase):
             importer_constants.KEY_FEED: 'http://pulpproject.org/',
         }
         self.config = PluginCallConfiguration({}, plugin_config)
-        self.step = sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
+        self.step = sync.SyncStep(self.repo, self.conduit, self.config, working_dir='/a/b/c')
 
     @mock.patch.object(sync.SyncStep, 'validate')
     def test_init(self, mock_validate):
@@ -284,9 +284,7 @@ class TestGetLocalImagesStep(unittest.TestCase):
     def setUp(self):
         super(TestGetLocalImagesStep, self).setUp()
         self.working_dir = tempfile.mkdtemp()
-        self.step = sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID,
-                                            constants.IMAGE_TYPE_ID,
-                                            ['image_id'], self.working_dir)
+        self.step = sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID)
         self.step.conduit = mock.MagicMock()
 
     def tearDown(self):
