@@ -1,0 +1,16 @@
+{"types": [
+    {
+        "id": "docker_image",
+        "display_name": "Docker Image",
+        "description": "Docker Image",
+        "unit_key": ["image_id"],
+        "search_indexes": []
+    },
+    {
+        "id": "docker_manifest",
+        "display_name": "Docker Manifest",
+        "description": "Docker Manifest",
+        "unit_key": ["name", "tag", "architecture", "digest"],
+        "search_indexes": []
+    }
+]}

@@ -52,11 +52,14 @@ pushd plugins
 %{__python} setup.py install --skip-build --root %{buildroot}
 popd
 
+mkdir -p %{buildroot}/%{_usr}/lib/pulp/plugins/types
 mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/app/
 mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/export/
 mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/web/
 
 cp -R plugins/etc/httpd %{buildroot}/%{_sysconfdir}
+# Types
+cp -R plugins/types/* %{buildroot}/%{_usr}/lib/pulp/plugins/types/
 
 mkdir -p %{buildroot}/%{_bindir}
 
@@ -73,7 +76,7 @@ rm -rf %{buildroot}
 %package -n python-pulp-docker-common
 Summary: Pulp Docker support common library
 Group: Development/Languages
-Requires: python-pulp-common >= 2.8.0
+Requires: python-pulp-common >= 2.7.0
 Requires: python-setuptools
 
 %description -n python-pulp-docker-common
@@ -94,9 +97,9 @@ Common libraries for python-pulp-docker
 %package plugins
 Summary: Pulp Docker plugins
 Group: Development/Languages
-Requires: python-pulp-common >= 2.8.0
+Requires: python-pulp-common >= 2.7.0
 Requires: python-pulp-docker-common = %{version} 
-Requires: pulp-server >= 2.8.0
+Requires: pulp-server >= 2.7.0
 Requires: python-setuptools
 Requires: python-nectar >= 1.3.0
 
@@ -109,6 +112,7 @@ to provide Docker specific support
 %defattr(-,root,root,-)
 %{python_sitelib}/pulp_docker/plugins/
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/pulp_docker.conf
+%{_usr}/lib/pulp/plugins/types/docker.json
 %{python_sitelib}/pulp_docker_plugins*.egg-info
 
 %defattr(-,apache,apache,-)
@@ -121,9 +125,9 @@ to provide Docker specific support
 %package admin-extensions
 Summary: The Pulp Docker admin client extensions
 Group: Development/Languages
-Requires: python-pulp-common >= 2.8.0
+Requires: python-pulp-common >= 2.7.0
 Requires: python-pulp-docker-common = %{version}
-Requires: pulp-admin-client >= 2.8.0
+Requires: pulp-admin-client >= 2.7.0
 Requires: python-setuptools
 
 %description admin-extensions
@@ -137,9 +141,6 @@ pulp-admin extensions for docker support
 
 
 %changelog
-* Fri May 29 2015 Barnaby Court <bcourt@redhat.com> 1.1.0
-- Remove the json file definition for the docker unit types
-
 * Fri Jan 16 2015 Chris Duryee <cduryee@redhat.com> 0.2.2-1
 - 1148556 - Validate repo-registry-id to ensure compatibility with Docker
   (asmacdo@gmail.com)

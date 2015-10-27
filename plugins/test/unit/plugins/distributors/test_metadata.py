@@ -6,10 +6,10 @@ from mock import Mock, call
 from pulp.common.compat import json
 from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
-from pulp.server.db.model import Repository
+from pulp.plugins.model import Repository
 
 from pulp_docker.common import constants
-from pulp_docker.plugins.db import models
+from pulp_docker.common.models import DockerImage
 from pulp_docker.plugins.distributors import metadata
 
 
@@ -17,7 +17,7 @@ class TestRedirectFileContext(unittest.TestCase):
 
     def setUp(self):
         self.working_directory = tempfile.mkdtemp()
-        self.repo = Repository(repo_id='foo_repo_id')
+        self.repo = Repository('foo_repo_id', working_dir=self.working_directory)
         self.config = PluginCallConfiguration(None, None)
         self.conduit = RepoPublishConduit(self.repo.id, 'foo_repo')
         self.conduit.get_repo_scratchpad = Mock(return_value={u'tags': []})
@@ -34,14 +34,14 @@ class TestRedirectFileContext(unittest.TestCase):
         shutil.rmtree(self.working_directory)
 
     def test_add_unit_metadata(self):
-        unit = models.DockerImage(image_id='foo_image', parent_id='foo_parent', size=2048)
+        unit = DockerImage('foo_image', 'foo_parent', 2048)
         test_result = {'id': 'foo_image'}
         result_json = json.dumps(test_result)
         self.context.add_unit_metadata(unit)
         self.context.metadata_file_handle.write.assert_called_once_with(result_json)
 
     def test_add_unit_metadata_with_tag(self):
-        unit = models.DockerImage(image_id='foo_image', parent_id='foo_parent', size=2048)
+        unit = DockerImage('foo_image', 'foo_parent', 2048)
         test_result = {'id': 'foo_image'}
         result_json = json.dumps(test_result)
         self.context.tags = {'bar': 'foo_image'}

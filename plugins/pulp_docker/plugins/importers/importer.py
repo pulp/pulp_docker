@@ -1,12 +1,14 @@
 from gettext import gettext as _
 import logging
+import shutil
+import tempfile
 
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
 from pulp.server.db import model
 from pulp.server.db.model.criteria import UnitAssociationCriteria
 
-from pulp_docker.common import constants
+from pulp_docker.common import constants, tarutils
 from pulp_docker.plugins.importers import sync, upload
 
 
@@ -45,7 +47,7 @@ class DockerImporter(Importer):
             'types': [constants.IMAGE_TYPE_ID]
         }
 
-    def sync_repo(self, repo_transfer, sync_conduit, config):
+    def sync_repo(self, repo, sync_conduit, config):
         """
         Synchronizes content into the given repository. This call is responsible
         for adding new content units to Pulp as well as associating them to the
@@ -63,8 +65,8 @@ class DockerImporter(Importer):
         sync back to the user. Care should be taken to i18n the free text "log"
         attribute in the report if applicable.
 
-        :param repo_transfer: metadata describing the repository
-        :type  repo_transfer: pulp.plugins.model.Repository
+        :param repo: metadata describing the repository
+        :type  repo: pulp.plugins.model.Repository
 
         :param sync_conduit: provides access to relevant Pulp functionality
         :type  sync_conduit: pulp.plugins.conduits.repo_sync.RepoSyncConduit
@@ -75,11 +77,14 @@ class DockerImporter(Importer):
         :return: report of the details of the sync
         :rtype:  pulp.plugins.model.SyncReport
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
+        working_dir = tempfile.mkdtemp(dir=repo.working_dir)
+        try:
+            self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
+                                           working_dir=working_dir)
+            return self.sync_step.sync()
 
-        self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config)
-
-        return self.sync_step.process_lifecycle()
+        finally:
+            shutil.rmtree(working_dir, ignore_errors=True)
 
     def cancel_sync_repo(self):
         """
@@ -91,7 +96,7 @@ class DockerImporter(Importer):
         """
         self.sync_step.cancel()
 
-    def upload_unit(self, repo_transfer, type_id, unit_key, metadata, file_path, conduit, config):
+    def upload_unit(self, repo, type_id, unit_key, metadata, file_path, conduit, config):
         """
         Upload a docker image. The file should be the product of "docker save".
         This will import all images in that tarfile into the specified
@@ -100,8 +105,8 @@ class DockerImporter(Importer):
 
         The following is copied from the superclass.
 
-        :param repo_transfer: metadata describing the repository
-        :type  repo_transfer: pulp.plugins.model.Repository
+        :param repo:      metadata describing the repository
+        :type  repo:      pulp.plugins.model.Repository
         :param type_id:   type of unit being uploaded
         :type  type_id:   str
         :param unit_key:  identifier for the unit, specified by the user
@@ -123,10 +128,15 @@ class DockerImporter(Importer):
                             'details':      json-serializable object, providing details
         :rtype:           dict
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
-
-        upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config)
-        upload_step.process_lifecycle()
+        # retrieve metadata from the tarball
+        metadata = tarutils.get_metadata(file_path)
+        # turn that metadata into a collection of models
+        mask_id = config.get(constants.CONFIG_KEY_MASK_ID)
+        models = upload.get_models(metadata, mask_id)
+        ancestry = tarutils.get_ancestry(models[0].image_id, metadata)
+        # save those models as units in pulp
+        upload.save_models(conduit, models, ancestry, file_path)
+        upload.update_tags(repo.id, file_path)
 
     def import_units(self, source_repo, dest_repo, import_conduit, config, units=None):
         """
@@ -214,7 +224,7 @@ class DockerImporter(Importer):
         """
         return True, ''
 
-    def remove_units(self, repo_transfer, units, config):
+    def remove_units(self, repo, units, config):
         """
         Removes content units from the given repository.
 
@@ -222,8 +232,8 @@ class DockerImporter(Importer):
 
         This call will not result in the unit being deleted from Pulp itself.
 
-        :param repo_transfer: metadata describing the repository
-        :type  repo_transfer: pulp.plugins.model.Repository
+        :param repo: metadata describing the repository
+        :type  repo: pulp.plugins.model.Repository
 
         :param units: list of objects describing the units to import in
                       this call
@@ -232,12 +242,12 @@ class DockerImporter(Importer):
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo_transfer.id)
-        tags = repo.scratchpad.get(u'tags', [])
+        repo_obj = model.Repository.objects.get_repo_or_missing_resource(repo.id)
+        tags = repo_obj.scratchpad.get(u'tags', [])
         unit_ids = set([unit.unit_key[u'image_id'] for unit in units])
         for tag_dict in tags[:]:
             if tag_dict[constants.IMAGE_ID_KEY] in unit_ids:
                 tags.remove(tag_dict)
 
-        repo.scratchpad[u'tags'] = tags
-        repo.save()
+        repo_obj.scratchpad[u'tags'] = tags
+        repo_obj.save()

@@ -3,11 +3,13 @@ import unittest
 import mock
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.importer import Importer
-from pulp.server.db.model import Repository
+from pulp.plugins.model import Repository
 
 import data
 from pulp_docker.common import constants
+from pulp_docker.common.models import DockerImage
 from pulp_docker.plugins.importers.importer import DockerImporter, entry_point
+from pulp_docker.plugins.importers import upload
 
 
 class TestEntryPoint(unittest.TestCase):
@@ -32,24 +34,47 @@ class TestBasics(unittest.TestCase):
         self.assertTrue(len(metadata['display_name']) > 0)
 
 
+@mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
+@mock.patch('tempfile.mkdtemp', spec_set=True)
+@mock.patch('shutil.rmtree')
 class TestSyncRepo(unittest.TestCase):
+    def setUp(self):
+        super(TestSyncRepo, self).setUp()
+        self.repo = Repository('repo1', working_dir='/a/b/c')
+        self.sync_conduit = mock.MagicMock()
+        self.config = mock.MagicMock()
+        self.importer = DockerImporter()
 
-    @mock.patch('pulp_docker.plugins.importers.importer.sync.SyncStep')
-    @mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
-    def test_calls_process_lifecycle(self, m_repo_objects, mock_sync_step):
-        repo = mock.Mock(id='repo1')
-        sync_conduit = mock.MagicMock()
-        config = mock.MagicMock()
-        importer = DockerImporter()
-        repo_instance = Repository()
-        m_repo_objects.get_repo_or_missing_resource.return_value = repo_instance
+    def test_calls_sync_step(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
-        importer.sync_repo(repo, sync_conduit, config)
+        mock_sync_step.assert_called_once_with(repo=self.repo, conduit=self.sync_conduit,
+                                               config=self.config,
+                                               working_dir=mock_mkdtemp.return_value)
 
-        mock_sync_step.assert_called_once_with(repo=repo_instance,
-                                               conduit=sync_conduit,
-                                               config=config)
-        mock_sync_step.return_value.process_lifecycle.assert_called_once_with()
+    def test_calls_sync(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        mock_sync_step.return_value.sync.assert_called_once_with()
+
+    def test_makes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        mock_mkdtemp.assert_called_once_with(dir=self.repo.working_dir)
+
+    def test_removes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        mock_rmtree.assert_called_once_with(mock_mkdtemp.return_value, ignore_errors=True)
+
+    def test_removes_temp_dir_after_exception(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        class MyError(Exception):
+            pass
+        mock_sync_step.return_value.sync.side_effect = MyError
+        self.assertRaises(MyError, self.importer.sync_repo, self.repo,
+                          self.sync_conduit, self.config)
+
+        mock_rmtree.assert_called_once_with(mock_mkdtemp.return_value, ignore_errors=True)
 
 
 class TestCancel(unittest.TestCase):
@@ -66,23 +91,61 @@ class TestCancel(unittest.TestCase):
         self.importer.sync_step.cancel.assert_called_once_with()
 
 
+@mock.patch.object(upload, 'update_tags', spec_set=True)
 class TestUploadUnit(unittest.TestCase):
+    def setUp(self):
+        self.unit_key = {'image_id': data.busybox_ids[0]}
+        self.repo = Repository('repo1')
+        self.conduit = mock.MagicMock()
+        self.config = PluginCallConfiguration({}, {})
 
-    @mock.patch('pulp_docker.plugins.importers.importer.upload.UploadStep')
-    @mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
-    def test_calls_process_lifecycle(self, m_repo_objects, m_step):
-        repo = mock.Mock(id='repo1')
-        conduit = mock.MagicMock()
-        config = mock.MagicMock()
-        importer = DockerImporter()
-        repo_instance = Repository()
-        m_repo_objects.get_repo_or_missing_resource.return_value = repo_instance
+    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
+    def test_save_conduit(self, mock_save, mock_update_tags):
+        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
+                                     {}, data.busybox_tar_path, self.conduit, self.config)
 
-        importer.upload_unit(repo, constants.IMAGE_TYPE_ID, {}, {}, 'foo/path', conduit, config)
-        m_step.assert_called_once_with(repo=repo_instance,
-                                       file_path='foo/path',
-                                       config=config)
-        m_step.return_value.process_lifecycle.assert_called_once_with()
+        conduit = mock_save.call_args[0][0]
+
+        self.assertTrue(conduit is self.conduit)
+
+    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
+    def test_saved_models(self, mock_save, mock_update_tags):
+        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
+                                     {}, data.busybox_tar_path, self.conduit, self.config)
+
+        models = mock_save.call_args[0][1]
+
+        for model in models:
+            self.assertTrue(isinstance(model, DockerImage))
+
+        ids = [m.image_id for m in models]
+
+        self.assertEqual(tuple(ids), data.busybox_ids)
+
+    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
+    def test_saved_ancestry(self, mock_save, mock_update_tags):
+        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
+                                     {}, data.busybox_tar_path, self.conduit, self.config)
+
+        ancestry = mock_save.call_args[0][2]
+
+        self.assertEqual(tuple(ancestry), data.busybox_ids)
+
+    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
+    def test_saved_filepath(self, mock_save, mock_update_tags):
+        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
+                                     {}, data.busybox_tar_path, self.conduit, self.config)
+
+        path = mock_save.call_args[0][3]
+
+        self.assertEqual(path, data.busybox_tar_path)
+
+    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
+    def test_added_tags(self, mock_save, mock_update_tags):
+        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
+                                     {}, data.busybox_tar_path, self.conduit, self.config)
+
+        mock_update_tags.assert_called_once_with(self.repo.id, data.busybox_tar_path)
 
 
 class TestImportUnits(unittest.TestCase):

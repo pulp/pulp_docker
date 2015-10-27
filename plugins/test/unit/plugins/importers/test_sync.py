@@ -1,43 +1,43 @@
 import inspect
+import json
 import os
 import shutil
 import tempfile
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
+import unittest
 
 import mock
 from nectar.request import DownloadRequest
 from pulp.common.plugins import importer_constants, reporting_constants
 from pulp.plugins.config import PluginCallConfiguration
-from pulp.server.db import model as platform_model
+from pulp.plugins.model import Repository as RepositoryModel, Unit
 from pulp.server.exceptions import MissingValue
+from pulp.server.managers import factory
 
 from pulp_docker.common import constants
-from pulp_docker.plugins.db import models
 from pulp_docker.plugins.importers import sync
 from pulp_docker.plugins import registry
+
+
+factory.initialize()
 
 
 class TestSyncStep(unittest.TestCase):
     def setUp(self):
         super(TestSyncStep, self).setUp()
 
-        self.repo = platform_model.Repository(repo_id='repo1')
+        self.repo = RepositoryModel('repo1')
         self.conduit = mock.MagicMock()
         plugin_config = {
             constants.CONFIG_KEY_UPSTREAM_NAME: 'pulp/crane',
             importer_constants.KEY_FEED: 'http://pulpproject.org/',
         }
         self.config = PluginCallConfiguration({}, plugin_config)
-        self.step = sync.SyncStep(self.repo, self.conduit, self.config, working_dir='/a/b/c')
+        self.step = sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
 
     @mock.patch.object(sync.SyncStep, 'validate')
     def test_init(self, mock_validate):
         # re-run this with the mock in place
-        self.step = sync.SyncStep(self.repo, self.conduit, self.config, working_dir='/a/b/c')
+        self.step = sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
 
         self.assertEqual(self.step.step_id, constants.SYNC_STEP_MAIN)
 
@@ -96,8 +96,7 @@ class TestSyncStep(unittest.TestCase):
             raise AssertionError('validation should have failed')
 
     def test_generate_download_requests(self):
-        self.step.step_get_local_units.units_to_download.append(
-            models.DockerImage(image_id='image1'))
+        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -113,8 +112,7 @@ class TestSyncStep(unittest.TestCase):
             shutil.rmtree(self.step.working_dir)
 
     def test_generate_download_requests_correct_urls(self):
-        self.step.step_get_local_units.units_to_download.append(
-            models.DockerImage(image_id='image1'))
+        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -129,8 +127,7 @@ class TestSyncStep(unittest.TestCase):
             shutil.rmtree(self.step.working_dir)
 
     def test_generate_download_requests_correct_destinations(self):
-        self.step.step_get_local_units.units_to_download.append(
-            models.DockerImage(image_id='image1'))
+        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -148,8 +145,7 @@ class TestSyncStep(unittest.TestCase):
             shutil.rmtree(self.step.working_dir)
 
     def test_generate_download_reqs_creates_dir(self):
-        self.step.step_get_local_units.units_to_download.append(
-            models.DockerImage(image_id='image1'))
+        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -161,8 +157,7 @@ class TestSyncStep(unittest.TestCase):
             shutil.rmtree(self.step.working_dir)
 
     def test_generate_download_reqs_existing_dir(self):
-        self.step.step_get_local_units.units_to_download.append(
-            models.DockerImage(image_id='image1'))
+        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
         self.step.working_dir = tempfile.mkdtemp()
         os.makedirs(os.path.join(self.step.working_dir, 'image1'))
 
@@ -173,15 +168,13 @@ class TestSyncStep(unittest.TestCase):
             shutil.rmtree(self.step.working_dir)
 
     def test_generate_download_reqs_perm_denied(self):
-        self.step.step_get_local_units.units_to_download.append(
-            models.DockerImage(image_id='image1'))
+        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
 
         # make sure the permission denies OSError bubbles up
         self.assertRaises(OSError, list, self.step.generate_download_requests())
 
     def test_generate_download_reqs_ancestry_exists(self):
-        self.step.step_get_local_units.units_to_download.append(
-            models.DockerImage(image_id='image1'))
+        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
         self.step.working_dir = tempfile.mkdtemp()
         os.makedirs(os.path.join(self.step.working_dir, 'image1'))
         # simulate the ancestry file already existing
@@ -194,12 +187,21 @@ class TestSyncStep(unittest.TestCase):
         finally:
             shutil.rmtree(self.step.working_dir)
 
+    def test_sync(self):
+        with mock.patch.object(self.step, 'process_lifecycle') as mock_process:
+            report = self.step.sync()
+
+        # make sure we called the process_lifecycle method
+        mock_process.assert_called_once_with()
+        # make sure it returned a report generated by the conduit
+        self.assertTrue(report is self.conduit.build_success_report.return_value)
+
 
 class TestGetMetadataStep(unittest.TestCase):
     def setUp(self):
         super(TestGetMetadataStep, self).setUp()
         self.working_dir = tempfile.mkdtemp()
-        self.repo = platform_model.Repository(repo_id='repo1')
+        self.repo = RepositoryModel('repo1')
         self.repo.working_dir = self.working_dir
         self.conduit = mock.MagicMock()
         plugin_config = {
@@ -208,8 +210,7 @@ class TestGetMetadataStep(unittest.TestCase):
         }
         self.config = PluginCallConfiguration({}, plugin_config)
 
-        self.step = sync.GetMetadataStep(self.repo, self.conduit, self.config,
-                                         working_dir=self.working_dir)
+        self.step = sync.GetMetadataStep(self.repo, self.conduit, self.config, self.working_dir)
         self.step.parent = mock.MagicMock()
         self.index = self.step.parent.index_repository
 
@@ -278,110 +279,122 @@ class TestGetMetadataStep(unittest.TestCase):
         self.assertEqual(ancester_ids, ['abc123', 'xyz789'])
 
 
-class TestSaveDockerUnits(unittest.TestCase):
+class TestGetLocalImagesStep(unittest.TestCase):
+
     def setUp(self):
-        self.step = sync.SaveDockerUnits()
+        super(TestGetLocalImagesStep, self).setUp()
+        self.working_dir = tempfile.mkdtemp()
+        self.step = sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID,
+                                            constants.IMAGE_TYPE_ID,
+                                            ['image_id'], self.working_dir)
+        self.step.conduit = mock.MagicMock()
+
+    def tearDown(self):
+        super(TestGetLocalImagesStep, self).tearDown()
+        shutil.rmtree(self.working_dir)
+
+    def test_dict_to_unit(self):
+        unit = self.step._dict_to_unit({'image_id': 'abc123', 'parent_id': None, 'size': 12})
+
+        self.assertTrue(unit is self.step.conduit.init_unit.return_value)
+        self.step.conduit.init_unit.assert_called_once_with(constants.IMAGE_TYPE_ID,
+                                                            {'image_id': 'abc123'}, {},
+                                                            os.path.join(constants.IMAGE_TYPE_ID,
+                                                                         'abc123'))
+
+
+class TestSaveUnits(unittest.TestCase):
+    def setUp(self):
+        super(TestSaveUnits, self).setUp()
+        self.working_dir = tempfile.mkdtemp()
+        self.dest_dir = tempfile.mkdtemp()
+        self.step = sync.SaveUnits(self.working_dir)
+        self.step.repo = RepositoryModel('repo1')
         self.step.conduit = mock.MagicMock()
         self.step.parent = mock.MagicMock()
-        self.unit = models.DockerImage(image_id='abc123', size=2)
-        self.step.parent.step_get_local_units.units_to_download = [self.unit]
+        self.step.parent.step_get_local_units.units_to_download = [{'image_id': 'abc123'}]
 
-    def test_get_iterator(self):
-        unit = models.DockerImage(image_id='abc123', size=2)
-        step = sync.SaveDockerUnits()
-        step.parent = mock.MagicMock(step_get_local_units=mock.Mock(units_to_download=[unit]))
+        self.unit = Unit(constants.IMAGE_TYPE_ID, {'image_id': 'abc123'},
+                         {'parent': None, 'size': 2}, os.path.join(self.dest_dir, 'abc123'))
 
-        result = list(step.get_iterator())
+    def tearDown(self):
+        super(TestSaveUnits, self).tearDown()
+        shutil.rmtree(self.working_dir)
+        shutil.rmtree(self.dest_dir)
 
-        self.assertListEqual(result, step.parent.step_get_local_units.units_to_download)
+    def _write_empty_files(self):
+        os.makedirs(os.path.join(self.working_dir, 'abc123'))
+        open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w').close()
+        open(os.path.join(self.working_dir, 'abc123/json'), 'w').close()
+        open(os.path.join(self.working_dir, 'abc123/layer'), 'w').close()
 
-    @mock.patch('pulp_docker.plugins.importers.sync.SaveDockerUnits._associate_item')
-    def test_process_main(self, mock_associate):
-        unit = models.DockerImage(image_id='abc123', size=2)
-        step = sync.SaveDockerUnits()
+    def _write_files_legit_metadata(self):
+        os.makedirs(os.path.join(self.working_dir, 'abc123'))
+        open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w').close()
+        open(os.path.join(self.working_dir, 'abc123/layer'), 'w').close()
+        # write just enough metadata to make the step happy
+        with open(os.path.join(self.working_dir, 'abc123/json'), 'w') as json_file:
+            json.dump({'Size': 2, 'Parent': 'xyz789'}, json_file)
 
-        step.process_main(item=unit)
+    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
+    def test_process_main_moves_files(self, mock_update_tags):
+        self._write_files_legit_metadata()
 
-        mock_associate.assert_called_once_with(unit)
+        with mock.patch.object(self.step, 'move_files') as mock_move_files:
+            self.step.process_main()
 
-    @mock.patch('pulp_docker.plugins.importers.sync.models.DockerImage.set_content')
-    @mock.patch('pulp_docker.plugins.importers.sync.SaveDockerUnits.get_working_dir',
-                return_value='wdir')
-    @mock.patch('pulp_docker.plugins.importers.sync.json.load')
-    @mock.patch('pulp_docker.plugins.importers.sync.models.DockerImage.save')
-    @mock.patch('pulp_docker.plugins.importers.sync.repo_controller.associate_single_unit')
-    def test__associate_item(self, mock_associate, mock_save, mock_load, m_get_working_dir,
-                             m_set_content):
-        """
-        Test the associate item with a parent specified with a P in the metadata "Parent"
-        """
-        unit = models.DockerImage(image_id='abc123')
-        step = sync.SaveDockerUnits()
-        step.repo = 'foo_repo'
-        mock_load.return_value = {'Size': 2, 'Parent': 'foo'}
+        expected_unit = self.step.conduit.init_unit.return_value
+        mock_move_files.assert_called_once_with(expected_unit)
 
-        m_open = mock.mock_open()
-        with mock.patch('__builtin__.open', m_open, create=True):
-            step._associate_item(unit)
+    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
+    def test_process_main_saves_unit(self, mock_update_tags):
+        self._write_files_legit_metadata()
 
-        m_open.assert_called_once_with('wdir/abc123/json')
-        m_set_content.assert_called_once_with('wdir/abc123')
+        with mock.patch.object(self.step, 'move_files'):
+            self.step.process_main()
 
-        self.assertEquals(unit.size, 2)
-        self.assertEquals(unit.parent_id, 'foo')
+        expected_unit = self.step.conduit.init_unit.return_value
+        self.step.conduit.save_unit.assert_called_once_with(expected_unit)
 
-        mock_save.assert_called_once_with()
-        mock_associate.assert_called_once_with('foo_repo', unit)
+    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
+    def test_process_main_updates_tags(self, mock_update_tags):
+        self._write_files_legit_metadata()
+        self.step.parent.tags = {'latest': 'abc123'}
 
-    @mock.patch('pulp_docker.plugins.importers.sync.models.DockerImage.set_content')
-    @mock.patch('pulp_docker.plugins.importers.sync.SaveDockerUnits.get_working_dir',
-                return_value='wdir')
-    @mock.patch('pulp_docker.plugins.importers.sync.json.load')
-    @mock.patch('pulp_docker.plugins.importers.sync.models.DockerImage.save')
-    @mock.patch('pulp_docker.plugins.importers.sync.repo_controller.associate_single_unit')
-    def test__associate_item_parent(self, mock_associate, mock_save, mock_load, m_get_working_dir,
-                                    m_set_content):
-        """
-        Test the associate item with a parent specified with a p in the metadata "parent"
-        as the json may include either
-        """
-        unit = models.DockerImage(image_id='abc123')
-        step = sync.SaveDockerUnits()
-        step.repo = 'foo_repo'
-        mock_load.return_value = {'Size': 2, 'parent': 'foo'}
+        with mock.patch.object(self.step, 'move_files'):
+            self.step.process_main()
 
-        m_open = mock.mock_open()
-        with mock.patch('__builtin__.open', m_open, create=True):
-            step._associate_item(unit)
+        mock_update_tags.assert_called_once_with(self.step.repo.id, {'latest': 'abc123'})
 
-        m_open.assert_called_once_with('wdir/abc123/json')
-        m_set_content.assert_called_once_with('wdir/abc123')
+    def test_move_files_make_dir(self):
+        self._write_empty_files()
 
-        self.assertEquals(unit.size, 2)
-        self.assertEquals(unit.parent_id, 'foo')
+        self.step.move_files(self.unit)
 
-        mock_save.assert_called_once_with()
-        mock_associate.assert_called_once_with('foo_repo', unit)
+        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
+        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
+        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
 
-    @mock.patch('pulp_docker.plugins.importers.sync.platform_models.Repository.objects')
-    @mock.patch('pulp.plugins.util.publish_step.repo_controller.rebuild_content_unit_counts')
-    def test_finalize_with_tags(self, m_update_count, m_repo_objects):
-        """
-        Test the finalize when tags have been updated
-        """
-        step = sync.SaveDockerUnits()
-        step.repo = platform_model.Repository(repo_id='repo_bar')
-        step.parent = mock.Mock(tags={'aa': 'bb'})
+        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
+        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
+        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
 
-        step.finalize()
+    def test_move_files_dir_exists(self):
+        self._write_empty_files()
+        os.makedirs(os.path.join(self.dest_dir, 'abc123'))
 
-        m_repo_objects.assert_called_once_with(repo_id='repo_bar')
+        self.step.move_files(self.unit)
 
-        u_one = m_repo_objects.return_value.update_one
-        expected_tags = [
-            {
-                "image_id": "bb",
-                "tag": "aa"
-            }, ]
-        u_one.assert_called_once_with(set__scratchpad__tags=expected_tags)
-        # m_update_tags.assert_called_once_with('repo_bar', 'tag_foo')
+        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
+        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
+        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
+
+        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
+        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
+        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
+
+    def test_move_files_makedirs_fails(self):
+        self.unit.storage_path = '/a/b/c'
+
+        # make sure that a permission denied error bubbles up
+        self.assertRaises(OSError, self.step.move_files, self.unit)
