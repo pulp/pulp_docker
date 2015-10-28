@@ -76,7 +76,7 @@ rm -rf %{buildroot}
 %package -n python-pulp-docker-common
 Summary: Pulp Docker support common library
 Group: Development/Languages
-Requires: python-pulp-common >= 2.7.0
+Requires: python-pulp-common >= 2.8.0
 Requires: python-setuptools
 
 %description -n python-pulp-docker-common
@@ -97,9 +97,9 @@ Common libraries for python-pulp-docker
 %package plugins
 Summary: Pulp Docker plugins
 Group: Development/Languages
-Requires: python-pulp-common >= 2.7.0
+Requires: python-pulp-common >= 2.8.0
 Requires: python-pulp-docker-common = %{version} 
-Requires: pulp-server >= 2.7.0
+Requires: pulp-server >= 2.8.0
 Requires: python-setuptools
 Requires: python-nectar >= 1.3.0
 
@@ -125,9 +125,9 @@ to provide Docker specific support
 %package admin-extensions
 Summary: The Pulp Docker admin client extensions
 Group: Development/Languages
-Requires: python-pulp-common >= 2.7.0
+Requires: python-pulp-common >= 2.8.0
 Requires: python-pulp-docker-common = %{version}
-Requires: pulp-admin-client >= 2.7.0
+Requires: pulp-admin-client >= 2.8.0
 Requires: python-setuptools
 
 %description admin-extensions
