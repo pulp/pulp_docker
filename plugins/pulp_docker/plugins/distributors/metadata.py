@@ -1,14 +1,10 @@
-import logging
 import os
-
 
 from pulp.server.compat import json
 from pulp.plugins.util.metadata_writer import JSONArrayFileContext
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors import configuration
-
-_LOG = logging.getLogger(__name__)
 
 
 class RedirectFileContext(JSONArrayFileContext):
@@ -39,7 +35,7 @@ class RedirectFileContext(JSONArrayFileContext):
 
         self.registry = configuration.get_repo_registry_id(repo, config)
 
-        self.redirect_url = configuration.get_redirect_url(config, repo)
+        self.redirect_url = configuration.get_redirect_url(config, repo, 'v1')
         if config.get('protected', False):
             self.protected = "true"
         else:

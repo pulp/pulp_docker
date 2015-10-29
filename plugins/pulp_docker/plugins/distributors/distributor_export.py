@@ -8,7 +8,7 @@ from pulp.common.config import read_json_config
 from pulp.plugins.distributor import Distributor
 
 from pulp_docker.common import constants
-from pulp_docker.plugins.distributors.publish_steps import ExportPublisher
+from pulp_docker.plugins.distributors.v1_publish_steps import ExportPublisher
 from pulp_docker.plugins.distributors import configuration
 
 
@@ -156,7 +156,8 @@ class DockerExportDistributor(Distributor):
             shutil.rmtree(repo_dir, ignore_errors=True)
 
         # Remove the published app file & directory links
-        file_list = [os.path.join(configuration.get_export_repo_directory(config),
+        file_list = [os.path.join(configuration.get_export_repo_directory(config, "v1"),
+                                  configuration.get_export_repo_directory(config, "v2"),
                                   configuration.get_export_repo_filename(repo, config))]
 
         for file_name in file_list:

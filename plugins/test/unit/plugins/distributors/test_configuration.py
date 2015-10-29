@@ -178,16 +178,16 @@ class TestConfigurationGetters(unittest.TestCase):
         shutil.rmtree(self.working_directory)
 
     def test_get_root_publish_directory(self):
-        directory = configuration.get_root_publish_directory(self.config)
-        self.assertEquals(directory, self.publish_dir)
+        directory = configuration.get_root_publish_directory(self.config, 'v2')
+        self.assertEquals(directory, os.path.join(self.publish_dir, 'v2'))
 
     def test_get_master_publish_dir(self):
-        directory = configuration.get_master_publish_dir(self.repo, self.config)
-        self.assertEquals(directory, os.path.join(self.publish_dir, 'master', self.repo.id))
+        directory = configuration.get_master_publish_dir(self.repo, self.config, 'v2')
+        self.assertEquals(directory, os.path.join(self.publish_dir, 'v2', 'master', self.repo.id))
 
     def test_get_web_publish_dir(self):
-        directory = configuration.get_web_publish_dir(self.repo, self.config)
-        self.assertEquals(directory, os.path.join(self.publish_dir, 'web', self.repo.id))
+        directory = configuration.get_web_publish_dir(self.repo, self.config, 'v2')
+        self.assertEquals(directory, os.path.join(self.publish_dir, 'v2', 'web', self.repo.id))
 
     def test_get_repo_relative_path(self):
         directory = configuration.get_repo_relative_path(self.repo, self.config)
@@ -197,39 +197,39 @@ class TestConfigurationGetters(unittest.TestCase):
         sample_url = 'http://www.pulpproject.org/'
         conduit = Mock(repo_id=sample_url)
         url = configuration.get_redirect_url({constants.CONFIG_KEY_REDIRECT_URL: sample_url},
-                                             conduit)
+                                             conduit, 'v1')
         self.assertEquals(sample_url, url)
 
     def test_get_redirect_url_from_config_trailing_slash(self):
         sample_url = 'http://www.pulpproject.org'
         conduit = Mock(repo_id=sample_url)
         url = configuration.get_redirect_url({constants.CONFIG_KEY_REDIRECT_URL: sample_url},
-                                             conduit)
+                                             conduit, 'v1')
         self.assertEquals(sample_url + '/', url)
 
     @patch('pulp_docker.plugins.distributors.configuration.server_config')
     def test_get_redirect_url_generated(self, mock_server_config):
         mock_server_config.get.return_value = 'www.foo.bar'
-        computed_result = 'https://www.foo.bar/pulp/docker/baz/'
+        computed_result = 'https://www.foo.bar/pulp/docker/v1/baz/'
         self.assertEquals(computed_result, configuration.get_redirect_url({},
-                                                                          Mock(id='baz')))
+                                                                          Mock(id='baz'), 'v1'))
 
     def test_get_export_repo_filename(self):
         filename = configuration.get_export_repo_filename(self.repo, self.config)
         self.assertEquals(filename, "foo.tar")
 
     def test_get_export_repo_directory(self):
-        directory = configuration.get_export_repo_directory(self.config)
-        self.assertEquals(directory, os.path.join(self.publish_dir, 'export', 'repo'))
+        directory = configuration.get_export_repo_directory(self.config, 'v1')
+        self.assertEquals(directory, os.path.join(self.publish_dir, 'v1', 'export', 'repo'))
 
     def test_get_export_repo_file_with_path_from_config(self):
         config = PluginCallConfiguration(None, {constants.CONFIG_KEY_EXPORT_FILE: '/tmp/foo.tar'})
-        result = configuration.get_export_repo_file_with_path(self.repo, config)
+        result = configuration.get_export_repo_file_with_path(self.repo, config, 'v1')
         self.assertEquals(result, '/tmp/foo.tar')
 
     def test_get_export_repo_file_with_path_default(self):
-        result = configuration.get_export_repo_file_with_path(self.repo, self.config)
-        expected_result = os.path.join(configuration.get_export_repo_directory(self.config),
+        result = configuration.get_export_repo_file_with_path(self.repo, self.config, 'v1')
+        expected_result = os.path.join(configuration.get_export_repo_directory(self.config, 'v1'),
                                        configuration.get_export_repo_filename(self.repo,
                                                                               self.config))
         self.assertEquals(result, expected_result)

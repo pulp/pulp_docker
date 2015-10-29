@@ -6,10 +6,12 @@ from pulp.plugins.importer import Importer
 from pulp.plugins.model import Repository
 
 import data
-from pulp_docker.common import constants
-from pulp_docker.common.models import DockerImage
+from pulp_docker.common import constants, models
 from pulp_docker.plugins.importers.importer import DockerImporter, entry_point
 from pulp_docker.plugins.importers import upload
+
+
+MODULE = 'pulp_docker.plugins.importers.importer'
 
 
 class TestEntryPoint(unittest.TestCase):
@@ -30,7 +32,13 @@ class TestBasics(unittest.TestCase):
         metadata = DockerImporter.metadata()
 
         self.assertEqual(metadata['id'], constants.IMPORTER_TYPE_ID)
-        self.assertEqual(metadata['types'], [constants.IMAGE_TYPE_ID])
+        self.assertEqual(
+            metadata['types'],
+            [
+                models.Image.TYPE_ID,
+                models.Manifest.TYPE_ID,
+                models.Blob.TYPE_ID
+            ])
         self.assertTrue(len(metadata['display_name']) > 0)
 
 
@@ -56,6 +64,21 @@ class TestSyncRepo(unittest.TestCase):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
         mock_sync_step.return_value.sync.assert_called_once_with()
+
+    @mock.patch('pulp_docker.plugins.importers.v1_sync.SyncStep')
+    def test_fall_back_to_v1(self, v1_sync_step, mock_rmtree, mock_mkdtemp, mock_sync_step):
+        """
+        Ensure that the sync_repo() method falls back to Docker v1 if Docker v2 isn't available.
+        """
+        # Simulate the v2 API being unavailable
+        mock_sync_step.side_effect = NotImplementedError()
+
+        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
+
+        v1_sync_step.assert_called_once_with(
+            repo=self.repo, conduit=self.sync_conduit, config=self.config,
+            working_dir=mock_mkdtemp.return_value)
+        v1_sync_step.return_value.sync.assert_called_once_with()
 
     def test_makes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
@@ -113,12 +136,12 @@ class TestUploadUnit(unittest.TestCase):
         DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
                                      {}, data.busybox_tar_path, self.conduit, self.config)
 
-        models = mock_save.call_args[0][1]
+        images = mock_save.call_args[0][1]
 
-        for model in models:
-            self.assertTrue(isinstance(model, DockerImage))
+        for image in images:
+            self.assertTrue(isinstance(image, models.Image))
 
-        ids = [m.image_id for m in models]
+        ids = [i.image_id for i in images]
 
         self.assertEqual(tuple(ids), data.busybox_ids)
 
@@ -157,30 +180,157 @@ class TestImportUnits(unittest.TestCase):
         self.conduit = mock.MagicMock()
         self.config = PluginCallConfiguration({}, {})
 
-    def test_import_all(self):
-        mock_unit = mock.Mock(unit_key={'image_id': 'foo'}, metadata={})
-        self.conduit.get_source_units.return_value = [mock_unit]
-        result = DockerImporter().import_units(self.source_repo, self.dest_repo, self.conduit,
-                                               self.config)
-        self.assertEquals(result, [mock_unit])
-        self.conduit.associate_unit.assert_called_once_with(mock_unit)
+    @mock.patch('pulp_docker.plugins.importers.importer.DockerImporter._import_images')
+    @mock.patch('pulp_docker.plugins.importers.importer.DockerImporter._import_manifests')
+    def test_import(self, import_manifests, import_images):
+        import_images.return_value = [1, 2]
+        import_manifests.return_value = [3, 4]
+        units = mock.Mock()
+        importer = DockerImporter()
+        imported = importer.import_units(
+            source_repo=self.source_repo,
+            dest_repo=self.dest_repo,
+            import_conduit=self.conduit,
+            config=self.config,
+            units=units)
+        import_images.assert_called_once_with(self.conduit, units)
+        import_manifests.assert_called_once_with(self.conduit, units)
+        self.assertEqual(imported, import_images.return_value + import_manifests.return_value)
 
-    def test_import_no_parent(self):
-        mock_unit = mock.Mock(unit_key={'image_id': 'foo'}, metadata={})
-        result = DockerImporter().import_units(self.source_repo, self.dest_repo, self.conduit,
-                                               self.config, units=[mock_unit])
-        self.assertEquals(result, [mock_unit])
-        self.conduit.associate_unit.assert_called_once_with(mock_unit)
+    def test_import_all_images(self):
+        units = [
+            mock.Mock(type_id=models.Image.TYPE_ID,
+                      unit_key={'image_id': 'foo'},
+                      metadata={}),
+            mock.Mock(type_id='not-an-image',
+                      unit_key={'image_id': 'foo'},
+                      metadata={}),
+        ]
+        self.conduit.get_source_units.return_value = units
+        result = DockerImporter()._import_images(self.conduit, None)
+        self.assertEquals(result, units[0:1])
+        self.conduit.associate_unit.assert_called_once_with(units[0])
 
-    def test_import_with_parent(self):
-        mock_unit1 = mock.Mock(unit_key={'image_id': 'foo'}, metadata={'parent_id': 'bar'})
-        mock_unit2 = mock.Mock(unit_key={'image_id': 'bar'}, metadata={})
-        self.conduit.get_source_units.return_value = [mock_unit2]
-        result = DockerImporter().import_units(self.source_repo, self.dest_repo, self.conduit,
-                                               self.config, units=[mock_unit1])
-        self.assertEquals(result, [mock_unit1, mock_unit2])
-        calls = [mock.call(mock_unit1), mock.call(mock_unit2)]
+    def test_import_images_no_parent(self):
+        units = [
+            mock.Mock(type_id=models.Image.TYPE_ID,
+                      unit_key={'image_id': 'foo'},
+                      metadata={}),
+        ]
+        result = DockerImporter()._import_images(self.conduit, units)
+        self.assertEquals(result, units[0:1])
+        self.conduit.associate_unit.assert_called_once_with(units[0])
+        self.assertFalse(self.conduit.get_source_units.called)
+
+    def test_import_images_with_parent(self):
+        parents = [
+            mock.Mock(
+                id='parent',
+                type_id=models.Image.TYPE_ID,
+                unit_key={'image_id': 'bar-parent'},
+                metadata={}),
+        ]
+        units = [
+            mock.Mock(
+                type_id=models.Image.TYPE_ID,
+                unit_key={'image_id': 'foo'},
+                metadata={}),
+            mock.Mock(
+                type_id=models.Image.TYPE_ID,
+                unit_key={'image_id': 'bar'},
+                metadata={'parent_id': 'bar-parent'}),
+        ]
+        self.conduit.get_source_units.return_value = parents
+        result = DockerImporter()._import_images(self.conduit, units)
+        self.assertEquals(result, units + parents)
+        calls = [mock.call(u) for u in units]
+        calls.extend([mock.call(u) for u in parents])
         self.conduit.associate_unit.assert_has_calls(calls)
+
+    @mock.patch('pulp_docker.plugins.importers.importer.UnitAssociationCriteria')
+    def test_import_manifests(self, criteria):
+        layers = [
+            {'blobSum': 'b2244'},
+            {'blobSum': 'b2245'},
+            {'blobSum': 'b2246'}
+        ]
+        units = [
+            # ignored
+            mock.Mock(type_id=models.Image.TYPE_ID),
+            # manifests
+            mock.Mock(
+                type_id=models.Manifest.TYPE_ID,
+                unit_key={'digest': 'A1234'},
+                metadata={'fs_layers': []}
+            ),
+            mock.Mock(
+                type_id=models.Manifest.TYPE_ID,
+                unit_key={'digest': 'B1234'},
+                metadata={'fs_layers': layers}
+            ),
+            mock.Mock(
+                type_id=models.Manifest.TYPE_ID,
+                unit_key={'digest': 'C1234'},
+                metadata={'fs_layers': layers}
+            ),
+        ]
+
+        conduit = mock.Mock()
+        blobs = [dict(digest=l.values()[0]) for l in layers]
+        conduit.get_source_units.return_value = blobs
+
+        # test
+        importer = DockerImporter()
+        units_added = importer._import_manifests(conduit, units)
+
+        # validation
+        blob_filter = {
+            'digest': {
+                '$in': [l.values()[0] for l in layers]
+            }
+        }
+        self.assertEqual(units_added, units[1:] + blobs)
+        self.assertEqual(
+            criteria.call_args_list,
+            [
+                mock.call(type_ids=[models.Blob.TYPE_ID], unit_filters=blob_filter),
+            ])
+        self.assertEqual(
+            conduit.associate_unit.call_args_list,
+            [
+                mock.call(units[1]),
+                mock.call(units[2]),
+                mock.call(units[3]),
+                mock.call(blobs[0]),
+                mock.call(blobs[1]),
+                mock.call(blobs[2]),
+            ])
+
+    def test_import_all_manifests(self):
+        units = [
+            mock.Mock(
+                type_id=models.Manifest.TYPE_ID,
+                unit_key={'digest': 'A1234'},
+                metadata={'fs_layers': []}),
+            mock.Mock(
+                type_id=models.Manifest.TYPE_ID,
+                unit_key={'digest': 'B1234'},
+                metadata={'fs_layers': []}),
+        ]
+        conduit = mock.Mock()
+        conduit.get_source_units.side_effect = [units, []]
+
+        # test
+        importer = DockerImporter()
+        importer._import_manifests(conduit, None)
+
+        # validation
+        self.assertEqual(
+            conduit.associate_unit.call_args_list,
+            [
+                mock.call(units[0]),
+                mock.call(units[1]),
+            ])
 
 
 class TestValidateConfig(unittest.TestCase):
@@ -191,20 +341,64 @@ class TestValidateConfig(unittest.TestCase):
 
 
 @mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
-class TestRemoveUnit(unittest.TestCase):
+class TestRemoveUnits(unittest.TestCase):
+
+    @mock.patch(MODULE + '.DockerImporter._purge_unreferenced_tags')
+    @mock.patch(MODULE + '.DockerImporter._purge_orphaned_blobs')
+    def test_call(self, purge_blobs, purge_tags, mock_repo_qs):
+        repo = mock.Mock()
+        config = mock.Mock()
+        units = mock.Mock()
+        importer = DockerImporter()
+
+        importer.remove_units(repo, units, config)
+
+        purge_tags.assert_called_once_with(repo, units)
+        purge_blobs.assert_called_once_with(repo, units)
+
+    def test_remove_with_tag(self, mock_repo_qs):
+        units = [
+            mock.MagicMock(type_id=models.Manifest.TYPE_ID),
+            mock.MagicMock(type_id=models.Image.TYPE_ID, unit_key={'image_id': 'foo'}, metadata={})
+        ]
+        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
+        mock_repo.scratchpad = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
+                                           constants.IMAGE_ID_KEY: 'foo'}]}
+
+        DockerImporter().remove_units(mock_repo, units, mock.MagicMock())
+
+        self.assertEqual(mock_repo.scratchpad['tags'], [])
+
+
+@mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
+class TestPurgeUnreferencedTags(unittest.TestCase):
 
     def setUp(self):
         self.repo = Repository('repo_source')
         self.conduit = mock.MagicMock()
         self.config = PluginCallConfiguration({}, {})
-        self.mock_unit = mock.Mock(unit_key={'image_id': 'foo'}, metadata={})
+        self.mock_unit = mock.Mock(
+            type_id=models.Image.TYPE_ID, unit_key={'image_id': 'foo'}, metadata={})
 
     def test_remove_with_tag(self, mock_repo_qs):
+        units = [
+            # manifests
+            mock.Mock(type_id=models.Manifest.TYPE_ID),
+            # images
+            mock.Mock(
+                type_id=models.Image.TYPE_ID,
+                unit_key={'image_id': 'foo'},
+                metadata={}
+            ),
+        ]
         mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
         mock_repo.scratchpad = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
-                                constants.IMAGE_ID_KEY: 'foo'}]}
-        DockerImporter().remove_units(self.repo, [self.mock_unit], self.config)
-        self.assertEqual(mock_repo.scratchpad['tags'], [])
+                                           constants.IMAGE_ID_KEY: 'foo'}]}
+
+        DockerImporter()._purge_unreferenced_tags(self.repo, units)
+
+        self.assertEqual(mock_repo.scratchpad, {'tags': []})
+        mock_repo.save.assert_called_once_with()
 
     def test_remove_without_tag(self, mock_repo_qs):
         expected_tags = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
@@ -212,5 +406,150 @@ class TestRemoveUnit(unittest.TestCase):
         mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
         mock_repo.scratchpad = expected_tags
 
-        DockerImporter().remove_units(self.repo, [self.mock_unit], self.config)
+        DockerImporter()._purge_unreferenced_tags(self.repo, [self.mock_unit])
+
         self.assertEqual(mock_repo.scratchpad['tags'], expected_tags['tags'])
+        mock_repo.save.assert_called_once_with()
+
+
+class TestPurgeOrphanedBlobs(unittest.TestCase):
+
+    @mock.patch(MODULE + '.UnitAssociationCriteria')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
+    def test_purge_orphaned(self, query_manager, association_manager, criteria):
+        repo = mock.Mock()
+        blobs = [
+            {'blobSum': 'blob-0'},  # manifest => 1
+            {'blobSum': 'blob-1'},  # manifest => 1
+            {'blobSum': 'blob-2'},  # manifest => 1
+            {'blobSum': 'blob-3'},  # manifest => 1, 2, 3  (not orphaned)
+            {'blobSum': 'blob-4'},  # manifest => 1, 2
+            {'blobSum': 'blob-5'},  # manifest => 2, 4     (not orphaned)
+            {'blobSum': 'blob-6'},  # manifest => 2
+        ]
+        removed = [
+            mock.Mock(
+                id='manifest-1',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': blobs[0:4]}),
+            mock.Mock(
+                id='manifest-2',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': blobs[2:8]})
+        ]
+        others = [
+            mock.Mock(
+                id='manifest-3',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': blobs[3:4]}),
+            mock.Mock(
+                id='manifest-4',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': blobs[5:6]})
+        ]
+
+        query_manager.return_value.get_units_by_type.return_value = others
+
+        # test
+        importer = DockerImporter()
+        importer._purge_orphaned_blobs(repo, removed)
+
+        # validation
+        criteria.assert_called_once_with(
+            type_ids=[models.Blob.TYPE_ID],
+            unit_filters={'digest': {'$in': ['blob-0', 'blob-1', 'blob-2', 'blob-4', 'blob-6']}})
+
+        query_manager.return_value.get_units_by_type.assert_called_once_with(
+            repo.id, models.Manifest.TYPE_ID)
+        association_manager.return_value.unassociate_by_criteria(
+            repo_id=repo.id,
+            criteria=criteria.return_value,
+            owner_type='',  # unused
+            owner_id='',    # unused
+            notify_plugins=False)
+
+    @mock.patch(MODULE + '.UnitAssociationCriteria')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
+    def test_purge_orphaned_all_adopted(self, query_manager, association_manager, criteria):
+        repo = mock.Mock()
+        blobs = [
+            {'blobSum': 'blob-0'},  # manifest => 1, 3     (not orphaned)
+            {'blobSum': 'blob-1'},  # manifest => 1, 3     (not orphaned)
+            {'blobSum': 'blob-2'},  # manifest => 1, 3     (not orphaned)
+            {'blobSum': 'blob-3'},  # manifest => 1, 2, 3  (not orphaned)
+            {'blobSum': 'blob-4'},  # manifest => 1, 2, 3  (not orphaned)
+            {'blobSum': 'blob-5'},  # manifest => 2, 4, 3  (not orphaned)
+            {'blobSum': 'blob-6'},  # manifest => 2, 3     (not orphaned)
+        ]
+        removed = [
+            mock.Mock(
+                id='manifest-1',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': blobs[0:4]}),
+            mock.Mock(
+                id='manifest-2',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': blobs[2:8]})
+        ]
+        others = [
+            mock.Mock(
+                id='manifest-3',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': blobs}),
+        ]
+
+        query_manager.return_value.get_units_by_type.return_value = others
+
+        # test
+        importer = DockerImporter()
+        importer._purge_orphaned_blobs(repo, removed)
+
+        # validation
+        self.assertFalse(criteria.called)
+        self.assertFalse(association_manager.called)
+
+    @mock.patch(MODULE + '.UnitAssociationCriteria')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
+    def test_purge_orphaned_nothing_orphaned(self, query_manager, association_manager, criteria):
+        repo = mock.Mock()
+        removed = [
+            mock.Mock(
+                id='manifest-1',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': []}),
+            mock.Mock(
+                id='manifest-2',
+                type_id=models.Manifest.TYPE_ID,
+                metadata={'fs_layers': []})
+        ]
+
+        # test
+        importer = DockerImporter()
+        importer._purge_orphaned_blobs(repo, removed)
+
+        # validation
+        self.assertFalse(query_manager.called)
+        self.assertFalse(criteria.called)
+        self.assertFalse(association_manager.called)
+
+    @mock.patch(MODULE + '.UnitAssociationCriteria')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
+    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
+    def test_purge_not_manifests(self, query_manager, association_manager, criteria):
+        repo = mock.Mock()
+        removed = [
+            mock.Mock(type_id=models.Image.TYPE_ID),
+            mock.Mock(type_id=models.Image.TYPE_ID),
+        ]
+
+        # test
+        importer = DockerImporter()
+        importer._purge_orphaned_blobs(repo, removed)
+
+        # validation
+        self.assertFalse(query_manager.called)
+        self.assertFalse(criteria.called)
+        self.assertFalse(association_manager.called)

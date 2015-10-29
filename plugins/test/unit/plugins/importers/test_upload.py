@@ -12,8 +12,7 @@ from pulp.plugins.model import Unit
 from pulp.server.managers import factory
 
 import data
-from pulp_docker.common import constants
-from pulp_docker.common.models import DockerImage
+from pulp_docker.common import constants, models
 from pulp_docker.plugins.importers import upload
 
 
@@ -39,44 +38,44 @@ metadata_shared_parents_multiple_leaves = {
 class TestGetModels(unittest.TestCase):
     def test_full_metadata(self):
         # Test for simple metadata
-        models = upload.get_models(metadata)
+        images = upload.get_models(metadata)
 
-        self.assertEqual(len(models), len(metadata))
-        for m in models:
-            self.assertTrue(isinstance(m, DockerImage))
-            self.assertTrue(m.image_id in metadata)
+        self.assertEqual(len(images), len(metadata))
+        for i in images:
+            self.assertTrue(isinstance(i, models.Image))
+            self.assertTrue(i.image_id in metadata)
 
-        ids = [m.image_id for m in models]
+        ids = [i.image_id for i in images]
         self.assertEqual(set(ids), set(metadata.keys()))
 
     def test_full_metadata_shared_parents_multiple_leaves(self):
         # Test for metadata having shared parents and multiple leaves
-        models = upload.get_models(metadata_shared_parents_multiple_leaves)
+        images = upload.get_models(metadata_shared_parents_multiple_leaves)
 
-        self.assertEqual(len(models), len(metadata_shared_parents_multiple_leaves))
-        for m in models:
-            self.assertTrue(isinstance(m, DockerImage))
-            self.assertTrue(m.image_id in metadata_shared_parents_multiple_leaves)
+        self.assertEqual(len(images), len(metadata_shared_parents_multiple_leaves))
+        for i in images:
+            self.assertTrue(isinstance(i, models.Image))
+            self.assertTrue(i.image_id in metadata_shared_parents_multiple_leaves)
 
-        ids = [m.image_id for m in models]
+        ids = [i.image_id for i in images]
         self.assertEqual(set(ids), set(metadata_shared_parents_multiple_leaves.keys()))
 
     def test_mask(self):
         # Test for simple metadata
-        models = upload.get_models(metadata, mask_id='id3')
+        images = upload.get_models(metadata, mask_id='id3')
 
-        self.assertEqual(len(models), 2)
+        self.assertEqual(len(images), 2)
         # make sure this only returns the first two and masks the others
-        for m in models:
-            self.assertTrue(m.image_id in ['id1', 'id2'])
+        for i in images:
+            self.assertTrue(i.image_id in ['id1', 'id2'])
 
     def test_mask_shared_parents_multiple_leaves(self):
         # Test for metadata having shared parents and multiple leaves
-        models = upload.get_models(metadata_shared_parents_multiple_leaves, mask_id='id3')
+        images = upload.get_models(metadata_shared_parents_multiple_leaves, mask_id='id3')
 
-        self.assertEqual(len(models), 3)
-        for m in models:
-            self.assertTrue(m.image_id in ['id1', 'id2', 'id4'])
+        self.assertEqual(len(images), 3)
+        for i in images:
+            self.assertTrue(i.image_id in ['id1', 'id2', 'id4'])
 
 
 class TestSaveModels(unittest.TestCase):
@@ -85,7 +84,7 @@ class TestSaveModels(unittest.TestCase):
 
     @mock.patch('os.path.exists', return_value=True, spec_set=True)
     def test_path_exists(self, mock_exists):
-        model = DockerImage('abc123', 'xyz789', 1024)
+        model = models.Image('abc123', 'xyz789', 1024)
 
         upload.save_models(self.conduit, [model], (model.image_id,), data.busybox_tar_path)
 
@@ -96,29 +95,29 @@ class TestSaveModels(unittest.TestCase):
         self.conduit.save_unit.assert_called_once_with(self.conduit.init_unit.return_value)
 
     def test_with_busybox(self):
-        models = [
-            DockerImage(data.busybox_ids[0], data.busybox_ids[1], 1024),
+        images = [
+            models.Image(data.busybox_ids[0], data.busybox_ids[1], 1024),
         ]
         dest = tempfile.mkdtemp()
         try:
             # prepare some state
-            model_dest = os.path.join(dest, models[0].relative_path)
-            unit = Unit(DockerImage.TYPE_ID, models[0].unit_key,
-                        models[0].unit_metadata, model_dest)
+            image_dest = os.path.join(dest, images[0].relative_path)
+            unit = Unit(models.Image.TYPE_ID, images[0].unit_key,
+                        images[0].unit_metadata, image_dest)
             self.conduit.init_unit.return_value = unit
 
             # call the save, letting it write files to disk
-            upload.save_models(self.conduit, models, data.busybox_ids, data.busybox_tar_path)
+            upload.save_models(self.conduit, images, data.busybox_ids, data.busybox_tar_path)
 
             # assertions!
             self.conduit.save_unit.assert_called_once_with(unit)
 
             # make sure the ancestry was computed and saved correctly
-            ancestry = json.load(open(os.path.join(model_dest, 'ancestry')))
+            ancestry = json.load(open(os.path.join(image_dest, 'ancestry')))
             self.assertEqual(set(ancestry), set(data.busybox_ids))
             # make sure these files were moved into place
-            self.assertTrue(os.path.exists(os.path.join(model_dest, 'json')))
-            self.assertTrue(os.path.exists(os.path.join(model_dest, 'layer')))
+            self.assertTrue(os.path.exists(os.path.join(image_dest, 'json')))
+            self.assertTrue(os.path.exists(os.path.join(image_dest, 'layer')))
         finally:
             shutil.rmtree(dest)
 
