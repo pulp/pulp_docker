@@ -1,7 +1,6 @@
 import unittest
 
 import mock
-
 from pulp.client.commands.repo.cudl import CreateRepositoryCommand, DeleteRepositoryCommand
 from pulp.client.commands.repo.cudl import UpdateRepositoryCommand
 from pulp.client.commands.repo.sync_publish import PublishStatusCommand,\
@@ -9,7 +8,6 @@ from pulp.client.commands.repo.sync_publish import PublishStatusCommand,\
 from pulp.client.commands.repo.upload import UploadCommand
 from pulp.client.extensions.core import PulpCli
 from pulp.client.extensions.extensions import PulpCliSection
-
 
 from pulp_docker.extensions.admin import pulp_cli
 from pulp_docker.extensions.admin import images
@@ -29,7 +27,7 @@ class TestInitialize(unittest.TestCase):
         # create the tree of commands and sections
         pulp_cli.initialize(context)
 
-        # verify that sections exist and have the right commands and sections
+        # verify that sections exist and have the right commands and subsections
         docker_section = context.cli.root_section.subsections['docker']
 
         repo_section = docker_section.subsections['repo']
