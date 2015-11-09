@@ -6,9 +6,8 @@ from pulp.plugins.importer import Importer
 from pulp.plugins.model import Repository
 
 import data
-from pulp_docker.common import constants, models
+from pulp_docker.common import constants
 from pulp_docker.plugins.importers.importer import DockerImporter, entry_point
-from pulp_docker.plugins.importers import upload
 
 
 MODULE = 'pulp_docker.plugins.importers.importer'
@@ -35,16 +34,17 @@ class TestBasics(unittest.TestCase):
         self.assertEqual(
             metadata['types'],
             [
-                models.Image.TYPE_ID,
-                models.Manifest.TYPE_ID,
-                models.Blob.TYPE_ID
+                constants.IMAGE_TYPE_ID,
+                constants.MANIFEST_TYPE_ID,
+                constants.BLOB_TYPE_ID
             ])
         self.assertTrue(len(metadata['display_name']) > 0)
 
 
-@mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
+@mock.patch('pulp_docker.plugins.importers.importer.v1_sync.SyncStep')
 @mock.patch('tempfile.mkdtemp', spec_set=True)
 @mock.patch('shutil.rmtree')
+@mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
 class TestSyncRepo(unittest.TestCase):
     def setUp(self):
         super(TestSyncRepo, self).setUp()
@@ -53,51 +53,42 @@ class TestSyncRepo(unittest.TestCase):
         self.config = mock.MagicMock()
         self.importer = DockerImporter()
 
-    def test_calls_sync_step(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+    @mock.patch('pulp.plugins.util.publish_step.common_utils.get_working_directory',
+                mock.MagicMock(return_value='/a/b/c'))
+    def test_calls_sync_step(self, objects, mock_rmtree, mock_mkdtemp, v1_sync_step):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
-        mock_sync_step.assert_called_once_with(repo=self.repo, conduit=self.sync_conduit,
-                                               config=self.config,
-                                               working_dir=mock_mkdtemp.return_value)
+        v1_sync_step.assert_called_once_with(
+            repo=objects.get_repo_or_missing_resource.return_value, conduit=self.sync_conduit,
+            config=self.config)
+        objects.get_repo_or_missing_resource.assert_called_once_with(self.repo.id)
 
-    def test_calls_sync(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
+    @mock.patch('pulp.plugins.util.publish_step.common_utils.get_working_directory',
+                mock.MagicMock(return_value='/a/b/c'))
+    def test_calls_sync(self, objects, mock_rmtree, mock_mkdtemp, v1_sync_step):
+        """
+        Assert that the sync_repo() method calls sync() on the SyncStep.
+        """
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
-        mock_sync_step.return_value.sync.assert_called_once_with()
+        objects.get_repo_or_missing_resource.assert_called_once_with(self.repo.id)
+        v1_sync_step.return_value.process_lifecycle.assert_called_once_with()
 
-    @mock.patch('pulp_docker.plugins.importers.v1_sync.SyncStep')
-    def test_fall_back_to_v1(self, v1_sync_step, mock_rmtree, mock_mkdtemp, mock_sync_step):
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
+    def test_fall_back_to_v1(self, sync_step, objects, mock_rmtree, mock_mkdtemp, v1_sync_step):
         """
         Ensure that the sync_repo() method falls back to Docker v1 if Docker v2 isn't available.
         """
         # Simulate the v2 API being unavailable
-        mock_sync_step.side_effect = NotImplementedError()
+        sync_step.side_effect = NotImplementedError()
 
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
+        objects.get_repo_or_missing_resource.assert_called_once_with(self.repo.id)
         v1_sync_step.assert_called_once_with(
-            repo=self.repo, conduit=self.sync_conduit, config=self.config,
-            working_dir=mock_mkdtemp.return_value)
-        v1_sync_step.return_value.sync.assert_called_once_with()
-
-    def test_makes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
-        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
-
-        mock_mkdtemp.assert_called_once_with(dir=self.repo.working_dir)
-
-    def test_removes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
-        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
-
-        mock_rmtree.assert_called_once_with(mock_mkdtemp.return_value, ignore_errors=True)
-
-    def test_removes_temp_dir_after_exception(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
-        class MyError(Exception):
-            pass
-        mock_sync_step.return_value.sync.side_effect = MyError
-        self.assertRaises(MyError, self.importer.sync_repo, self.repo,
-                          self.sync_conduit, self.config)
-
-        mock_rmtree.assert_called_once_with(mock_mkdtemp.return_value, ignore_errors=True)
+            repo=objects.get_repo_or_missing_resource.return_value, conduit=self.sync_conduit,
+            config=self.config)
+        v1_sync_step.return_value.process_lifecycle.assert_called_once_with()
 
 
 class TestCancel(unittest.TestCase):
@@ -114,61 +105,29 @@ class TestCancel(unittest.TestCase):
         self.importer.sync_step.cancel.assert_called_once_with()
 
 
-@mock.patch.object(upload, 'update_tags', spec_set=True)
 class TestUploadUnit(unittest.TestCase):
-    def setUp(self):
-        self.unit_key = {'image_id': data.busybox_ids[0]}
-        self.repo = Repository('repo1')
-        self.conduit = mock.MagicMock()
-        self.config = PluginCallConfiguration({}, {})
+    """
+    Assert correct operation of DockerImporter.upload_unit().
+    """
+    @mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
+    @mock.patch('pulp_docker.plugins.importers.importer.upload.UploadStep')
+    def test_correct_calls(self, UploadStep, objects):
+        """
+        Assert that upload_unit() builds the UploadStep correctly and calls its process_lifecycle()
+        method.
+        """
+        unit_key = {'image_id': data.busybox_ids[0]}
+        repo = Repository('repo1')
+        conduit = mock.MagicMock()
+        config = PluginCallConfiguration({}, {})
 
-    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_save_conduit(self, mock_save, mock_update_tags):
-        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
-                                     {}, data.busybox_tar_path, self.conduit, self.config)
+        DockerImporter().upload_unit(repo, constants.IMAGE_TYPE_ID, unit_key,
+                                     {}, data.busybox_tar_path, conduit, config)
 
-        conduit = mock_save.call_args[0][0]
-
-        self.assertTrue(conduit is self.conduit)
-
-    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_saved_models(self, mock_save, mock_update_tags):
-        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
-                                     {}, data.busybox_tar_path, self.conduit, self.config)
-
-        images = mock_save.call_args[0][1]
-
-        for image in images:
-            self.assertTrue(isinstance(image, models.Image))
-
-        ids = [i.image_id for i in images]
-
-        self.assertEqual(tuple(ids), data.busybox_ids)
-
-    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_saved_ancestry(self, mock_save, mock_update_tags):
-        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
-                                     {}, data.busybox_tar_path, self.conduit, self.config)
-
-        ancestry = mock_save.call_args[0][2]
-
-        self.assertEqual(tuple(ancestry), data.busybox_ids)
-
-    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_saved_filepath(self, mock_save, mock_update_tags):
-        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
-                                     {}, data.busybox_tar_path, self.conduit, self.config)
-
-        path = mock_save.call_args[0][3]
-
-        self.assertEqual(path, data.busybox_tar_path)
-
-    @mock.patch('pulp_docker.plugins.importers.upload.save_models', spec_set=True)
-    def test_added_tags(self, mock_save, mock_update_tags):
-        DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key,
-                                     {}, data.busybox_tar_path, self.conduit, self.config)
-
-        mock_update_tags.assert_called_once_with(self.repo.id, data.busybox_tar_path)
+        objects.get_repo_or_missing_resource.assert_called_once_with(repo.id)
+        UploadStep.assert_called_once_with(repo=objects.get_repo_or_missing_resource.return_value,
+                                           file_path=data.busybox_tar_path, config=config)
+        UploadStep.return_value.process_lifecycle.assert_called_once_with()
 
 
 class TestImportUnits(unittest.TestCase):
@@ -199,7 +158,7 @@ class TestImportUnits(unittest.TestCase):
 
     def test_import_all_images(self):
         units = [
-            mock.Mock(type_id=models.Image.TYPE_ID,
+            mock.Mock(type_id=constants.IMAGE_TYPE_ID,
                       unit_key={'image_id': 'foo'},
                       metadata={}),
             mock.Mock(type_id='not-an-image',
@@ -213,7 +172,7 @@ class TestImportUnits(unittest.TestCase):
 
     def test_import_images_no_parent(self):
         units = [
-            mock.Mock(type_id=models.Image.TYPE_ID,
+            mock.Mock(type_id=constants.IMAGE_TYPE_ID,
                       unit_key={'image_id': 'foo'},
                       metadata={}),
         ]
@@ -226,17 +185,17 @@ class TestImportUnits(unittest.TestCase):
         parents = [
             mock.Mock(
                 id='parent',
-                type_id=models.Image.TYPE_ID,
+                type_id=constants.IMAGE_TYPE_ID,
                 unit_key={'image_id': 'bar-parent'},
                 metadata={}),
         ]
         units = [
             mock.Mock(
-                type_id=models.Image.TYPE_ID,
+                type_id=constants.IMAGE_TYPE_ID,
                 unit_key={'image_id': 'foo'},
                 metadata={}),
             mock.Mock(
-                type_id=models.Image.TYPE_ID,
+                type_id=constants.IMAGE_TYPE_ID,
                 unit_key={'image_id': 'bar'},
                 metadata={'parent_id': 'bar-parent'}),
         ]
@@ -256,20 +215,20 @@ class TestImportUnits(unittest.TestCase):
         ]
         units = [
             # ignored
-            mock.Mock(type_id=models.Image.TYPE_ID),
+            mock.Mock(type_id=constants.IMAGE_TYPE_ID),
             # manifests
             mock.Mock(
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 unit_key={'digest': 'A1234'},
                 metadata={'fs_layers': []}
             ),
             mock.Mock(
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 unit_key={'digest': 'B1234'},
                 metadata={'fs_layers': layers}
             ),
             mock.Mock(
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 unit_key={'digest': 'C1234'},
                 metadata={'fs_layers': layers}
             ),
@@ -293,7 +252,7 @@ class TestImportUnits(unittest.TestCase):
         self.assertEqual(
             criteria.call_args_list,
             [
-                mock.call(type_ids=[models.Blob.TYPE_ID], unit_filters=blob_filter),
+                mock.call(type_ids=[constants.BLOB_TYPE_ID], unit_filters=blob_filter),
             ])
         self.assertEqual(
             conduit.associate_unit.call_args_list,
@@ -309,11 +268,11 @@ class TestImportUnits(unittest.TestCase):
     def test_import_all_manifests(self):
         units = [
             mock.Mock(
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 unit_key={'digest': 'A1234'},
                 metadata={'fs_layers': []}),
             mock.Mock(
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 unit_key={'digest': 'B1234'},
                 metadata={'fs_layers': []}),
         ]
@@ -358,8 +317,9 @@ class TestRemoveUnits(unittest.TestCase):
 
     def test_remove_with_tag(self, mock_repo_qs):
         units = [
-            mock.MagicMock(type_id=models.Manifest.TYPE_ID),
-            mock.MagicMock(type_id=models.Image.TYPE_ID, unit_key={'image_id': 'foo'}, metadata={})
+            mock.MagicMock(type_id=constants.MANIFEST_TYPE_ID),
+            mock.MagicMock(type_id=constants.IMAGE_TYPE_ID, unit_key={'image_id': 'foo'},
+                           metadata={})
         ]
         mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
         mock_repo.scratchpad = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
@@ -378,15 +338,15 @@ class TestPurgeUnreferencedTags(unittest.TestCase):
         self.conduit = mock.MagicMock()
         self.config = PluginCallConfiguration({}, {})
         self.mock_unit = mock.Mock(
-            type_id=models.Image.TYPE_ID, unit_key={'image_id': 'foo'}, metadata={})
+            type_id=constants.IMAGE_TYPE_ID, unit_key={'image_id': 'foo'}, metadata={})
 
     def test_remove_with_tag(self, mock_repo_qs):
         units = [
             # manifests
-            mock.Mock(type_id=models.Manifest.TYPE_ID),
+            mock.Mock(type_id=constants.MANIFEST_TYPE_ID),
             # images
             mock.Mock(
-                type_id=models.Image.TYPE_ID,
+                type_id=constants.IMAGE_TYPE_ID,
                 unit_key={'image_id': 'foo'},
                 metadata={}
             ),
@@ -431,21 +391,21 @@ class TestPurgeOrphanedBlobs(unittest.TestCase):
         removed = [
             mock.Mock(
                 id='manifest-1',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': blobs[0:4]}),
             mock.Mock(
                 id='manifest-2',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': blobs[2:8]})
         ]
         others = [
             mock.Mock(
                 id='manifest-3',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': blobs[3:4]}),
             mock.Mock(
                 id='manifest-4',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': blobs[5:6]})
         ]
 
@@ -457,11 +417,11 @@ class TestPurgeOrphanedBlobs(unittest.TestCase):
 
         # validation
         criteria.assert_called_once_with(
-            type_ids=[models.Blob.TYPE_ID],
+            type_ids=[constants.BLOB_TYPE_ID],
             unit_filters={'digest': {'$in': ['blob-0', 'blob-1', 'blob-2', 'blob-4', 'blob-6']}})
 
         query_manager.return_value.get_units_by_type.assert_called_once_with(
-            repo.id, models.Manifest.TYPE_ID)
+            repo.id, constants.MANIFEST_TYPE_ID)
         association_manager.return_value.unassociate_by_criteria(
             repo_id=repo.id,
             criteria=criteria.return_value,
@@ -486,17 +446,17 @@ class TestPurgeOrphanedBlobs(unittest.TestCase):
         removed = [
             mock.Mock(
                 id='manifest-1',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': blobs[0:4]}),
             mock.Mock(
                 id='manifest-2',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': blobs[2:8]})
         ]
         others = [
             mock.Mock(
                 id='manifest-3',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': blobs}),
         ]
 
@@ -518,11 +478,11 @@ class TestPurgeOrphanedBlobs(unittest.TestCase):
         removed = [
             mock.Mock(
                 id='manifest-1',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': []}),
             mock.Mock(
                 id='manifest-2',
-                type_id=models.Manifest.TYPE_ID,
+                type_id=constants.MANIFEST_TYPE_ID,
                 metadata={'fs_layers': []})
         ]
 
@@ -541,8 +501,8 @@ class TestPurgeOrphanedBlobs(unittest.TestCase):
     def test_purge_not_manifests(self, query_manager, association_manager, criteria):
         repo = mock.Mock()
         removed = [
-            mock.Mock(type_id=models.Image.TYPE_ID),
-            mock.Mock(type_id=models.Image.TYPE_ID),
+            mock.Mock(type_id=constants.IMAGE_TYPE_ID),
+            mock.Mock(type_id=constants.IMAGE_TYPE_ID),
         ]
 
         # test

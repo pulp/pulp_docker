@@ -476,13 +476,12 @@ class TestV2Repository(unittest.TestCase):
         working_dir = '/a/working/dir'
         r = registry.V2Repository(name, download_config, registry_url, working_dir)
         digest = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
-        dest_dir = os.path.join(working_dir, 'destination_unknown')
 
-        request = r.create_blob_download_request(digest, dest_dir)
+        request = r.create_blob_download_request(digest)
 
         self.assertEqual(request.url,
                          'https://registry.example.com/v2/pulp/blobs/{0}'.format(digest))
-        self.assertEqual(request.destination, os.path.join(dest_dir, digest))
+        self.assertEqual(request.destination, os.path.join(working_dir, digest))
 
     def test_get_manifest(self):
         """

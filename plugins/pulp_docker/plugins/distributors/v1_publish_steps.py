@@ -2,10 +2,11 @@ from gettext import gettext as _
 import os
 
 from pulp.plugins.util import misc
-from pulp.plugins.util.publish_step import PublishStep, UnitPublishStep, \
+from pulp.plugins.util.publish_step import PublishStep, UnitModelPluginStep, \
     AtomicDirectoryPublishStep, SaveTarFilePublishStep
 
 from pulp_docker.common import constants
+from pulp_docker.plugins import models
 from pulp_docker.plugins.distributors import configuration
 from pulp_docker.plugins.distributors.metadata import RedirectFileContext
 
@@ -25,8 +26,9 @@ class WebPublisher(PublishStep):
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        super(WebPublisher, self).__init__(constants.PUBLISH_STEP_WEB_PUBLISHER,
-                                           repo, publish_conduit, config)
+        super(WebPublisher, self).__init__(
+            step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
+            publish_conduit=publish_conduit, config=config)
 
         docker_api_version = 'v1'
         publish_dir = configuration.get_web_publish_dir(repo, config, docker_api_version)
@@ -62,22 +64,23 @@ class ExportPublisher(PublishStep):
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        super(ExportPublisher, self).__init__(constants.PUBLISH_STEP_EXPORT_PUBLISHER,
-                                              repo, publish_conduit, config)
+        super(ExportPublisher, self).__init__(
+            step_type=constants.PUBLISH_STEP_EXPORT_PUBLISHER, repo=repo,
+            publish_conduit=publish_conduit, config=config)
 
         self.add_child(PublishImagesStep())
         tar_file = configuration.get_export_repo_file_with_path(repo, config, 'v1')
         self.add_child(SaveTarFilePublishStep(self.get_working_dir(), tar_file))
 
 
-class PublishImagesStep(UnitPublishStep):
+class PublishImagesStep(UnitModelPluginStep):
     """
     Publish Images
     """
 
     def __init__(self):
-        super(PublishImagesStep, self).__init__(constants.PUBLISH_STEP_IMAGES,
-                                                constants.IMAGE_TYPE_ID)
+        super(PublishImagesStep, self).__init__(step_type=constants.PUBLISH_STEP_IMAGES,
+                                                model_classes=[models.Image])
         self.context = None
         self.redirect_context = None
         self.description = _('Publishing Image Files.')
@@ -103,8 +106,8 @@ class PublishImagesStep(UnitPublishStep):
         target_base = os.path.join(self.get_web_directory(), unit.unit_key['image_id'])
         files = ['ancestry', 'json', 'layer']
         for file_name in files:
-            self._create_symlink(os.path.join(unit.storage_path, file_name),
-                                 os.path.join(target_base, file_name))
+            misc.create_symlink(os.path.join(unit.storage_path, file_name),
+                                os.path.join(target_base, file_name))
 
     def finalize(self):
         """

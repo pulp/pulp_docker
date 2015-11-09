@@ -13,44 +13,22 @@ from pulp.plugins.model import Repository as RepositoryModel, Unit
 from pulp.server.exceptions import MissingValue
 from pulp.server.managers import factory
 
-from pulp_docker.common import constants, models
+from pulp_docker.common import constants
+from pulp_docker.plugins import models, registry
 from pulp_docker.plugins.importers import v1_sync
-from pulp_docker.plugins import registry
 
 
 factory.initialize()
 
 
-class TestGetLocalImagesStep(unittest.TestCase):
-    def test__dict_to_unit(self):
-        step = v1_sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID)
-        step.conduit = mock.MagicMock()
-
-        unit = step._dict_to_unit({'image_id': 'abc123', 'parent_id': None, 'size': 12})
-
-        self.assertTrue(unit is step.conduit.init_unit.return_value)
-        step.conduit.init_unit.assert_called_once_with(
-            constants.IMAGE_TYPE_ID, {'image_id': 'abc123'}, {},
-            os.path.join(constants.IMAGE_TYPE_ID, 'abc123'))
-
-    def test__dict_to_unit_missing_parent_id_and_size(self):
-        """
-        Assert correct behavior from the _dict_to_unit() method.
-        """
-        step = v1_sync.GetLocalImagesStep(constants.IMPORTER_TYPE_ID)
-        step.conduit = mock.MagicMock()
-
-        unit = step._dict_to_unit({'image_id': 'abc123'})
-
-        self.assertTrue(unit is step.conduit.init_unit.return_value)
-        step.conduit.init_unit.assert_called_once_with(
-            models.Image.TYPE_ID, {'image_id': 'abc123'}, {}, 'docker_image/abc123')
-
-
+@mock.patch('pulp.server.managers.repo._common._working_directory_path')
 class TestSyncStep(unittest.TestCase):
-    def setUp(self):
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def setUp(self, _working_directory_path):
         super(TestSyncStep, self).setUp()
 
+        self.working_dir = tempfile.mkdtemp()
+        _working_directory_path.return_value = self.working_dir
         self.repo = RepositoryModel('repo1')
         self.conduit = mock.MagicMock()
         plugin_config = {
@@ -58,12 +36,16 @@ class TestSyncStep(unittest.TestCase):
             importer_constants.KEY_FEED: 'http://pulpproject.org/',
         }
         self.config = PluginCallConfiguration({}, plugin_config)
-        self.step = v1_sync.SyncStep(self.repo, self.conduit, self.config, working_dir='/a/b/c')
+        self.step = v1_sync.SyncStep(self.repo, self.conduit, self.config)
+
+    def tearDown(self):
+        shutil.rmtree(self.working_dir)
 
     @mock.patch.object(v1_sync.SyncStep, 'validate')
-    def test_init(self, mock_validate):
+    def test_init(self, mock_validate, _working_directory_path):
+        _working_directory_path.return_value = self.working_dir
         # re-run this with the mock in place
-        self.step = v1_sync.SyncStep(self.repo, self.conduit, self.config, '/a/b/c')
+        self.step = v1_sync.SyncStep(self.repo, self.conduit, self.config)
 
         self.assertEqual(self.step.step_id, constants.SYNC_STEP_MAIN)
 
@@ -85,10 +67,10 @@ class TestSyncStep(unittest.TestCase):
 
         mock_validate.assert_called_once_with(self.config)
 
-    def test_validate_pass(self):
+    def test_validate_pass(self, _working_directory_path):
         self.step.validate(self.config)
 
-    def test_validate_no_name_or_feed(self):
+    def test_validate_no_name_or_feed(self, _working_directory_path):
         config = PluginCallConfiguration({}, {})
 
         try:
@@ -99,7 +81,7 @@ class TestSyncStep(unittest.TestCase):
         else:
             raise AssertionError('validation should have failed')
 
-    def test_validate_no_name(self):
+    def test_validate_no_name(self, _working_directory_path):
         config = PluginCallConfiguration({}, {importer_constants.KEY_FEED: 'http://foo'})
 
         try:
@@ -110,7 +92,7 @@ class TestSyncStep(unittest.TestCase):
         else:
             raise AssertionError('validation should have failed')
 
-    def test_validate_no_feed(self):
+    def test_validate_no_feed(self, _working_directory_path):
         config = PluginCallConfiguration({}, {constants.CONFIG_KEY_UPSTREAM_NAME: 'centos'})
 
         try:
@@ -121,8 +103,8 @@ class TestSyncStep(unittest.TestCase):
         else:
             raise AssertionError('validation should have failed')
 
-    def test_generate_download_requests(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
+    def test_generate_download_requests(self, _working_directory_path):
+        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -137,8 +119,8 @@ class TestSyncStep(unittest.TestCase):
         finally:
             shutil.rmtree(self.step.working_dir)
 
-    def test_generate_download_requests_correct_urls(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
+    def test_generate_download_requests_correct_urls(self, _working_directory_path):
+        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -152,8 +134,8 @@ class TestSyncStep(unittest.TestCase):
         finally:
             shutil.rmtree(self.step.working_dir)
 
-    def test_generate_download_requests_correct_destinations(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
+    def test_generate_download_requests_correct_destinations(self, _working_directory_path):
+        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -170,8 +152,8 @@ class TestSyncStep(unittest.TestCase):
         finally:
             shutil.rmtree(self.step.working_dir)
 
-    def test_generate_download_reqs_creates_dir(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
+    def test_generate_download_reqs_creates_dir(self, _working_directory_path):
+        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         self.step.working_dir = tempfile.mkdtemp()
 
         try:
@@ -182,8 +164,8 @@ class TestSyncStep(unittest.TestCase):
         finally:
             shutil.rmtree(self.step.working_dir)
 
-    def test_generate_download_reqs_existing_dir(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
+    def test_generate_download_reqs_existing_dir(self, _working_directory_path):
+        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         self.step.working_dir = tempfile.mkdtemp()
         os.makedirs(os.path.join(self.step.working_dir, 'image1'))
 
@@ -193,14 +175,15 @@ class TestSyncStep(unittest.TestCase):
         finally:
             shutil.rmtree(self.step.working_dir)
 
-    def test_generate_download_reqs_perm_denied(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
+    def test_generate_download_reqs_perm_denied(self, _working_directory_path):
+        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+        self.step.working_dir = '/not/allowed'
 
         # make sure the permission denies OSError bubbles up
         self.assertRaises(OSError, list, self.step.generate_download_requests())
 
-    def test_generate_download_reqs_ancestry_exists(self):
-        self.step.step_get_local_units.units_to_download.append({'image_id': 'image1'})
+    def test_generate_download_reqs_ancestry_exists(self, _working_directory_path):
+        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         self.step.working_dir = tempfile.mkdtemp()
         os.makedirs(os.path.join(self.step.working_dir, 'image1'))
         # simulate the ancestry file already existing
@@ -213,22 +196,12 @@ class TestSyncStep(unittest.TestCase):
         finally:
             shutil.rmtree(self.step.working_dir)
 
-    def test_sync(self):
-        with mock.patch.object(self.step, 'process_lifecycle') as mock_process:
-            report = self.step.sync()
-
-        # make sure we called the process_lifecycle method
-        mock_process.assert_called_once_with()
-        # make sure it returned a report generated by the conduit
-        self.assertTrue(report is self.conduit.build_success_report.return_value)
-
 
 class TestGetMetadataStep(unittest.TestCase):
     def setUp(self):
         super(TestGetMetadataStep, self).setUp()
         self.working_dir = tempfile.mkdtemp()
         self.repo = RepositoryModel('repo1')
-        self.repo.working_dir = self.working_dir
         self.conduit = mock.MagicMock()
         plugin_config = {
             constants.CONFIG_KEY_UPSTREAM_NAME: 'pulp/crane',
@@ -236,7 +209,9 @@ class TestGetMetadataStep(unittest.TestCase):
         }
         self.config = PluginCallConfiguration({}, plugin_config)
 
-        self.step = v1_sync.GetMetadataStep(self.repo, self.conduit, self.config, self.working_dir)
+        self.step = v1_sync.GetMetadataStep(repo=self.repo, conduit=self.conduit,
+                                            config=self.config)
+        self.step.working_dir = self.working_dir
         self.step.parent = mock.MagicMock()
         self.index = self.step.parent.index_repository
 
@@ -305,12 +280,12 @@ class TestGetMetadataStep(unittest.TestCase):
         self.assertEqual(ancester_ids, ['abc123', 'xyz789'])
 
 
-class TestSaveUnits(unittest.TestCase):
+class TestSaveImages(unittest.TestCase):
     def setUp(self):
-        super(TestSaveUnits, self).setUp()
+        super(TestSaveImages, self).setUp()
         self.working_dir = tempfile.mkdtemp()
         self.dest_dir = tempfile.mkdtemp()
-        self.step = v1_sync.SaveUnits(self.working_dir)
+        self.step = v1_sync.SaveImages(self.working_dir)
         self.step.repo = RepositoryModel('repo1')
         self.step.conduit = mock.MagicMock()
         self.step.parent = mock.MagicMock()
@@ -320,7 +295,7 @@ class TestSaveUnits(unittest.TestCase):
                          {'parent': None, 'size': 2}, os.path.join(self.dest_dir, 'abc123'))
 
     def tearDown(self):
-        super(TestSaveUnits, self).tearDown()
+        super(TestSaveImages, self).tearDown()
         shutil.rmtree(self.working_dir)
         shutil.rmtree(self.dest_dir)
 
@@ -337,66 +312,3 @@ class TestSaveUnits(unittest.TestCase):
         # write just enough metadata to make the step happy
         with open(os.path.join(self.working_dir, 'abc123/json'), 'w') as json_file:
             json.dump({'Size': 2, 'Parent': 'xyz789'}, json_file)
-
-    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
-    def test_process_main_moves_files(self, mock_update_tags):
-        self._write_files_legit_metadata()
-
-        with mock.patch.object(self.step, 'move_files') as mock_move_files:
-            self.step.process_main()
-
-        expected_unit = self.step.conduit.init_unit.return_value
-        mock_move_files.assert_called_once_with(expected_unit)
-
-    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
-    def test_process_main_saves_unit(self, mock_update_tags):
-        self._write_files_legit_metadata()
-
-        with mock.patch.object(self.step, 'move_files'):
-            self.step.process_main()
-
-        expected_unit = self.step.conduit.init_unit.return_value
-        self.step.conduit.save_unit.assert_called_once_with(expected_unit)
-
-    @mock.patch('pulp_docker.plugins.importers.tags.update_tags', spec_set=True)
-    def test_process_main_updates_tags(self, mock_update_tags):
-        self._write_files_legit_metadata()
-        self.step.parent.tags = {'latest': 'abc123'}
-
-        with mock.patch.object(self.step, 'move_files'):
-            self.step.process_main()
-
-        mock_update_tags.assert_called_once_with(self.step.repo.id, {'latest': 'abc123'})
-
-    def test_move_files_make_dir(self):
-        self._write_empty_files()
-
-        self.step.move_files(self.unit)
-
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
-
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
-
-    def test_move_files_dir_exists(self):
-        self._write_empty_files()
-        os.makedirs(os.path.join(self.dest_dir, 'abc123'))
-
-        self.step.move_files(self.unit)
-
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/ancestry')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/json')))
-        self.assertTrue(os.path.exists(os.path.join(self.dest_dir, 'abc123/layer')))
-
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/ancestry')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/json')))
-        self.assertFalse(os.path.exists(os.path.join(self.working_dir, 'abc123/layer')))
-
-    def test_move_files_makedirs_fails(self):
-        self.unit.storage_path = '/a/b/c'
-
-        # make sure that a permission denied error bubbles up
-        self.assertRaises(OSError, self.step.move_files, self.unit)

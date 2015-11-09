@@ -2,31 +2,30 @@
 This module contains the primary sync entry point for Docker v2 registries.
 """
 from gettext import gettext as _
+import itertools
 import logging
 import os
-import shutil
 
 from pulp.common.plugins import importer_constants
-from pulp.plugins.util import nectar_config
-from pulp.plugins.util.publish_step import PluginStep, DownloadStep, GetLocalUnitsStep
+from pulp.plugins.util import nectar_config, publish_step
+from pulp.server.controllers import repository
 from pulp.server.exceptions import MissingValue
 
-from pulp_docker.common import constants, models
-from pulp_docker.plugins import registry
+from pulp_docker.common import constants
+from pulp_docker.plugins import models, registry
 
 
 _logger = logging.getLogger(__name__)
 
 
-class SyncStep(PluginStep):
+class SyncStep(publish_step.PluginStep):
     """
     This PluginStep is the primary entry point into a repository sync against a Docker v2 registry.
     """
     # The sync will fail if these settings are not provided in the config
     required_settings = (constants.CONFIG_KEY_UPSTREAM_NAME, importer_constants.KEY_FEED)
 
-    def __init__(self, repo=None, conduit=None, config=None,
-                 working_dir=None):
+    def __init__(self, repo=None, conduit=None, config=None):
         """
         This method initializes the SyncStep. It first validates the config to ensure that the
         required keys are present. It then constructs some needed items (such as a download config),
@@ -40,43 +39,43 @@ class SyncStep(PluginStep):
         :type  conduit:     pulp.plugins.conduits.repo_sync.RepoSyncConduit
         :param config:      config object for the sync
         :type  config:      pulp.plugins.config.PluginCallConfiguration
-        :param working_dir: full path to the directory in which transient files
-                            should be stored before being moved into long-term
-                            storage. This should be deleted by the caller after
-                            step processing is complete.
-        :type  working_dir: basestring
         """
-        super(SyncStep, self).__init__(constants.SYNC_STEP_MAIN, repo, conduit, config,
-                                       working_dir, constants.IMPORTER_TYPE_ID)
+        super(SyncStep, self).__init__(
+            step_type=constants.SYNC_STEP_MAIN, repo=repo, conduit=conduit, config=config,
+            plugin_type=constants.IMPORTER_TYPE_ID)
         self.description = _('Syncing Docker Repository')
 
         self._validate(config)
         download_config = nectar_config.importer_config_to_nectar_config(config.flatten())
         upstream_name = config.get(constants.CONFIG_KEY_UPSTREAM_NAME)
         url = config.get(importer_constants.KEY_FEED)
-        # The GetMetadataStep will set this to a list of dictionaries of the form
-        # {'digest': digest}.
-        self.available_units = []
+        # The DownloadMetadataSteps will set these to a list of Manifests and Blobs
+        self.available_manifests = []
+        self.available_blobs = []
 
         # Create a Repository object to interact with.
         self.index_repository = registry.V2Repository(
-            upstream_name, download_config, url, working_dir)
+            upstream_name, download_config, url, self.get_working_dir())
         # We'll attempt to use a V2Repository's API version check call to find out if it is a V2
         # registry. This will raise a NotImplementedError if url is not determined to be a Docker v2
         # registry.
         self.index_repository.api_version_check()
-        self.step_get_metadata = GetMetadataStep(repo=repo, conduit=conduit, config=config,
-                                                 working_dir=working_dir)
-        self.add_child(self.step_get_metadata)
-        # save this step so its "units_to_download" attribute can be accessed later
-        self.step_get_local_units = GetLocalBlobsStep(constants.IMPORTER_TYPE_ID)
-        self.add_child(self.step_get_local_units)
+        self.add_child(DownloadManifestsStep(repo=repo, conduit=conduit, config=config))
+        # save these steps so their "units_to_download" attributes can be accessed later. We want
+        # them to be separate steps because we have already downloaded all the Manifests but should
+        # only save the new ones, while needing to go download the missing Blobs. Thus they must be
+        # handled separately.
+        self.step_get_local_manifests = publish_step.GetLocalUnitsStep(
+            importer_type=constants.IMPORTER_TYPE_ID, available_units=self.available_manifests)
+        self.step_get_local_blobs = publish_step.GetLocalUnitsStep(
+            importer_type=constants.IMPORTER_TYPE_ID, available_units=self.available_blobs)
+        self.add_child(self.step_get_local_manifests)
+        self.add_child(self.step_get_local_blobs)
         self.add_child(
-            DownloadStep(
-                constants.SYNC_STEP_DOWNLOAD, downloads=self.generate_download_requests(),
-                repo=self.repo, config=self.config, working_dir=self.working_dir,
-                description=_('Downloading remote files')))
-        self.add_child(SaveUnitsStep(self.working_dir))
+            publish_step.DownloadStep(
+                step_type=constants.SYNC_STEP_DOWNLOAD, downloads=self.generate_download_requests(),
+                repo=self.repo, config=self.config, description=_('Downloading remote files')))
+        self.add_child(SaveUnitsStep())
 
     def generate_download_requests(self):
         """
@@ -87,20 +86,8 @@ class SyncStep(PluginStep):
         :return:    generator of DownloadRequest instances
         :rtype:     types.GeneratorType
         """
-        for unit_key in self.step_get_local_units.units_to_download:
-            digest = unit_key['digest']
-            yield self.index_repository.create_blob_download_request(digest,
-                                                                     self.get_working_dir())
-
-    def sync(self):
-        """
-        actually initiate the sync
-
-        :return:    a final sync report
-        :rtype:     pulp.plugins.model.SyncReport
-        """
-        self.process_lifecycle()
-        return self._build_final_report()
+        for unit in self.step_get_local_blobs.units_to_download:
+            yield self.index_repository.create_blob_download_request(unit.digest)
 
     @classmethod
     def _validate(cls, config):
@@ -121,11 +108,8 @@ class SyncStep(PluginStep):
             raise MissingValue(missing)
 
 
-class GetMetadataStep(PluginStep):
-    """
-    This step gets the Docker metadata from a Docker registry.
-    """
-    def __init__(self, repo=None, conduit=None, config=None, working_dir=None):
+class DownloadManifestsStep(publish_step.PluginStep):
+    def __init__(self, repo=None, conduit=None, config=None):
         """
         :param repo:        repository to sync
         :type  repo:        pulp.plugins.model.Repository
@@ -133,50 +117,10 @@ class GetMetadataStep(PluginStep):
         :type  conduit:     pulp.plugins.conduits.repo_sync.RepoSyncConduit
         :param config:      config object for the sync
         :type  config:      pulp.plugins.config.PluginCallConfiguration
-        :param working_dir: full path to the directory in which transient files
-                            should be stored before being moved into long-term
-                            storage. This should be deleted by the caller after
-                            step processing is complete.
-        :type  working_dir: basestring
         """
-        super(GetMetadataStep, self).__init__(constants.SYNC_STEP_METADATA, repo, conduit, config,
-                                              working_dir, constants.IMPORTER_TYPE_ID)
-        self.description = _('Retrieving metadata')
-        # Map manifest digests to Manifest objects
-        self.manifests = {}
-
-        self.add_child(DownloadManifestsStep(repo, conduit, config, working_dir))
-        self.step_get_local_units = GetLocalManifestsStep(constants.IMPORTER_TYPE_ID)
-        self.add_child(self.step_get_local_units)
-
-    @property
-    def available_units(self):
-        """
-        Return the unit keys as found in self.manifests.
-
-        :return: A list of unit keys
-        :rtype:  list
-        """
-        return [m.unit_key for k, m in self.manifests.items()]
-
-
-class DownloadManifestsStep(PluginStep):
-    def __init__(self, repo=None, conduit=None, config=None, working_dir=None):
-        """
-        :param repo:        repository to sync
-        :type  repo:        pulp.plugins.model.Repository
-        :param conduit:     sync conduit to use
-        :type  conduit:     pulp.plugins.conduits.repo_sync.RepoSyncConduit
-        :param config:      config object for the sync
-        :type  config:      pulp.plugins.config.PluginCallConfiguration
-        :param working_dir: full path to the directory in which transient files
-                            should be stored before being moved into long-term
-                            storage. This should be deleted by the caller after
-                            step processing is complete.
-        :type  working_dir: basestring
-        """
-        super(DownloadManifestsStep, self).__init__(constants.SYNC_STEP_METADATA, repo, conduit,
-                                                    config, working_dir, constants.IMPORTER_TYPE_ID)
+        super(DownloadManifestsStep, self).__init__(
+            step_type=constants.SYNC_STEP_METADATA, repo=repo, conduit=conduit, config=config,
+            plugin_type=constants.IMPORTER_TYPE_ID)
         self.description = _('Downloading manifests')
 
     def process_main(self):
@@ -187,122 +131,56 @@ class DownloadManifestsStep(PluginStep):
         super(DownloadManifestsStep, self).process_main()
         _logger.debug(self.description)
 
-        available_tags = self.parent.parent.index_repository.get_tags()
+        available_tags = self.parent.index_repository.get_tags()
+        # This will be a set of Blob digests. The set is used because they can be repeated and we
+        # only want to download each layer once.
         available_blobs = set()
         for tag in available_tags:
-            digest, manifest = self.parent.parent.index_repository.get_manifest(tag)
+            digest, manifest = self.parent.index_repository.get_manifest(tag)
             # Save the manifest to the working directory
-            with open(os.path.join(self.working_dir, digest), 'w') as manifest_file:
+            with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
                 manifest_file.write(manifest)
             manifest = models.Manifest.from_json(manifest, digest)
-            self.parent.manifests[digest] = manifest
+            self.parent.available_manifests.append(manifest)
             for layer in manifest.fs_layers:
-                available_blobs.add(layer['blobSum'])
+                available_blobs.add(layer.blob_sum)
 
-        # Update the available units with the blobs we learned about
-        available_blobs = [{'digest': d} for d in available_blobs]
-        self.parent.parent.available_units.extend(available_blobs)
-
-
-class GetLocalBlobsStep(GetLocalUnitsStep):
-    def _dict_to_unit(self, unit_dict):
-        """
-        convert a unit dictionary (a flat dict that has all unit key, metadata,
-        etc. keys at the root level) into a Unit object. This requires knowing
-        not just what fields are part of the unit key, but also how to derive
-        the storage path.
-
-        Any keys in the "metadata" dict on the returned unit will overwrite the
-        corresponding values that are currently saved in the unit's metadata. In
-        this case, we pass an empty dict, because we don't want to make changes.
-
-        :param unit_dict:   a flat dictionary that has all unit key, metadata,
-                            etc. keys at the root level, representing a unit
-                            in pulp
-        :type  unit_dict:   dict
-
-        :return:    a unit instance
-        :rtype:     pulp.plugins.model.Unit
-        """
-        model = models.Blob(unit_dict['digest'])
-        return self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, {},
-                                            model.relative_path)
+        # Update the available units with the Manifests and Blobs we learned about
+        available_blobs = [models.Blob(digest=d) for d in available_blobs]
+        self.parent.available_blobs.extend(available_blobs)
 
 
-class GetLocalManifestsStep(GetLocalUnitsStep):
+class SaveUnitsStep(publish_step.SaveUnitsStep):
     """
-    Get the manifests we have locally and ensure that they are associated with the repository.
+    Save the Units that need to be added to the repository and move them to the content folder.
     """
-    def _dict_to_unit(self, unit_dict):
+    def __init__(self):
         """
-        convert a unit dictionary (a flat dict that has all unit key, metadata,
-        etc. keys at the root level) into a Unit object. This requires knowing
-        not just what fields are part of the unit key, but also how to derive
-        the storage path.
-
-        Any keys in the "metadata" dict on the returned unit will overwrite the
-        corresponding values that are currently saved in the unit's metadata. In
-        this case, we pass an empty dict, because we don't want to make changes.
-
-        :param unit_dict:   a flat dictionary that has all unit key, metadata,
-                            etc. keys at the root level, representing a unit
-                            in pulp
-        :type  unit_dict:   dict
-
-        :return:    a unit instance
-        :rtype:     pulp.plugins.model.Unit
+        Initialize the step, setting its description.
         """
-        model = self.parent.parent.step_get_metadata.manifests[unit_dict['digest']]
-        return self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.metadata,
-                                            model.relative_path)
+        super(SaveUnitsStep, self).__init__(step_type=constants.SYNC_STEP_SAVE)
+        self.description = _('Saving Manifests and Blobs')
 
+    def get_iterator(self):
+        """
+        Return an iterator that will traverse the list of Units that were downloaded.
 
-class SaveUnitsStep(PluginStep):
-    def __init__(self, working_dir):
+        :return: An iterable containing the Blobs and Manifests that were downloaded and are new to
+                 Pulp.
+        :rtype:  iterator
         """
-        :param working_dir: full path to the directory into which blob files
-                            are downloaded. This directory should contain one
-                            directory for each docker blob, with the ID of the
-                            docker blob as its name.
-        :type  working_dir: basestring
-        """
-        super(SaveUnitsStep, self).__init__(
-            step_type=constants.SYNC_STEP_SAVE, plugin_type=constants.IMPORTER_TYPE_ID,
-            working_dir=working_dir)
-        self.description = _('Saving manifests and blobs')
+        return iter(itertools.chain(self.parent.step_get_local_manifests.units_to_download,
+                                    self.parent.step_get_local_blobs.units_to_download))
 
-    def process_main(self):
+    def process_main(self, item):
         """
-        Gets an iterable of units that were downloaded from the parent step,
-        moves their files into permanent storage, and then saves the unit into
-        the database and into the repository.
-        """
-        _logger.debug(self.description)
-        # Save the Manifests
-        for unit_key in self.parent.step_get_metadata.step_get_local_units.units_to_download:
-            model = self.parent.step_get_metadata.manifests[unit_key['digest']]
-            unit = self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.metadata,
-                                                model.relative_path)
-            self._move_file(unit)
-            _logger.debug('saving manifest %s' % model.digest)
-            self.get_conduit().save_unit(unit)
+        This method gets called with each Unit that was downloaded from the parent step. It moves
+        each Unit's files into permanent storage, and saves each Unit into the database and into the
+        repository.
 
-        # Save the Blobs
-        for unit_key in self.parent.step_get_local_units.units_to_download:
-            model = models.Blob(unit_key['digest'])
-            unit = self.get_conduit().init_unit(model.TYPE_ID, model.unit_key, model.metadata,
-                                                model.relative_path)
-            self._move_file(unit)
-            _logger.debug('saving Blob %s' % unit_key)
-            self.get_conduit().save_unit(unit)
-
-    def _move_file(self, unit):
+        :param item: The Unit to save in Pulp.
+        :type  item: pulp.server.db.model.FileContentUnit
         """
-        For the given unit, move its associated file from the working
-        directory to its permanent location.
-
-        :param unit: a pulp unit
-        :type  unit: pulp.plugins.model.Unit
-        """
-        _logger.debug('moving files in to place for Unit {0}'.format(unit))
-        shutil.move(os.path.join(self.working_dir, unit.unit_key['digest']), unit.storage_path)
+        item.set_content(os.path.join(self.get_working_dir(), item.digest))
+        item.save()
+        repository.associate_single_unit(self.get_repo(), item)

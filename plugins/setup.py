@@ -19,6 +19,11 @@ setup(
         ],
         'pulp.server.db.migrations': [
             'pulp_docker = pulp_docker.plugins.migrations'
+        ],
+        'pulp.unit_models': [
+            'docker_blob=pulp_docker.plugins.models:Blob',
+            'docker_image=pulp_docker.plugins.models:Image',
+            'docker_manifest=pulp_docker.plugins.models:Manifest'
         ]
     }
 )

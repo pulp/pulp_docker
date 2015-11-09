@@ -1,7 +1,5 @@
 from gettext import gettext as _
 import logging
-import shutil
-import tempfile
 
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
@@ -9,8 +7,7 @@ from pulp.server.db import model
 from pulp.server.db.model.criteria import UnitAssociationCriteria
 import pulp.server.managers.factory as manager_factory
 
-from pulp_docker.common import constants, tarutils
-from pulp_docker.common.models import Image, Manifest, Blob
+from pulp_docker.common import constants
 from pulp_docker.plugins.importers import sync, upload, v1_sync
 
 
@@ -46,7 +43,7 @@ class DockerImporter(Importer):
         return {
             'id': constants.IMPORTER_TYPE_ID,
             'display_name': _('Docker Importer'),
-            'types': [Image.TYPE_ID, Manifest.TYPE_ID, Blob.TYPE_ID]
+            'types': [constants.IMAGE_TYPE_ID, constants.MANIFEST_TYPE_ID, constants.BLOB_TYPE_ID]
         }
 
     def sync_repo(self, repo, sync_conduit, config):
@@ -79,23 +76,17 @@ class DockerImporter(Importer):
         :return: report of the details of the sync
         :rtype:  pulp.plugins.model.SyncReport
         """
-        working_dir = tempfile.mkdtemp(dir=repo.working_dir)
+        repo = model.Repository.objects.get_repo_or_missing_resource(repo.id)
         try:
-            try:
-                # This will raise NotImplementedError if the config's feed_url is determined not to
-                # support the Docker v2 API.
-                self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
-                                               working_dir=working_dir)
-            except NotImplementedError:
-                # Since the feed_url was determined not to support the Docker v2 API, let's use the
-                # old v1 SyncStep instead.
-                self.sync_step = v1_sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
-                                                  working_dir=working_dir)
+            # This will raise NotImplementedError if the config's feed_url is determined not to
+            # support the Docker v2 API.
+            self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config)
+        except NotImplementedError:
+            # Since the feed_url was determined not to support the Docker v2 API, let's use the
+            # old v1 SyncStep instead.
+            self.sync_step = v1_sync.SyncStep(repo=repo, conduit=sync_conduit, config=config)
 
-            return self.sync_step.sync()
-
-        finally:
-            shutil.rmtree(working_dir, ignore_errors=True)
+        return self.sync_step.process_lifecycle()
 
     def cancel_sync_repo(self):
         """
@@ -139,15 +130,10 @@ class DockerImporter(Importer):
                             'details':      json-serializable object, providing details
         :rtype:           dict
         """
-        # retrieve metadata from the tarball
-        metadata = tarutils.get_metadata(file_path)
-        # turn that metadata into a collection of models
-        mask_id = config.get(constants.CONFIG_KEY_MASK_ID)
-        models = upload.get_models(metadata, mask_id)
-        ancestry = tarutils.get_ancestry(models[0].image_id, metadata)
-        # save those models as units in pulp
-        upload.save_models(conduit, models, ancestry, file_path)
-        upload.update_tags(repo.id, file_path)
+        repo = model.Repository.objects.get_repo_or_missing_resource(repo.id)
+
+        upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config)
+        upload_step.process_lifecycle()
 
     def import_units(self, source_repo, dest_repo, import_conduit, config, units=None):
         """
@@ -265,14 +251,14 @@ class DockerImporter(Importer):
         # All manifests if not specified
 
         if units is None:
-            criteria = UnitAssociationCriteria(type_ids=[Manifest.TYPE_ID])
+            criteria = UnitAssociationCriteria(type_ids=[constants.MANIFEST_TYPE_ID])
             units = conduit.get_source_units(criteria=criteria)
 
         # Add manifests and catalog referenced blobs
 
         blob_digests = set()
         for unit in units:
-            if unit.type_id != Manifest.TYPE_ID:
+            if unit.type_id != constants.MANIFEST_TYPE_ID:
                 continue
             manifest = unit
             conduit.associate_unit(manifest)
@@ -288,7 +274,8 @@ class DockerImporter(Importer):
                 '$in': sorted(blob_digests)
             }
         }
-        criteria = UnitAssociationCriteria(type_ids=[Blob.TYPE_ID], unit_filters=unit_filter)
+        criteria = UnitAssociationCriteria(type_ids=[constants.BLOB_TYPE_ID],
+                                           unit_filters=unit_filter)
         for blob in conduit.get_source_units(criteria=criteria):
             conduit.associate_unit(blob)
             units_added.append(blob)
@@ -334,7 +321,8 @@ class DockerImporter(Importer):
         repo_obj = model.Repository.objects.get_repo_or_missing_resource(repo.id)
         tags = repo_obj.scratchpad.get(u'tags', [])
         unit_ids = set(
-            [unit.unit_key[u'image_id'] for unit in units if unit.type_id == Image.TYPE_ID])
+            [unit.unit_key[u'image_id'] for unit in units
+                if unit.type_id == constants.IMAGE_TYPE_ID])
         for tag_dict in tags[:]:
             if tag_dict[constants.IMAGE_ID_KEY] in unit_ids:
                 tags.remove(tag_dict)
@@ -357,7 +345,7 @@ class DockerImporter(Importer):
 
         orphaned = set()
         for unit in units:
-            if unit.type_id != Manifest.TYPE_ID:
+            if unit.type_id != constants.MANIFEST_TYPE_ID:
                 continue
             manifest = unit
             for layer in manifest.metadata['fs_layers']:
@@ -371,7 +359,7 @@ class DockerImporter(Importer):
             return
         adopted = set()
         manager = manager_factory.repo_unit_association_query_manager()
-        for manifest in manager.get_units_by_type(repo.id, Manifest.TYPE_ID):
+        for manifest in manager.get_units_by_type(repo.id, constants.MANIFEST_TYPE_ID):
             for layer in manifest.metadata['fs_layers']:
                 digest = layer['blobSum']
                 adopted.add(digest)
@@ -389,7 +377,7 @@ class DockerImporter(Importer):
             }
         }
         criteria = UnitAssociationCriteria(
-            type_ids=[Blob.TYPE_ID],
+            type_ids=[constants.BLOB_TYPE_ID],
             unit_filters=unit_filter)
         manager = manager_factory.repo_unit_association_manager()
         manager.unassociate_by_criteria(

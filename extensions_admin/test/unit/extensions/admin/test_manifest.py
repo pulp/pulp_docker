@@ -3,7 +3,7 @@ from unittest import TestCase
 
 from mock import patch, Mock
 
-from pulp_docker.common.models import Manifest, Blob
+from pulp_docker.common import constants
 from pulp_docker.extensions.admin.manifest import (
     get_formatter_for_type, options, ManifestSearchCommand,
     ManifestCopyCommand, ManifestRemoveCommand)
@@ -16,13 +16,13 @@ class TestGetFormatterForType(TestCase):
 
     def test_call_with_manifest(self):
         digest = '1234'
-        formatter = get_formatter_for_type(Manifest.TYPE_ID)
+        formatter = get_formatter_for_type(constants.MANIFEST_TYPE_ID)
         unit = dict(digest=digest)
         self.assertEqual(formatter(unit), digest)
 
     def test_call_with_blob(self):
         digest = '1234'
-        formatter = get_formatter_for_type(Blob.TYPE_ID)
+        formatter = get_formatter_for_type(constants.BLOB_TYPE_ID)
         unit = dict(digest=digest)
         self.assertEqual(formatter(unit), digest)
 
@@ -54,7 +54,7 @@ class TestManifestSearchCommand(TestCase):
 
         # validation
         context.server.repo_unit.search.assert_called_once_with(
-            repo_id, type_ids=[Manifest.TYPE_ID])
+            repo_id, type_ids=[constants.MANIFEST_TYPE_ID])
         context.prompt.render_document_list(
             context.server.repo_unit.search.return_value.response_body)
 
@@ -73,7 +73,7 @@ class TestManifestCopyCommand(TestCase):
     def test_get_formatter_for_type(self, get_formatter):
         context = Mock(config={'output': {'poll_frequency_in_seconds': 10}})
         command = ManifestCopyCommand(context)
-        formatter = command.get_formatter_for_type(Manifest.TYPE_ID)
+        formatter = command.get_formatter_for_type(constants.MANIFEST_TYPE_ID)
         self.assertEqual(formatter, get_formatter.return_value)
 
 
@@ -91,5 +91,5 @@ class TestManifestRemoveCommand(TestCase):
     def test_get_formatter_for_type(self, get_formatter):
         context = Mock(config={'output': {'poll_frequency_in_seconds': 10}})
         command = ManifestRemoveCommand(context)
-        formatter = command.get_formatter_for_type(Manifest.TYPE_ID)
+        formatter = command.get_formatter_for_type(constants.MANIFEST_TYPE_ID)
         self.assertEqual(formatter, get_formatter.return_value)
