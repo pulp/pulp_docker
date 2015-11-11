@@ -151,9 +151,11 @@ class DockerExportDistributor(Distributor):
         """
         # remove the directories that might have been created for this repo/distributor
         dir_list = [repo.working_dir]
-
         for repo_dir in dir_list:
-            shutil.rmtree(repo_dir, ignore_errors=True)
+            # in case repo_dir is None
+            # ignore_errors set to True does not cover this.
+            if repo_dir:
+                shutil.rmtree(repo_dir, ignore_errors=True)
 
         # Remove the published app file & directory links
         file_list = [os.path.join(configuration.get_export_repo_directory(config, "v1"),

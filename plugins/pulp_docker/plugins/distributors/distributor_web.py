@@ -159,7 +159,10 @@ class DockerWebDistributor(Distributor):
                     configuration.get_web_publish_dir(repo, config, "v2")]
 
         for repo_dir in dir_list:
-            shutil.rmtree(repo_dir, ignore_errors=True)
+            # in case repo_dir is None
+            # ingore_errors set to True does not cover this.
+            if repo_dir:
+                shutil.rmtree(repo_dir, ignore_errors=True)
 
         # Remove the published app file & directory links
         dir_list = [configuration.get_web_publish_dir(repo, config, "v1"),

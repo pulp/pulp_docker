@@ -67,6 +67,19 @@ class TestBasics(unittest.TestCase):
 
     @patch('pulp_docker.plugins.distributors.distributor_export.configuration.'
            'get_export_repo_directory')
+    def test_distributor_removed_dir_is_none(self, mock_repo_dir):
+
+        mock_repo_dir.return_value = os.path.join(self.working_dir, 'repo')
+        os.makedirs(mock_repo_dir.return_value)
+        repo_working_dir = None
+        repo = Mock(id='bar', working_dir=repo_working_dir)
+        config = {}
+        self.distributor.distributor_removed(repo, config)
+
+        self.assertEquals(1, len(os.listdir(self.working_dir)))
+
+    @patch('pulp_docker.plugins.distributors.distributor_export.configuration.'
+           'get_export_repo_directory')
     def test_distributor_removed_files_missing(self, mock_repo_dir):
         mock_repo_dir.return_value = os.path.join(self.working_dir, 'repo')
         os.makedirs(mock_repo_dir.return_value)

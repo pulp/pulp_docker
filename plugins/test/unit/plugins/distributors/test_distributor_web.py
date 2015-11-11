@@ -71,6 +71,23 @@ class TestBasics(unittest.TestCase):
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_app_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_master_publish_dir')
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_web_publish_dir')
+    def test_distributor_removed_dir_is_none(self, mock_web, mock_master, mock_app):
+
+        mock_app.return_value = os.path.join(self.working_dir)
+        mock_web.return_value = os.path.join(self.working_dir, 'web')
+        mock_master.return_value = os.path.join(self.working_dir, 'master')
+        repo_working_dir = None
+        os.makedirs(mock_web.return_value)
+        os.makedirs(mock_master.return_value)
+        repo = Mock(id='bar', working_dir=repo_working_dir)
+        config = {}
+        self.distributor.distributor_removed(repo, config)
+
+        self.assertEquals(0, len(os.listdir(self.working_dir)))
+
+    @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_app_publish_dir')
+    @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_master_publish_dir')
+    @patch('pulp_docker.plugins.distributors.distributor_web.configuration.get_web_publish_dir')
     def test_distributor_removed_files_missing(self, mock_web, mock_master, mock_app):
         mock_app.return_value = os.path.join(self.working_dir)
         mock_web.return_value = os.path.join(self.working_dir, 'web')
