@@ -8,7 +8,8 @@ from pulp.plugins.conduits.repo_publish import RepoPublishConduit
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.model import Repository
 
-from pulp_docker.common import constants, models
+from pulp_docker.common import constants
+from pulp_docker.plugins import models
 from pulp_docker.plugins.distributors import metadata
 
 
@@ -33,14 +34,14 @@ class TestRedirectFileContext(unittest.TestCase):
         shutil.rmtree(self.working_directory)
 
     def test_add_unit_metadata(self):
-        unit = models.Image('foo_image', 'foo_parent', 2048)
+        unit = models.Image(image_id='foo_image', parent_id='foo_parent', size=2048)
         test_result = {'id': 'foo_image'}
         result_json = json.dumps(test_result)
         self.context.add_unit_metadata(unit)
         self.context.metadata_file_handle.write.assert_called_once_with(result_json)
 
     def test_add_unit_metadata_with_tag(self):
-        unit = models.Image('foo_image', 'foo_parent', 2048)
+        unit = models.Image(image_id='foo_image', parent_id='foo_parent', size=2048)
         test_result = {'id': 'foo_image'}
         result_json = json.dumps(test_result)
         self.context.tags = {'bar': 'foo_image'}

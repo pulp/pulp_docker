@@ -4,7 +4,7 @@ from pulp.client.commands import options
 from pulp.client.commands.criteria import DisplayUnitAssociationsCommand
 from pulp.client.commands.unit import UnitCopyCommand, UnitRemoveCommand
 
-from pulp_docker.common.models import Manifest, Blob
+from pulp_docker.common import constants
 
 
 DESC_COPY = _('copies manifests from one repository into another')
@@ -26,7 +26,7 @@ def get_formatter_for_type(type_id):
     :rtype: callable
     :raises ValueError: when the type_id is not supported.
     """
-    if type_id in [Manifest.TYPE_ID, Blob.TYPE_ID]:
+    if type_id in [constants.MANIFEST_TYPE_ID, constants.BLOB_TYPE_ID]:
         return lambda u: UNIT_ID_TEMPLATE % u
     else:
         raise ValueError(FORMAT_ERR % type_id)
@@ -57,7 +57,7 @@ class ManifestSearchCommand(DisplayUnitAssociationsCommand):
         :type kwargs: dict
         """
         repo_id = kwargs.pop(options.OPTION_REPO_ID.keyword)
-        kwargs['type_ids'] = [Manifest.TYPE_ID]
+        kwargs['type_ids'] = [constants.MANIFEST_TYPE_ID]
         reply = self.context.server.repo_unit.search(repo_id, **kwargs)
         manifests = reply.response_body
         self.prompt.render_document_list(manifests)
@@ -78,7 +78,7 @@ class ManifestCopyCommand(UnitCopyCommand):
             name='manifest',
             description=DESC_COPY,
             method=self.run,
-            type_id=Manifest.TYPE_ID)
+            type_id=constants.MANIFEST_TYPE_ID)
 
     def get_formatter_for_type(self, type_id):
         """
@@ -109,7 +109,7 @@ class ManifestRemoveCommand(UnitRemoveCommand):
             description=DESC_REMOVE,
             context=context,
             method=self.run,
-            type_id=Manifest.TYPE_ID)
+            type_id=constants.MANIFEST_TYPE_ID)
 
     def get_formatter_for_type(self, type_id):
         """

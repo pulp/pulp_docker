@@ -13,8 +13,7 @@ from nectar.request import DownloadRequest
 from pulp.server import exceptions as pulp_exceptions
 
 from pulp_docker.common import error_codes
-
-from pulp_docker.common import models
+from pulp_docker.plugins import models
 
 
 _logger = logging.getLogger(__name__)
@@ -300,7 +299,7 @@ class V2Repository(object):
             # remote feed.
             pass
 
-    def create_blob_download_request(self, digest, destination_dir):
+    def create_blob_download_request(self, digest):
         """
         Return a DownloadRequest instance for the given blob digest.
         It is desirable to download the blob files with a separate
@@ -309,16 +308,13 @@ class V2Repository(object):
 
         :param digest:          digest of the docker blob you wish to download
         :type  digest:          basestring
-        :param destination_dir: full path to the directory where file should
-                                be saved
-        :type  destination_dir: basestring
 
         :return:    a download request instance
         :rtype:     nectar.request.DownloadRequest
         """
         path = self.LAYER_PATH.format(name=self.name, digest=digest)
         url = urlparse.urljoin(self.registry_url, path)
-        req = DownloadRequest(url, os.path.join(destination_dir, digest))
+        req = DownloadRequest(url, os.path.join(self.working_dir, digest))
         return req
 
     def get_manifest(self, reference):
@@ -338,7 +334,7 @@ class V2Repository(object):
             expected_digest = headers[digest_header]
             # The digest is formatted as algorithm:sum, so let's ask our hasher to use the same
             # algorithm as we received in the headers.
-            digest = models.Manifest.digest(manifest, expected_digest.split(':')[0])
+            digest = models.Manifest.calculate_digest(manifest, expected_digest.split(':')[0])
             if digest != expected_digest:
                 msg = _('The Manifest digest does not match the expected value. The remote '
                         'feed announced a digest of {e}, but the downloaded digest was {d}.')

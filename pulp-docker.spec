@@ -52,14 +52,11 @@ pushd plugins
 %{__python} setup.py install --skip-build --root %{buildroot}
 popd
 
-mkdir -p %{buildroot}/%{_usr}/lib/pulp/plugins/types
 mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/app/
 mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/export/
 mkdir -p %{buildroot}/%{_var}/lib/pulp/published/docker/web/
 
 cp -R plugins/etc/httpd %{buildroot}/%{_sysconfdir}
-# Types
-cp -R plugins/types/* %{buildroot}/%{_usr}/lib/pulp/plugins/types/
 
 mkdir -p %{buildroot}/%{_bindir}
 
@@ -112,7 +109,6 @@ to provide Docker specific support
 %defattr(-,root,root,-)
 %{python_sitelib}/pulp_docker/plugins/
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/pulp_docker.conf
-%{_usr}/lib/pulp/plugins/types/docker.json
 %{python_sitelib}/pulp_docker_plugins*.egg-info
 
 %defattr(-,apache,apache,-)
@@ -141,6 +137,9 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Thu Nov 19 2015 Randy Barlow <rbarlow@redhat.com> 2.0.0-1
+- Remove the types file
+
 * Fri Jan 16 2015 Chris Duryee <cduryee@redhat.com> 0.2.2-1
 - 1148556 - Validate repo-registry-id to ensure compatibility with Docker
   (asmacdo@gmail.com)

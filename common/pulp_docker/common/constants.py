@@ -1,4 +1,6 @@
+BLOB_TYPE_ID = 'docker_blob'
 IMAGE_TYPE_ID = 'docker_image'
+MANIFEST_TYPE_ID = 'docker_manifest'
 IMPORTER_TYPE_ID = 'docker_importer'
 IMPORTER_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_importer.json'
 DISTRIBUTOR_WEB_TYPE_ID = 'docker_distributor_web'
@@ -31,6 +33,10 @@ SYNC_STEP_METADATA = 'sync_step_metadata'
 SYNC_STEP_GET_LOCAL = 'sync_step_metadata'
 SYNC_STEP_DOWNLOAD = 'sync_step_download'
 SYNC_STEP_SAVE = 'sync_step_save'
+
+UPLOAD_STEP = 'upload_units_step'
+UPLOAD_STEP_METADATA = 'upload_step_metadata'
+UPLOAD_STEP_SAVE = 'upload_step_save'
 
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'

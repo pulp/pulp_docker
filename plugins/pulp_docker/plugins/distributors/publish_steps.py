@@ -4,7 +4,8 @@ import os
 
 from pulp.plugins.util import misc, publish_step
 
-from pulp_docker.common import constants, models
+from pulp_docker.common import constants
+from pulp_docker.plugins import models
 from pulp_docker.plugins.distributors import configuration, v1_publish_steps
 
 
@@ -28,8 +29,9 @@ class WebPublisher(publish_step.PublishStep):
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        super(WebPublisher, self).__init__(constants.PUBLISH_STEP_WEB_PUBLISHER,
-                                           repo, publish_conduit, config)
+        super(WebPublisher, self).__init__(
+            step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
+            publish_conduit=publish_conduit, config=config)
 
         # Publish v1 content, and then publish v2 content
         self.add_child(v1_publish_steps.WebPublisher(repo, publish_conduit, config))
@@ -51,8 +53,9 @@ class V2WebPublisher(publish_step.PublishStep):
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        super(V2WebPublisher, self).__init__(constants.PUBLISH_STEP_WEB_PUBLISHER,
-                                             repo, publish_conduit, config)
+        super(V2WebPublisher, self).__init__(
+            step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
+            publish_conduit=publish_conduit, config=config)
 
         # Map tags we've seen to the "newest" manifests that go with them
         self.tags = {}
@@ -77,7 +80,7 @@ class V2WebPublisher(publish_step.PublishStep):
         self.add_child(RedirectFileStep(app_publish_location))
 
 
-class PublishBlobsStep(publish_step.UnitPublishStep):
+class PublishBlobsStep(publish_step.UnitModelPluginStep):
     """
     Publish Blobs.
     """
@@ -87,8 +90,8 @@ class PublishBlobsStep(publish_step.UnitPublishStep):
         Initialize the PublishBlobsStep, setting its description and calling the super class's
         __init__().
         """
-        super(PublishBlobsStep, self).__init__(constants.PUBLISH_STEP_BLOBS,
-                                               models.Blob.TYPE_ID)
+        super(PublishBlobsStep, self).__init__(step_type=constants.PUBLISH_STEP_BLOBS,
+                                               model_classes=[models.Blob])
         self.description = _('Publishing Blobs.')
 
     def process_unit(self, unit):
@@ -98,7 +101,7 @@ class PublishBlobsStep(publish_step.UnitPublishStep):
         :param unit: The unit to process
         :type unit:  pulp_docker.common.models.Blob
         """
-        self._create_symlink(unit.storage_path,
+        self._create_symlink(unit._storage_path,
                              os.path.join(self.get_blobs_directory(), unit.unit_key['digest']))
 
     def get_blobs_directory(self):
@@ -111,7 +114,7 @@ class PublishBlobsStep(publish_step.UnitPublishStep):
         return os.path.join(self.parent.get_working_dir(), 'blobs')
 
 
-class PublishManifestsStep(publish_step.UnitPublishStep):
+class PublishManifestsStep(publish_step.UnitModelPluginStep):
     """
     Publish Manifests.
     """
@@ -121,8 +124,8 @@ class PublishManifestsStep(publish_step.UnitPublishStep):
         Initialize the PublishManifestsStep, setting its description and calling the super class's
         __init__().
         """
-        super(PublishManifestsStep, self).__init__(constants.PUBLISH_STEP_MANIFESTS,
-                                                   models.Manifest.TYPE_ID)
+        super(PublishManifestsStep, self).__init__(step_type=constants.PUBLISH_STEP_MANIFESTS,
+                                                   model_classes=[models.Manifest])
         self.description = _('Publishing Manifests.')
 
     def process_unit(self, unit):
@@ -141,7 +144,7 @@ class PublishManifestsStep(publish_step.UnitPublishStep):
                 unit.id > self.parent.tags[unit.metadata['tag']]:
             self.parent.tags[unit.metadata['tag']] = unit
 
-        self._create_symlink(unit.storage_path,
+        self._create_symlink(unit._storage_path,
                              os.path.join(self.get_manifests_directory(), unit.unit_key['digest']))
 
     def get_manifests_directory(self):
@@ -164,7 +167,7 @@ class PublishTagsStep(publish_step.PublishStep):
         Initialize the PublishTagsStep, setting its description and calling the super class's
         __init__().
         """
-        super(PublishTagsStep, self).__init__(constants.PUBLISH_STEP_TAGS)
+        super(PublishTagsStep, self).__init__(step_type=constants.PUBLISH_STEP_TAGS)
         self.description = _('Publishing Tags.')
 
     def process_main(self):
@@ -201,7 +204,7 @@ class RedirectFileStep(publish_step.PublishStep):
                                      will generate.
         :type  app_publish_location: basestring
         """
-        super(RedirectFileStep, self).__init__(constants.PUBLISH_STEP_REDIRECT_FILE)
+        super(RedirectFileStep, self).__init__(step_type=constants.PUBLISH_STEP_REDIRECT_FILE)
         self.app_publish_location = app_publish_location
 
     def process_main(self):
