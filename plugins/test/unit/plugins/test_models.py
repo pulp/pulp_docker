@@ -8,7 +8,7 @@ import unittest
 from pulp_docker.plugins import models
 
 
-class TestBasics(unittest.TestCase):
+class TestImage(unittest.TestCase):
     def test_init_info(self):
         image = models.Image(image_id='abc', parent_id='xyz', size=1024)
 
@@ -20,6 +20,13 @@ class TestBasics(unittest.TestCase):
         image = models.Image(image_id='abc', parent_id='xyz', size=1024)
 
         self.assertEqual(image.unit_key, {'image_id': 'abc'})
+
+    def test_list_files(self):
+        unit = models.Image()
+        unit.set_storage_path()
+        names = ('ancestry', 'json', 'layer')
+        files = list(unit.list_files())
+        self.assertEqual(files, [os.path.join(unit.storage_path, n) for n in names])
 
 
 class TestBlob(unittest.TestCase):
