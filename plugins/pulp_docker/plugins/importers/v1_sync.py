@@ -240,7 +240,11 @@ class SaveImages(SaveUnitsStep):
         parent = metadata.get('parent', metadata.get('Parent'))
         item.parent_id = parent
         item.size = size
-        item.set_content(os.path.join(self.get_working_dir(), item.image_id))
+
+        tmp_dir = os.path.join(self.get_working_dir(), item.image_id)
+        for name in os.listdir(tmp_dir):
+            path = os.path.join(tmp_dir, name)
+            item.import_content(path, location=os.path.basename(path))
 
         item.save()
         repo_controller.associate_single_unit(self.get_repo(), item)

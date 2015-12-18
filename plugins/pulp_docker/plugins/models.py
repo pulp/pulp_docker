@@ -8,6 +8,8 @@ import json
 from gettext import gettext as _
 
 import mongoengine
+import os
+
 from pulp.server.db import model as pulp_models
 
 from pulp_docker.common import constants
@@ -47,6 +49,16 @@ class Image(pulp_models.FileContentUnit):
     meta = {'collection': 'units_{type_id}'.format(type_id=constants.IMAGE_TYPE_ID),
             'indexes': [],
             'allow_inheritance': False}
+
+    def list_files(self):
+        """
+        List absolute paths to files associated with this unit.
+
+        :return: A list of absolute file paths.
+        :rtype: list
+        """
+        names = ('ancestry', 'json', 'layer')
+        return [os.path.join(self.storage_path, n) for n in names]
 
 
 class FSLayer(mongoengine.EmbeddedDocument):

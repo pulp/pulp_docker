@@ -216,12 +216,12 @@ class TestSaveUnitsStep(unittest.TestCase):
         units = list(step.get_iterator())
 
         for unit in units:
-            unit.set_content = mock.MagicMock()
+            unit.import_content = mock.MagicMock()
             unit.save = mock.MagicMock()
 
             step.process_main(item=unit)
 
-            unit.set_content.assert_called_once_with(os.path.join('/some/path', unit.digest))
+            unit.import_content.assert_called_once_with(os.path.join('/some/path', unit.digest))
             unit.save.assert_called_once_with()
             self.assertEqual(associate_single_unit.mock_calls[-1][1][0],
                              step.parent.get_repo.return_value)
@@ -252,12 +252,12 @@ class TestSaveUnitsStep(unittest.TestCase):
         units = list(step.get_iterator())
 
         for unit in units:
-            unit.set_content = mock.MagicMock()
+            unit.import_content = mock.MagicMock()
             unit.save = mock.MagicMock()
 
             step.process_main(item=unit)
 
-            unit.set_content.assert_called_once_with(os.path.join(working_dir, unit.digest))
+            unit.import_content.assert_called_once_with(os.path.join(working_dir, unit.digest))
             unit.save.assert_called_once_with()
             self.assertEqual(associate_single_unit.mock_calls[-1][1][0],
                              step.parent.get_repo.return_value)
@@ -283,12 +283,12 @@ class TestSaveUnitsStep(unittest.TestCase):
         units = list(step.get_iterator())
 
         for unit in units:
-            unit.set_content = mock.MagicMock()
+            unit.import_content = mock.MagicMock()
             unit.save = mock.MagicMock()
 
             step.process_main(item=unit)
 
-            unit.set_content.assert_called_once_with(os.path.join(working_dir, unit.digest))
+            unit.import_content.assert_called_once_with(os.path.join(working_dir, unit.digest))
             unit.save.assert_called_once_with()
             self.assertEqual(associate_single_unit.mock_calls[-1][1][0],
                              step.parent.get_repo.return_value)
