@@ -108,6 +108,8 @@ class SyncStep(publish_step.PluginStep):
                 step_type=constants.SYNC_STEP_DOWNLOAD, downloads=self.generate_download_requests(),
                 repo=self.repo, config=self.config, description=_('Downloading remote files')))
         self.add_child(SaveUnitsStep())
+        self.save_tags_step = SaveTagsStep()
+        self.add_child(self.save_tags_step)
 
     def add_v1_steps(self, repo, config):
         """
@@ -228,6 +230,8 @@ class DownloadManifestsStep(publish_step.PluginStep):
             self.parent.available_manifests.append(manifest)
             for layer in manifest.fs_layers:
                 available_blobs.add(layer.blob_sum)
+            # Remember this tag for the SaveTagsStep.
+            self.parent.save_tags_step.tagged_manifests[tag] = manifest
 
         # Update the available units with the Manifests and Blobs we learned about
         available_blobs = [models.Blob(digest=d) for d in available_blobs]
@@ -253,8 +257,8 @@ class SaveUnitsStep(publish_step.SaveUnitsStep):
                  Pulp.
         :rtype:  iterator
         """
-        return iter(itertools.chain(self.parent.step_get_local_manifests.units_to_download,
-                                    self.parent.step_get_local_blobs.units_to_download))
+        return iter(itertools.chain(self.parent.step_get_local_blobs.units_to_download,
+                                    self.parent.step_get_local_manifests.units_to_download))
 
     def process_main(self, item):
         """
@@ -269,3 +273,30 @@ class SaveUnitsStep(publish_step.SaveUnitsStep):
         item.set_storage_path(item.digest)
         item.import_content(os.path.join(self.get_working_dir(), item.digest))
         repository.associate_single_unit(self.get_repo().repo_obj, item)
+
+
+class SaveTagsStep(publish_step.SaveUnitsStep):
+    """
+    Create or update Tag objects to reflect the tags that we found during the sync.
+    """
+    def __init__(self):
+        """
+        Initialize the step, setting its description.
+        """
+        super(SaveTagsStep, self).__init__(step_type=constants.SYNC_STEP_SAVE)
+        self.description = _('Saving Tags')
+        # This dictionary maps tag named to Manifests that have the tag in the remote repository
+        self.tagged_manifests = {}
+
+    def process_main(self):
+        """
+        For each tag found in the remote repository, if a Tag object exists in this repository we
+        need to make sure its manifest_digest attribute points at this Manifest. If not, we need to
+        create one. We'll rely on the uniqueness constraint in MongoDB to allow us to try to create
+        it, and if that fails we'll fall back to updating the existing one.
+        """
+        for tag, manifest in self.tagged_manifests.items():
+            new_tag = models.Tag.objects.tag_manifest(repo_id=self.get_repo().repo_obj.repo_id,
+                                                      tag_name=tag, manifest_digest=manifest.digest)
+            if new_tag:
+                repository.associate_single_unit(self.get_repo().repo_obj, new_tag)

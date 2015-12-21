@@ -373,7 +373,8 @@ class TestSyncStep(unittest.TestCase):
         self.assertEqual(
             [type(child) for child in step.children],
             [sync.DownloadManifestsStep, publish_step.GetLocalUnitsStep,
-             publish_step.GetLocalUnitsStep, publish_step.DownloadStep, sync.SaveUnitsStep])
+             publish_step.GetLocalUnitsStep, publish_step.DownloadStep, sync.SaveUnitsStep,
+             sync.SaveTagsStep])
         # Ensure the first step was initialized correctly
         self.assertEqual(step.children[0].repo, repo)
         self.assertEqual(step.children[0].conduit, conduit)

@@ -5,13 +5,12 @@ from pulp.client.extensions.decorator import priority
 from pulp.client.extensions.extensions import PulpCliOption
 
 from pulp_docker.common import constants
+from pulp_docker.extensions.admin import content
 from pulp_docker.extensions.admin.cudl import CreateDockerRepositoryCommand
 from pulp_docker.extensions.admin.cudl import UpdateDockerRepositoryCommand
 from pulp_docker.extensions.admin.images import ImageCopyCommand
 from pulp_docker.extensions.admin.images import ImageRemoveCommand
 from pulp_docker.extensions.admin.images import ImageSearchCommand
-from pulp_docker.extensions.admin.manifest import (
-    ManifestSearchCommand, ManifestCopyCommand, ManifestRemoveCommand)
 from pulp_docker.extensions.admin.upload import UploadDockerImageCommand
 from pulp_docker.extensions.admin.repo_list import ListDockerRepositoriesCommand
 
@@ -114,7 +113,8 @@ def add_search_section(context, parent_section):
     """
     section = parent_section.create_subsection(SECTION_SEARCH, DESC_SEARCH)
     section.add_command(ImageSearchCommand(context))
-    section.add_command(ManifestSearchCommand(context))
+    section.add_command(content.ManifestSearchCommand(context))
+    section.add_command(content.TagSearchCommand(context))
     return section
 
 
@@ -130,7 +130,8 @@ def add_copy_section(context, parent_section):
     """
     section = parent_section.create_subsection(SECTION_COPY, DESC_COPY)
     section.add_command(ImageCopyCommand(context))
-    section.add_command(ManifestCopyCommand(context))
+    section.add_command(content.ManifestCopyCommand(context))
+    section.add_command(content.TagCopyCommand(context))
     return section
 
 
@@ -146,7 +147,8 @@ def add_remove_section(context, parent_section):
     """
     section = parent_section.create_subsection(SECTION_REMOVE, DESC_REMOVE)
     section.add_command(ImageRemoveCommand(context))
-    section.add_command(ManifestRemoveCommand(context))
+    section.add_command(content.ManifestRemoveCommand(context))
+    section.add_command(content.TagRemoveCommand(context))
     return section
 
 

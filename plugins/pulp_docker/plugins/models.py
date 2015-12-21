@@ -9,8 +9,7 @@ from gettext import gettext as _
 
 import mongoengine
 import os
-
-from pulp.server.db import model as pulp_models
+from pulp.server.db import model as pulp_models, querysets
 
 from pulp_docker.common import constants
 
@@ -192,3 +191,71 @@ class Manifest(pulp_models.FileContentUnit):
         fs_layers = [FSLayer(blob_sum=layer['blobSum']) for layer in manifest['fsLayers']]
         return cls(digest=digest, name=manifest['name'], tag=manifest['tag'],
                    schema_version=manifest['schemaVersion'], fs_layers=fs_layers)
+
+
+class TagQuerySet(querysets.QuerySetPreventCache):
+    """
+    This is a custom QuerySet for the Tag model that allows it to have some custom behavior.
+    """
+    def tag_manifest(self, repo_id, tag_name, manifest_digest):
+        """
+        Tag a Manifest in a repository by trying to create a Tag object with the given tag_name and
+        repo_id referencing the given Manifest digest. Tag objects have a uniqueness constraint on
+        their repo_id and name attribute, so if the Tag cannot be created we will update the
+        existing Tag to reference the given Manifest digest instead.
+
+        The resulting Tag will be returned in either case.
+
+        :param repo_id:         The repository id that this Tag is to be placed in
+        :type  repo_id:         basestring
+        :param tag_name:        The name of the tag to create or update in the repository
+        :type  tag_name:        basestring
+        :param manifest_digest: The digest of the Manifest that is being tagged
+        :type  manifest_digest: basestring
+        :return:                If a new Tag is created it is returned. Otherwise None is returned.
+        :rtype:                 Either a pulp_docker.plugins.models.Tag or None
+        """
+        try:
+            tag = Tag(name=tag_name, manifest_digest=manifest_digest, repo_id=repo_id)
+            tag.save()
+        except mongoengine.NotUniqueError:
+            # There is already a Tag with the given name and repo_id, so let's just make sure it's
+            # digest is updated. No biggie.
+            Tag.objects.filter(name=tag_name, repo_id=repo_id).update(
+                manifest_digest=manifest_digest)
+            tag = Tag.objects.get(name=tag_name, repo_id=repo_id)
+        return tag
+
+
+class Tag(pulp_models.ContentUnit):
+    """
+    This class is used to represent Docker v2 tags. Docker tags are labels within a repository that
+    point at Manifests by digest. This model represents the label with its name field, the digest
+    its manifest_digest field, and the repository with its repo_id field.
+
+    Tags must be unique by name inside a given repository. Pulp does not currently have a way for
+    plugin authors to express model uniqueness within a repository, so this model includes a repo_id
+    field so that it can have a uniqueness constraint on repo_id and name.
+    """
+    # This is the tag's name, or label
+    name = mongoengine.StringField(required=True)
+    # This is the digest of the Manifest that this Tag references
+    manifest_digest = mongoengine.StringField(required=True)
+    # This is the repository that this Tag exists in. It is only here so that we can form a
+    # uniqueness constraint that enforces that the Tag's name can only appear once in each
+    # repository.
+    repo_id = mongoengine.StringField(required=True)
+
+    # For backward compatibility
+    _ns = mongoengine.StringField(default='units_{type_id}'.format(type_id=constants.TAG_TYPE_ID))
+    _content_type_id = mongoengine.StringField(required=True, default=constants.TAG_TYPE_ID)
+
+    unit_key_fields = ('name', 'repo_id')
+
+    # Pulp has a bug where it does not install a uniqueness constraint for us based on the
+    # unit_key_fields we defined above: https://pulp.plan.io/issues/1477
+    # Until that issue is resolved, we need to install a uniqueness constraint here.
+    meta = {'collection': 'units_{type_id}'.format(type_id=constants.TAG_TYPE_ID),
+            'indexes': [{'unique': True, 'fields': list(unit_key_fields)}],
+            'allow_inheritance': False,
+            'queryset_class': TagQuerySet}

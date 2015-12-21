@@ -3,11 +3,14 @@ import logging
 
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
+from pulp.server.controllers import repository
 from pulp.server.db import model
 from pulp.server.db.model.criteria import UnitAssociationCriteria
+from pulp.server.managers.repo import unit_association
 import pulp.server.managers.factory as manager_factory
 
 from pulp_docker.common import constants
+from pulp_docker.plugins import models
 from pulp_docker.plugins.importers import sync, upload
 
 
@@ -43,7 +46,8 @@ class DockerImporter(Importer):
         return {
             'id': constants.IMPORTER_TYPE_ID,
             'display_name': _('Docker Importer'),
-            'types': [constants.IMAGE_TYPE_ID, constants.MANIFEST_TYPE_ID, constants.BLOB_TYPE_ID]
+            'types': [constants.BLOB_TYPE_ID, constants.IMAGE_TYPE_ID, constants.MANIFEST_TYPE_ID,
+                      constants.TAG_TYPE_ID]
         }
 
     def sync_repo(self, repo, sync_conduit, config):
@@ -92,7 +96,7 @@ class DockerImporter(Importer):
 
     def upload_unit(self, repo, type_id, unit_key, metadata, file_path, conduit, config):
         """
-        Upload a docker image. The file should be the product of "docker save".
+        Upload a Docker Image. The file should be the product of "docker save".
         This will import all images in that tarfile into the specified
         repository, each as an individual unit. This will also update the
         repo's tags to reflect the tags present in the tarfile.
@@ -173,105 +177,147 @@ class DockerImporter(Importer):
         :return: list of Unit instances that were saved to the destination repository
         :rtype:  list
         """
-        units_added = []
-        units_added.extend(DockerImporter._import_images(import_conduit, units))
-        units_added.extend(DockerImporter._import_manifests(import_conduit, units))
-        return units_added
+        if units is None:
+            criteria = UnitAssociationCriteria(
+                type_ids=[constants.IMAGE_TYPE_ID, constants.TAG_TYPE_ID,
+                          constants.MANIFEST_TYPE_ID, constants.BLOB_TYPE_ID])
+            units = import_conduit.get_source_units(criteria=criteria)
+
+        unit_importers = {
+            models.Image: DockerImporter._import_image,
+            models.Tag: DockerImporter._import_tag,
+            models.Manifest: DockerImporter._import_manifest,
+            models.Blob: DockerImporter._import_blob
+        }
+
+        units_added = set()
+        for unit in units:
+            units_added |= set(unit_importers[type(unit)](import_conduit, unit, dest_repo.repo_obj))
+
+        return list(units_added)
 
     @staticmethod
-    def _import_images(conduit, units):
+    def _import_image(conduit, unit, dest_repo):
         """
-        Import images and referenced images.
+        Import the Image and the Images it references.
 
-        :param conduit: provides access to relevant Pulp functionality
-        :type conduit: pulp.plugins.conduits.unit_import.ImportUnitConduit
-        :param units: optional list of pre-filtered units to import
-        :type  units: list of pulp.plugins.model.Unit
-        :return: list of units that were copied to the destination repository
-        :rtype:  list
+        :param conduit:   provides access to relevant Pulp functionality
+        :type  conduit:   pulp.plugins.conduits.unit_import.ImportUnitConduit
+        :param unit:      The Image to import
+        :type  unit:      pulp_docker.plugins.models.Image
+        :param dest_repo: The destination repository that the Manifest is being imported to.
+        :type  dest_repo: pulp.server.db.model.Repository
+        :return:          set of Images that were copied to the destination repository
+        :rtype:           set
         """
-        # Determine which units are being copied
-        if units is None:
-            criteria = UnitAssociationCriteria(type_ids=[constants.IMAGE_TYPE_ID])
-            units = conduit.get_source_units(criteria=criteria)
-
         # Associate to the new repository
         known_units = set()
-        units_added = []
+        units_added = set()
+        # The loop below expects a list of units as it recurses
+        units = [unit]
 
         while True:
             units_to_add = set()
 
             # Associate the units to the repository
             for u in units:
-                if u.type_id != constants.IMAGE_TYPE_ID:
-                    continue
-                conduit.associate_unit(u)
-                units_added.append(u)
+                repository.associate_single_unit(dest_repo, u)
+                units_added.add(u)
                 known_units.add(u.unit_key['image_id'])
-                parent_id = u.metadata.get('parent_id')
+                parent_id = u.parent_id
                 if parent_id:
                     units_to_add.add(parent_id)
             # Filter out units we have already added
             units_to_add.difference_update(known_units)
             # Find any new units to add to the repository
             if units_to_add:
-                unit_filter = {'image_id': {'$in': list(units_to_add)}}
-                criteria = UnitAssociationCriteria(type_ids=[constants.IMAGE_TYPE_ID],
-                                                   unit_filters=unit_filter)
-                units = conduit.get_source_units(criteria=criteria)
+                units = models.Image.objects.filter(image_id__in=list(units_to_add))
             else:
                 # Break out of the loop since there were no units to add to the list
                 break
 
+        return list(units_added)
+
+    @staticmethod
+    def _import_tag(conduit, unit, dest_repo):
+        """
+        Import a Tag, and the Manifests and Blobs it references.
+
+        :param conduit:   provides access to relevant Pulp functionality
+        :type  conduit:   pulp.plugins.conduits.unit_import.ImportUnitConduit
+        :param unit:      The Tag to be imported to the repository
+        :type  unit:      pulp_docker.plugins.models.Tag
+        :param dest_repo: The destination repository that the Tag is being imported to. This is
+                          needed because technically we are creating a copy of the Tag there rather
+                          than an association of the Tag, and the repo_id is a required field on the
+                          Tag object.
+        :type  dest_repo: pulp.server.db.model.Repository
+        :return:          list of Units that were copied to the destination repository
+        :rtype:           list
+        """
+        units_added = set()
+
+        # We need to create a copy of the Tag with the destination repository's id, but other fields
+        # copied from the source Tag.
+        manifest_digests_to_import = set()
+        tag = models.Tag.objects.tag_manifest(repo_id=dest_repo.repo_id, tag_name=unit.name,
+                                              manifest_digest=unit.manifest_digest)
+        units_added.add(tag)
+        conduit.associate_unit(tag)
+        manifest_digests_to_import.add(unit.manifest_digest)
+
+        # Add referenced manifests
+        for manifest in models.Manifest.objects.filter(
+                digest__in=sorted(manifest_digests_to_import)):
+            units_added |= set(DockerImporter._import_manifest(conduit, manifest, dest_repo))
+
+        return list(units_added)
+
+    @staticmethod
+    def _import_manifest(conduit, unit, dest_repo):
+        """
+        Import a Manifest and its referenced Blobs.
+
+        :param conduit:   provides access to relevant Pulp functionality
+        :type  conduit:   pulp.plugins.conduits.unit_import.ImportUnitConduit
+        :param unit:      The Manifest to import
+        :type  unit:      pulp_docker.plugins.Model.Manifest
+        :param dest_repo: The destination repository that the Manifest is being imported to.
+        :type  dest_repo: pulp.server.db.model.Repository
+        :return:          list of Units that were copied to the destination repository
+        :rtype:           list
+        """
+        units_added = set()
+
+        # Add manifests and catalog referenced blobs
+        blob_digests = set()
+        repository.associate_single_unit(dest_repo, unit)
+        units_added.add(unit)
+        for layer in unit.fs_layers:
+            blob_digests.add(layer.blob_sum)
+
+        # Add referenced blobs
+        for blob in models.Blob.objects.filter(digest__in=sorted(blob_digests)):
+            units_added |= set(DockerImporter._import_blob(conduit, blob, dest_repo))
+
         return units_added
 
     @staticmethod
-    def _import_manifests(conduit, units):
+    def _import_blob(conduit, unit, dest_repo):
         """
-        Import manifests and referenced blobs.
+        Import a Blob.
 
-        :param conduit: provides access to relevant Pulp functionality
-        :type conduit: pulp.plugins.conduits.unit_import.ImportUnitConduit
-        :param units: optional list of pre-filtered units to import
-        :type  units: list of pulp.plugins.model.Unit
-        :return: list of units that were copied to the destination repository
-        :rtype:  list
+        :param conduit:   provides access to relevant Pulp functionality
+        :type  conduit:   pulp.plugins.conduits.unit_import.ImportUnitConduit
+        :param unit:      The Blob to import
+        :type  unit:      pulp_docker.plugins.Model.Blob
+        :param dest_repo: The destination repository that the Blob is being imported to.
+        :type  dest_repo: pulp.server.db.model.Repository
+        :return:          list containing the Blob that was copied to the destination repository
+        :rtype:           list
         """
-        units_added = []
-
-        # All manifests if not specified
-
-        if units is None:
-            criteria = UnitAssociationCriteria(type_ids=[constants.MANIFEST_TYPE_ID])
-            units = conduit.get_source_units(criteria=criteria)
-
-        # Add manifests and catalog referenced blobs
-
-        blob_digests = set()
-        for unit in units:
-            if unit.type_id != constants.MANIFEST_TYPE_ID:
-                continue
-            manifest = unit
-            conduit.associate_unit(manifest)
-            units_added.append(manifest)
-            for layer in manifest.metadata['fs_layers']:
-                digest = layer['blobSum']
-                blob_digests.add(digest)
-
-        # Add referenced blobs
-
-        unit_filter = {
-            'digest': {
-                '$in': sorted(blob_digests)
-            }
-        }
-        criteria = UnitAssociationCriteria(type_ids=[constants.BLOB_TYPE_ID],
-                                           unit_filters=unit_filter)
-        for blob in conduit.get_source_units(criteria=criteria):
-            conduit.associate_unit(blob)
-            units_added.append(blob)
-        return units_added
+        repository.associate_single_unit(dest_repo, unit)
+        return [unit]
 
     def validate_config(self, repo, config):
         """
@@ -283,81 +329,112 @@ class DockerImporter(Importer):
         """
         Removes content units from the given repository.
 
-        This method also removes the tags associated with images in the repository.
+        This method also removes tags associated with Images, Tags associated with Manifests, and
+        unreferenced Blobs associated with Manifests.
 
-        This call will not result in the unit being deleted from Pulp itself.
+        This call will not result in the units being deleted from Pulp itself, except for Tags since
+        they are repository specific.
 
-        :param repo: metadata describing the repository
-        :type  repo: pulp.plugins.model.Repository
-
-        :param units: list of objects describing the units to import in
-                      this call
-        :type  units: list of pulp.plugins.model.AssociatedUnit
-
+        :param repo:   metadata describing the repository
+        :type  repo:   pulp.plugins.model.Repository
+        :param units:  list of objects describing the units to import in
+                       this call
+        :type  units:  list of pulp.server.db.model.ContentUnit
         :param config: plugin configuration
         :type  config: pulp.plugins.config.PluginCallConfiguration
         """
-        self._purge_unreferenced_tags(repo, units)
-        self._purge_orphaned_blobs(repo, units)
+        unit_removers = {
+            models.Image: DockerImporter._remove_image,
+            models.Manifest: DockerImporter._remove_manifest
+        }
+
+        map((lambda u: type(u) in unit_removers and unit_removers[type(u)](
+            repo.repo_obj, u)), units)
 
     @staticmethod
-    def _purge_unreferenced_tags(repo, units):
+    def _remove_image(repo, image):
         """
-        Purge tags associated with images in the repository.
+        Purge tags associated with a given Image in the repository.
 
-        :param repo: The affected repository.
-        :type  repo: pulp.plugins.model.Repository
-        :param units: List of removed units.
-        :type  units: list of: pulp.plugins.model.AssociatedUnit
+        :param repo:  The affected repository.
+        :type  repo:  pulp.server.db.model.Repository
+        :param image: The Image being removed
+        :type  image: pulp_docker.plugins.models.Image
         """
-        repo_obj = model.Repository.objects.get_repo_or_missing_resource(repo.id)
-        tags = repo_obj.scratchpad.get(u'tags', [])
-        unit_ids = set(
-            [unit.unit_key[u'image_id'] for unit in units
-                if unit.type_id == constants.IMAGE_TYPE_ID])
+        tags = repo.scratchpad.get(u'tags', [])
         for tag_dict in tags[:]:
-            if tag_dict[constants.IMAGE_ID_KEY] in unit_ids:
+            if tag_dict[constants.IMAGE_ID_KEY] == image.image_id:
                 tags.remove(tag_dict)
 
-        repo_obj.scratchpad[u'tags'] = tags
-        repo_obj.save()
+        repo.scratchpad[u'tags'] = tags
+        repo.save()
+
+    @classmethod
+    def _remove_manifest(cls, repo, manifest):
+        """
+        Purge Tags and Blobs associated with a given Manifest in the repository.
+
+        :param repo:     The affected repository.
+        :type  repo:     pulp.server.db.model.Repository
+        :param manifest: The Manifest being removed
+        :type  manifest: pulp_docker.plugins.models.Manifest
+        """
+        cls._purge_unlinked_tags(repo, manifest)
+        cls._purge_unlinked_blobs(repo, manifest)
 
     @staticmethod
-    def _purge_orphaned_blobs(repo, units):
+    def _purge_unlinked_tags(repo, manifest):
         """
-        Purge blobs associated with removed manifests when no longer
-        referenced by any remaining manifests.
+        Purge Tags associated with the given Manifest in the repository. We don't want to leave Tags
+        that reference Manifests that no longer exist.
 
-        :param repo: The affected repository.
-        :type  repo: pulp.plugins.model.Repository
+        :param repo:     The affected repository.
+        :type  repo:     pulp.server.db.model.Repository
+        :param manifest: The Manifest that is being removed
+        :type  manifest: pulp_docker.plugins.models.Manifest
+        """
+        # Find Tag objects that reference the removed Manifest. We can remove any such Tags from
+        # the repository, and from Pulp as well (since Tag objects are repository specific).
+        unit_filter = {'manifest_digest': manifest.digest}
+        criteria = UnitAssociationCriteria(
+            type_ids=[constants.TAG_TYPE_ID],
+            unit_filters=unit_filter)
+        manager = manager_factory.repo_unit_association_manager()
+        manager.unassociate_by_criteria(
+            repo_id=repo.repo_id,
+            criteria=criteria,
+            notify_plugins=False)
+        # Finally, we can remove the Tag objects from Pulp entirely, since Tags are repository
+        # specific.
+        models.Tag.objects.filter(repo_id=repo.repo_id, manifest_digest=manifest.digest).delete()
+
+    @staticmethod
+    def _purge_unlinked_blobs(repo, manifest):
+        """
+        Purge blobs associated with the given Manifests when removing it would leave them no longer
+        referenced by any remaining Manifests.
+
+        :param repo:  The affected repository.
+        :type  repo:  pulp.server.db.model.Repository
         :param units: List of removed units.
         :type  units: list of: pulp.plugins.model.AssociatedUnit
         """
         # Find blob digests referenced by removed manifests (orphaned)
-
         orphaned = set()
-        for unit in units:
-            if unit.type_id != constants.MANIFEST_TYPE_ID:
-                continue
-            manifest = unit
-            for layer in manifest.metadata['fs_layers']:
-                digest = layer['blobSum']
-                orphaned.add(digest)
-
-        # Find blob digests still referenced by other manifests (adopted)
-
+        map((lambda layer: orphaned.add(layer.blob_sum)), manifest.fs_layers)
         if not orphaned:
             # nothing orphaned
             return
+
+        # Find blob digests still referenced by other manifests (adopted)
         adopted = set()
-        manager = manager_factory.repo_unit_association_query_manager()
-        for manifest in manager.get_units_by_type(repo.id, constants.MANIFEST_TYPE_ID):
-            for layer in manifest.metadata['fs_layers']:
-                digest = layer['blobSum']
-                adopted.add(digest)
+        criteria = UnitAssociationCriteria(type_ids=[constants.MANIFEST_TYPE_ID],
+                                           unit_filters={'digest__ne': manifest.digest})
+        for manifest in unit_association.RepoUnitAssociationManager._units_from_criteria(
+                repo, criteria):
+            map((lambda layer: adopted.add(layer.blob_sum)), manifest.fs_layers)
 
         # Remove unreferenced blobs
-
         orphaned = orphaned.difference(adopted)
         if not orphaned:
             # all adopted
@@ -373,8 +450,6 @@ class DockerImporter(Importer):
             unit_filters=unit_filter)
         manager = manager_factory.repo_unit_association_manager()
         manager.unassociate_by_criteria(
-            repo_id=repo.id,
+            repo_id=repo.repo_id,
             criteria=criteria,
-            owner_type='',  # unused
-            owner_id='',    # unused
             notify_plugins=False)

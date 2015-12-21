@@ -1,6 +1,7 @@
 BLOB_TYPE_ID = 'docker_blob'
 IMAGE_TYPE_ID = 'docker_image'
 MANIFEST_TYPE_ID = 'docker_manifest'
+TAG_TYPE_ID = 'docker_tag'
 IMPORTER_TYPE_ID = 'docker_importer'
 IMPORTER_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_importer.json'
 DISTRIBUTOR_WEB_TYPE_ID = 'docker_distributor_web'

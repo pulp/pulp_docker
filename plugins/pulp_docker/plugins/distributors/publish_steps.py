@@ -57,8 +57,6 @@ class V2WebPublisher(publish_step.PublishStep):
             step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
             publish_conduit=publish_conduit, config=config)
 
-        # Map tags we've seen to the "newest" manifests that go with them
-        self.tags = {}
         docker_api_version = 'v2'
         publish_dir = configuration.get_web_publish_dir(repo, config, docker_api_version)
         app_file = configuration.get_redirect_file_name(repo)
@@ -99,7 +97,7 @@ class PublishBlobsStep(publish_step.UnitModelPluginStep):
         Link the unit to the Blob file.
 
         :param unit: The unit to process
-        :type unit:  pulp_docker.common.models.Blob
+        :type unit:  pulp_docker.plugins.models.Blob
         """
         self._create_symlink(unit._storage_path,
                              os.path.join(self.get_blobs_directory(), unit.unit_key['digest']))
@@ -133,17 +131,8 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
         Link the unit to the Manifest file.
 
         :param unit: The unit to process
-        :type unit:  pulp_docker.common.models.Blob
+        :type unit:  pulp_docker.plugins.models.Blob
         """
-        # Keep track of the "latest" Manifest we've seen by looking for the one with the newest id
-        if 'latest' not in self.parent.tags or unit._id > self.parent.tags['latest']._id:
-            self.parent.tags['latest'] = unit
-        # Keep track of the newest Manifest we've seen with this tag by looking for the one with the
-        # newest id
-        if unit.metadata['tag'] not in self.parent.tags or \
-                unit.id > self.parent.tags[unit.metadata['tag']]:
-            self.parent.tags[unit.metadata['tag']] = unit
-
         self._create_symlink(unit._storage_path,
                              os.path.join(self.get_manifests_directory(), unit.unit_key['digest']))
 
@@ -157,7 +146,7 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
         return os.path.join(self.parent.get_working_dir(), 'manifests')
 
 
-class PublishTagsStep(publish_step.PublishStep):
+class PublishTagsStep(publish_step.UnitModelPluginStep):
     """
     Publish Tags.
     """
@@ -167,29 +156,38 @@ class PublishTagsStep(publish_step.PublishStep):
         Initialize the PublishTagsStep, setting its description and calling the super class's
         __init__().
         """
-        super(PublishTagsStep, self).__init__(step_type=constants.PUBLISH_STEP_TAGS)
+        super(PublishTagsStep, self).__init__(step_type=constants.PUBLISH_STEP_TAGS,
+                                              model_classes=[models.Tag])
         self.description = _('Publishing Tags.')
+        # Collect the tag names we've seen so we can write them out during the finalize() method.
+        self._tag_names = set()
 
-    def process_main(self):
+    def process_main(self, item):
         """
-        Create the list file and add the manifest tag links.
+        Create the manifest tag links.
 
-        :param unit: The unit to process
-        :type unit:  pulp_docker.common.models.Tag
+        :param item: The tag to process
+        :type  item: pulp_docker.plugins.models.Tag
+        """
+        manifest = models.Manifest.objects.get(digest=item.manifest_digest)
+        misc.create_symlink(
+            manifest._storage_path,
+            os.path.join(self.parent.publish_manifests_step.get_manifests_directory(), item.name))
+        self._tag_names.add(item.name)
+
+    def finalize(self):
+        """
+        Write the Tag list file so that clients can retrieve the list of available Tags.
         """
         tags_path = os.path.join(self.parent.get_working_dir(), 'tags')
         misc.mkdir(tags_path)
         with open(os.path.join(tags_path, 'list'), 'w') as list_file:
             tag_data = {
                 'name': configuration.get_repo_registry_id(self.get_repo(), self.get_config()),
-                'tags': list(self.parent.tags)}
+                'tags': list(self._tag_names)}
             list_file.write(json.dumps(tag_data))
-
-        # Add the links to make Manifests accessible by tags as well
-        for tag, unit in self.parent.tags.items():
-            self.parent.publish_manifests_step._create_symlink(
-                unit.storage_path,
-                os.path.join(self.parent.publish_manifests_step.get_manifests_directory(), tag))
+        # We don't need the tag names anymore
+        del self._tag_names
 
 
 class RedirectFileStep(publish_step.PublishStep):

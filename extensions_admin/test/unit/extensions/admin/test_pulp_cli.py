@@ -10,8 +10,7 @@ from pulp.client.extensions.core import PulpCli
 from pulp.client.extensions.extensions import PulpCliSection
 
 from pulp_docker.extensions.admin import pulp_cli
-from pulp_docker.extensions.admin import images
-from pulp_docker.extensions.admin import manifest
+from pulp_docker.extensions.admin import content, images
 from pulp_docker.extensions.admin.repo_list import ListDockerRepositoriesCommand
 
 
@@ -55,12 +54,12 @@ class TestInitialize(unittest.TestCase):
 
         section = repo_section.subsections['search']
         self.assertTrue(isinstance(section.commands['image'], images.ImageSearchCommand))
-        self.assertTrue(isinstance(section.commands['manifest'], manifest.ManifestSearchCommand))
+        self.assertTrue(isinstance(section.commands['manifest'], content.ManifestSearchCommand))
 
         section = repo_section.subsections['copy']
         self.assertTrue(isinstance(section.commands['image'], images.ImageCopyCommand))
-        self.assertTrue(isinstance(section.commands['manifest'], manifest.ManifestCopyCommand))
+        self.assertTrue(isinstance(section.commands['manifest'], content.ManifestCopyCommand))
 
         section = repo_section.subsections['remove']
         self.assertTrue(isinstance(section.commands['image'], images.ImageRemoveCommand))
-        self.assertTrue(isinstance(section.commands['manifest'], manifest.ManifestRemoveCommand))
+        self.assertTrue(isinstance(section.commands['manifest'], content.ManifestRemoveCommand))
