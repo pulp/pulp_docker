@@ -76,7 +76,6 @@ class DockerImporter(Importer):
         :return: report of the details of the sync
         :rtype:  pulp.plugins.model.SyncReport
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo.id)
         try:
             # This will raise NotImplementedError if the config's feed_url is determined not to
             # support the Docker v2 API.
