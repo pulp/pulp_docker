@@ -242,12 +242,12 @@ class SaveImages(SaveUnitsStep):
         item.size = size
 
         tmp_dir = os.path.join(self.get_working_dir(), item.image_id)
+        item.save()
         for name in os.listdir(tmp_dir):
             path = os.path.join(tmp_dir, name)
             item.import_content(path, location=os.path.basename(path))
 
-        item.save()
-        repo_controller.associate_single_unit(self.get_repo(), item)
+        repo_controller.associate_single_unit(self.get_repo().repo_obj, item)
 
     def finalize(self):
         """
@@ -256,7 +256,7 @@ class SaveImages(SaveUnitsStep):
         """
         super(SaveImages, self).finalize()
         # Get an updated copy of the repo so that we can update the tags
-        repo = self.get_repo()
+        repo = self.get_repo().repo_obj
         _logger.debug('updating tags for repo {repo_id}'.format(repo_id=repo.repo_id))
         if self.parent.tags:
             new_tags = tags.generate_updated_tags(repo.scratchpad, self.parent.tags)

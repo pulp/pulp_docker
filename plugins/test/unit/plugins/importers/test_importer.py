@@ -4,6 +4,7 @@ import mock
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.importer import Importer
 from pulp.plugins.model import Repository
+from pulp.server.db import model
 
 import data
 from pulp_docker.common import constants
@@ -44,38 +45,36 @@ class TestBasics(unittest.TestCase):
 @mock.patch('pulp_docker.plugins.importers.importer.v1_sync.SyncStep')
 @mock.patch('tempfile.mkdtemp', spec_set=True)
 @mock.patch('shutil.rmtree')
-@mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
 class TestSyncRepo(unittest.TestCase):
     def setUp(self):
         super(TestSyncRepo, self).setUp()
         self.repo = Repository('repo1', working_dir='/a/b/c')
+        self.repo.repo_obj = model.Repository(repo_id=self.repo.id)
         self.sync_conduit = mock.MagicMock()
         self.config = mock.MagicMock()
         self.importer = DockerImporter()
 
     @mock.patch('pulp.plugins.util.publish_step.common_utils.get_working_directory',
                 mock.MagicMock(return_value='/a/b/c'))
-    def test_calls_sync_step(self, objects, mock_rmtree, mock_mkdtemp, v1_sync_step):
+    def test_calls_sync_step(self, mock_rmtree, mock_mkdtemp, v1_sync_step):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
         v1_sync_step.assert_called_once_with(
-            repo=objects.get_repo_or_missing_resource.return_value, conduit=self.sync_conduit,
+            repo=self.repo, conduit=self.sync_conduit,
             config=self.config)
-        objects.get_repo_or_missing_resource.assert_called_once_with(self.repo.id)
 
     @mock.patch('pulp.plugins.util.publish_step.common_utils.get_working_directory',
                 mock.MagicMock(return_value='/a/b/c'))
-    def test_calls_sync(self, objects, mock_rmtree, mock_mkdtemp, v1_sync_step):
+    def test_calls_sync(self, mock_rmtree, mock_mkdtemp, v1_sync_step):
         """
         Assert that the sync_repo() method calls sync() on the SyncStep.
         """
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
-        objects.get_repo_or_missing_resource.assert_called_once_with(self.repo.id)
         v1_sync_step.return_value.process_lifecycle.assert_called_once_with()
 
     @mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
-    def test_fall_back_to_v1(self, sync_step, objects, mock_rmtree, mock_mkdtemp, v1_sync_step):
+    def test_fall_back_to_v1(self, sync_step, mock_rmtree, mock_mkdtemp, v1_sync_step):
         """
         Ensure that the sync_repo() method falls back to Docker v1 if Docker v2 isn't available.
         """
@@ -84,9 +83,8 @@ class TestSyncRepo(unittest.TestCase):
 
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
-        objects.get_repo_or_missing_resource.assert_called_once_with(self.repo.id)
         v1_sync_step.assert_called_once_with(
-            repo=objects.get_repo_or_missing_resource.return_value, conduit=self.sync_conduit,
+            repo=self.repo, conduit=self.sync_conduit,
             config=self.config)
         v1_sync_step.return_value.process_lifecycle.assert_called_once_with()
 
