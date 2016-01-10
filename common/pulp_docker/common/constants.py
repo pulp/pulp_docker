@@ -27,12 +27,16 @@ CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 
 # Config keys for an importer override config
 CONFIG_KEY_MASK_ID = 'mask_id'
+CONFIG_KEY_ENABLE_V1 = 'enable_v1'
 
 SYNC_STEP_MAIN = 'sync_step_main'
 SYNC_STEP_METADATA = 'sync_step_metadata'
-SYNC_STEP_GET_LOCAL = 'sync_step_metadata'
 SYNC_STEP_DOWNLOAD = 'sync_step_download'
 SYNC_STEP_SAVE = 'sync_step_save'
+SYNC_STEP_SAVE_V1 = 'v1_sync_step_save'
+SYNC_STEP_METADATA_V1 = 'v1_sync_step_metadata'
+SYNC_STEP_GET_LOCAL_V1 = 'v1_sync_step_get_local'
+SYNC_STEP_DOWNLOAD_V1 = 'v1_sync_step_download'
 
 UPLOAD_STEP = 'upload_units_step'
 UPLOAD_STEP_METADATA = 'upload_step_metadata'

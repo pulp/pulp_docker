@@ -8,7 +8,7 @@ from pulp.server.db.model.criteria import UnitAssociationCriteria
 import pulp.server.managers.factory as manager_factory
 
 from pulp_docker.common import constants
-from pulp_docker.plugins.importers import sync, upload, v1_sync
+from pulp_docker.plugins.importers import sync, upload
 
 
 _logger = logging.getLogger(__name__)
@@ -76,14 +76,7 @@ class DockerImporter(Importer):
         :return: report of the details of the sync
         :rtype:  pulp.plugins.model.SyncReport
         """
-        try:
-            # This will raise NotImplementedError if the config's feed_url is determined not to
-            # support the Docker v2 API.
-            self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config)
-        except NotImplementedError:
-            # Since the feed_url was determined not to support the Docker v2 API, let's use the
-            # old v1 SyncStep instead.
-            self.sync_step = v1_sync.SyncStep(repo=repo, conduit=sync_conduit, config=config)
+        self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config)
 
         return self.sync_step.process_lifecycle()
 

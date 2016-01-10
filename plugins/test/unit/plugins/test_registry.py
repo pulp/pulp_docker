@@ -4,19 +4,15 @@ import os
 import shutil
 import tempfile
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
 import mock
 from nectar.config import DownloaderConfig
 from nectar.downloaders.threaded import HTTPThreadedDownloader
 from nectar.report import DownloadReport
 from nectar.request import DownloadRequest
+from pulp.common.compat import unittest
 from pulp.server.exceptions import PulpCodedException
-from pulp_docker.common import error_codes
 
+from pulp_docker.common import error_codes
 from pulp_docker.plugins import registry
 
 
@@ -144,6 +140,28 @@ class TestGetSinglePath(unittest.TestCase):
         mock_download_one.return_value = report
 
         self.assertRaises(IOError, self.repo._get_single_path, '/v1/repositories/pulp/crane/images')
+
+
+class TestAPIVersionCheck(unittest.TestCase):
+    def setUp(self):
+        super(TestAPIVersionCheck, self).setUp()
+        self.config = DownloaderConfig()
+        self.repo = registry.V1Repository('pulp/crane', self.config,
+                                          'http://pulpproject.org/', '/a/b/c')
+
+    @mock.patch.object(registry.V1Repository, '_get_single_path', spec_set=True)
+    def test_success(self, mock_get_path):
+        ret = self.repo.api_version_check()
+
+        self.assertTrue(ret)
+        mock_get_path.assert_called_once_with(self.repo.API_VERSION_CHECK_PATH)
+
+    @mock.patch.object(registry.V1Repository, '_get_single_path', spec_set=True)
+    def test_error(self, mock_get_path):
+        mock_get_path.side_effect = IOError
+        ret = self.repo.api_version_check()
+
+        self.assertFalse(ret)
 
 
 class TestGetImageIDs(unittest.TestCase):
@@ -387,7 +405,7 @@ class TestV2Repository(unittest.TestCase):
         r = registry.V2Repository(name, download_config, registry_url, working_dir)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
 
-        self.assertRaises(NotImplementedError, r.api_version_check)
+        self.assertFalse(r.api_version_check())
 
     def test_api_version_check_ioerror(self):
         """
@@ -399,8 +417,7 @@ class TestV2Repository(unittest.TestCase):
         working_dir = '/a/working/dir'
         r = registry.V2Repository(name, download_config, registry_url, working_dir)
 
-        # The IOError will be raised since registry_url isn't a real registry
-        self.assertRaises(NotImplementedError, r.api_version_check)
+        self.assertFalse(r.api_version_check())
 
     def test_api_version_check_missing_header(self):
         """

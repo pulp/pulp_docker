@@ -1,115 +1,20 @@
 """
 This module contains the code to sync a Docker v1 registry.
 """
-import errno
 import json
 import logging
 import os
 from gettext import gettext as _
 
-from pulp.common.plugins import importer_constants
-from pulp.plugins.util import nectar_config
-from pulp.plugins.util.publish_step import (DownloadStep, GetLocalUnitsStep, PluginStep,
-                                            SaveUnitsStep)
+from pulp.plugins.util.publish_step import PluginStep, SaveUnitsStep
 from pulp.server.controllers import repository as repo_controller
 from pulp.server.db import model as platform_models
-from pulp.server.exceptions import MissingValue
 
 from pulp_docker.common import constants, tags
-from pulp_docker.plugins import models, registry
+from pulp_docker.plugins import models
 
 
 _logger = logging.getLogger(__name__)
-
-
-class SyncStep(PluginStep):
-    required_settings = (
-        constants.CONFIG_KEY_UPSTREAM_NAME,
-        importer_constants.KEY_FEED,
-    )
-
-    def __init__(self, repo=None, conduit=None, config=None):
-        """
-        :param repo:        repository to sync
-        :type  repo:        pulp.plugins.model.Repository
-        :param conduit:     sync conduit to use
-        :type  conduit:     pulp.plugins.conduits.repo_sync.RepoSyncConduit
-        :param config:      config object for the sync
-        :type  config:      pulp.plugins.config.PluginCallConfiguration
-        """
-        super(SyncStep, self).__init__(
-            step_type=constants.SYNC_STEP_MAIN, repo=repo, conduit=conduit, config=config,
-            plugin_type=constants.IMPORTER_TYPE_ID)
-        self.description = _('Syncing Docker Repository')
-
-        # Unit keys, populated by GetMetadataStep
-        self.available_units = []
-        # populated by GetMetadataStep
-        self.tags = {}
-
-        self.validate(config)
-        download_config = nectar_config.importer_config_to_nectar_config(config.flatten())
-        upstream_name = config.get(constants.CONFIG_KEY_UPSTREAM_NAME)
-        url = config.get(importer_constants.KEY_FEED)
-
-        # create a Repository object to interact with
-        self.index_repository = registry.V1Repository(upstream_name, download_config, url,
-                                                      self.get_working_dir())
-
-        self.add_child(GetMetadataStep())
-        # save this step so its "units_to_download" attribute can be accessed later
-        self.step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
-        self.add_child(self.step_get_local_units)
-        self.add_child(DownloadStep(
-            constants.SYNC_STEP_DOWNLOAD, downloads=self.generate_download_requests(), repo=repo,
-            config=config, description=_('Downloading remote files')))
-        self.add_child(SaveImages())
-
-    @classmethod
-    def validate(cls, config):
-        """
-        Ensure that any required settings have non-empty values.
-
-        :param config:  config object for the sync
-        :type  config:  pulp.plugins.config.PluginCallConfiguration
-
-        :raises MissingValue:   if any required sync setting is missing
-        """
-        missing = []
-        for key in cls.required_settings:
-            if not config.get(key):
-                missing.append(key)
-
-        if missing:
-            raise MissingValue(missing)
-
-    def generate_download_requests(self):
-        """
-        a generator that yields DownloadRequest objects based on which units
-        were determined to be needed. This looks at the GetLocalUnits step's
-        output, which includes a list of units that need their files downloaded.
-
-        :return:    generator of DownloadRequest instances
-        :rtype:     types.GeneratorType
-        """
-        for unit in self.step_get_local_units.units_to_download:
-            destination_dir = os.path.join(self.get_working_dir(), unit.image_id)
-            try:
-                os.makedirs(destination_dir, mode=0755)
-            except OSError, e:
-                # it's ok if the directory exists
-                if e.errno != errno.EEXIST:
-                    raise
-            # we already retrieved the ancestry files for the tagged images, so
-            # some of these will already exist
-            if not os.path.exists(os.path.join(destination_dir, 'ancestry')):
-                yield self.index_repository.create_download_request(unit.image_id, 'ancestry',
-                                                                    destination_dir)
-
-            yield self.index_repository.create_download_request(unit.image_id, 'json',
-                                                                destination_dir)
-            yield self.index_repository.create_download_request(unit.image_id, 'layer',
-                                                                destination_dir)
 
 
 class GetMetadataStep(PluginStep):
@@ -128,9 +33,9 @@ class GetMetadataStep(PluginStep):
         :type  working_dir: basestring
         """
         super(GetMetadataStep, self).__init__(
-            step_type=constants.SYNC_STEP_METADATA, repo=repo, conduit=conduit, config=config,
+            step_type=constants.SYNC_STEP_METADATA_V1, repo=repo, conduit=conduit, config=config,
             plugin_type=constants.IMPORTER_TYPE_ID)
-        self.description = _('Retrieving metadata')
+        self.description = _('Retrieving v1 metadata')
 
     def process_main(self):
         """
@@ -142,23 +47,23 @@ class GetMetadataStep(PluginStep):
         _logger.debug(self.description)
 
         # determine what images are available by querying the upstream source
-        available_images = self.parent.index_repository.get_image_ids()
+        available_images = self.parent.v1_index_repository.get_image_ids()
         # get remote tags and save them on the parent
-        self.parent.tags.update(self.parent.index_repository.get_tags())
+        self.parent.v1_tags.update(self.parent.v1_index_repository.get_tags())
         # transform the tags so they contain full image IDs instead of abbreviations
-        self.expand_tag_abbreviations(available_images, self.parent.tags)
+        self.expand_tag_abbreviations(available_images, self.parent.v1_tags)
 
-        tagged_image_ids = self.parent.tags.values()
+        tagged_image_ids = self.parent.v1_tags.values()
 
         # retrieve ancestry files and then parse them to determine the full
         # collection of upstream images that we should ensure are obtained.
-        self.parent.index_repository.get_ancestry(tagged_image_ids)
+        self.parent.v1_index_repository.get_ancestry(tagged_image_ids)
         images_we_need = set(tagged_image_ids)
         for image_id in tagged_image_ids:
             images_we_need.update(set(self.find_and_read_ancestry_file(image_id, download_dir)))
 
         # generate Images and store them on the parent
-        self.parent.available_units = [models.Image(image_id=i) for i in images_we_need]
+        self.parent.v1_available_units.extend(models.Image(image_id=i) for i in images_we_need)
 
     @staticmethod
     def expand_tag_abbreviations(image_ids, tags):
@@ -206,12 +111,12 @@ class GetMetadataStep(PluginStep):
 
 
 class SaveImages(SaveUnitsStep):
-    def __init__(self, step_type=constants.SYNC_STEP_SAVE):
+    def __init__(self, step_type=constants.SYNC_STEP_SAVE_V1):
         """
         Initialize the SaveImages Step, setting its type and description.
         """
         super(SaveImages, self).__init__(step_type=step_type)
-        self.description = _('Saving images and tags')
+        self.description = _('Saving v1 images and tags')
 
     def get_iterator(self):
         """
@@ -220,7 +125,7 @@ class SaveImages(SaveUnitsStep):
         :return: a list or other iterable
         :rtype:  iterator of pulp_docker.plugins.models.Image
         """
-        return iter(self.parent.step_get_local_units.units_to_download)
+        return iter(self.parent.v1_step_get_local_units.units_to_download)
 
     def process_main(self, item):
         """
@@ -257,8 +162,8 @@ class SaveImages(SaveUnitsStep):
         super(SaveImages, self).finalize()
         # Get an updated copy of the repo so that we can update the tags
         repo = self.get_repo().repo_obj
-        _logger.debug('updating tags for repo {repo_id}'.format(repo_id=repo.repo_id))
-        if self.parent.tags:
-            new_tags = tags.generate_updated_tags(repo.scratchpad, self.parent.tags)
+        _logger.debug('updating v1 tags for repo {repo_id}'.format(repo_id=repo.repo_id))
+        if self.parent.v1_tags:
+            new_tags = tags.generate_updated_tags(repo.scratchpad, self.parent.v1_tags)
             platform_models.Repository.objects(repo_id=repo.repo_id).\
                 update_one(set__scratchpad__tags=new_tags)

@@ -21,3 +21,4 @@ DKR1006 = Error("DKR1006", _(
     ['field', 'value'])
 DKR1007 = Error("DKR1007", _("Could not fetch repository %(repo)s from registry %(registry)s"),
                 ['repo', 'registry'])
+DKR1008 = Error("DKR1008", _("Could not find registry API at %(registry)s"), ['registry'])

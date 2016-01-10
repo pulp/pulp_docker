@@ -45,6 +45,11 @@ OPTION_REMOVE_TAG = PulpCliOption('--remove-tag', d, required=False, allow_multi
 d = _('name of the upstream repository')
 OPT_UPSTREAM_NAME = PulpCliOption('--upstream-name', d, required=False)
 
+d = _('Enable sync of v1 API. defaults to "true"')
+OPT_ENABLE_V1 = PulpCliOption('--enable-v1', d, required=False,
+                              parse_func=okaara_parsers.parse_boolean)
+
+
 DESC_FEED = _('URL for the upstream docker index, not including repo name')
 
 
@@ -60,6 +65,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
         self.add_option(OPT_REDIRECT_URL)
         self.add_option(OPT_PROTECTED)
         self.add_option(OPT_REPO_REGISTRY_ID)
+        self.add_option(OPT_ENABLE_V1)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 
@@ -118,6 +124,9 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
         name = user_input.pop(OPT_UPSTREAM_NAME.keyword)
         if name is not None:
             config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
+        enable_v1 = user_input.pop(OPT_ENABLE_V1.keyword)
+        if enable_v1 is not None:
+            config[constants.CONFIG_KEY_ENABLE_V1] = enable_v1
 
         return config
 
@@ -134,6 +143,7 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
         self.add_option(OPT_REDIRECT_URL)
         self.add_option(OPT_PROTECTED)
         self.add_option(OPT_REPO_REGISTRY_ID)
+        self.add_option(OPT_ENABLE_V1)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 

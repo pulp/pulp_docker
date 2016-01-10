@@ -2,6 +2,7 @@
 This module contains the primary sync entry point for Docker v2 registries.
 """
 from gettext import gettext as _
+import errno
 import itertools
 import logging
 import os
@@ -9,10 +10,11 @@ import os
 from pulp.common.plugins import importer_constants
 from pulp.plugins.util import nectar_config, publish_step
 from pulp.server.controllers import repository
-from pulp.server.exceptions import MissingValue
+from pulp.server.exceptions import MissingValue, PulpCodedException
 
-from pulp_docker.common import constants
+from pulp_docker.common import constants, error_codes
 from pulp_docker.plugins import models, registry
+from pulp_docker.plugins.importers import v1_sync
 
 
 _logger = logging.getLogger(__name__)
@@ -53,13 +55,43 @@ class SyncStep(publish_step.PluginStep):
         self.available_manifests = []
         self.available_blobs = []
 
+        # Unit keys, populated by v1_sync.GetMetadataStep
+        self.v1_available_units = []
+        # populated by v1_sync.GetMetadataStep
+        self.v1_tags = {}
+
         # Create a Repository object to interact with.
         self.index_repository = registry.V2Repository(
             upstream_name, download_config, url, self.get_working_dir())
-        # We'll attempt to use a V2Repository's API version check call to find out if it is a V2
-        # registry. This will raise a NotImplementedError if url is not determined to be a Docker v2
-        # registry.
-        self.index_repository.api_version_check()
+        self.v1_index_repository = registry.V1Repository(upstream_name, download_config, url,
+                                                         self.get_working_dir())
+
+        # determine which API versions are supported and add corresponding steps
+        v2_found = self.index_repository.api_version_check()
+        v1_enabled = config.get(constants.CONFIG_KEY_ENABLE_V1, default=True)
+        if not v1_enabled:
+            _logger.debug(_('v1 API skipped due to config'))
+        v1_found = v1_enabled and self.v1_index_repository.api_version_check()
+        if v2_found:
+            _logger.debug(_('v2 API found'))
+            self.add_v2_steps(repo, conduit, config)
+        if v1_found:
+            _logger.debug(_('v1 API found'))
+            self.add_v1_steps(repo, config)
+        if not any((v1_found, v2_found)):
+            raise PulpCodedException(error_code=error_codes.DKR1008, registry=url)
+
+    def add_v2_steps(self, repo, conduit, config):
+        """
+        Add v2 sync steps.
+
+        :param repo:        repository to sync
+        :type  repo:        pulp.plugins.model.Repository
+        :param conduit:     sync conduit to use
+        :type  conduit:     pulp.plugins.conduits.repo_sync.RepoSyncConduit
+        :param config:      config object for the sync
+        :type  config:      pulp.plugins.config.PluginCallConfiguration
+        """
         self.add_child(DownloadManifestsStep(repo=repo, conduit=conduit, config=config))
         # save these steps so their "units_to_download" attributes can be accessed later. We want
         # them to be separate steps because we have already downloaded all the Manifests but should
@@ -77,6 +109,26 @@ class SyncStep(publish_step.PluginStep):
                 repo=self.repo, config=self.config, description=_('Downloading remote files')))
         self.add_child(SaveUnitsStep())
 
+    def add_v1_steps(self, repo, config):
+        """
+        Add v1 sync steps.
+
+        :param repo:        repository to sync
+        :type  repo:        pulp.plugins.model.Repository
+        :param config:      config object for the sync
+        :type  config:      pulp.plugins.config.PluginCallConfiguration
+        """
+        self.add_child(v1_sync.GetMetadataStep())
+        # save this step so its "units_to_download" attribute can be accessed later
+        self.v1_step_get_local_units = publish_step.GetLocalUnitsStep(
+            constants.IMPORTER_TYPE_ID, available_units=self.v1_available_units)
+        self.v1_step_get_local_units.step_id = constants.SYNC_STEP_GET_LOCAL_V1
+        self.add_child(self.v1_step_get_local_units)
+        self.add_child(publish_step.DownloadStep(
+            constants.SYNC_STEP_DOWNLOAD_V1, downloads=self.v1_generate_download_requests(),
+            repo=repo, config=config, description=_('Downloading remote files')))
+        self.add_child(v1_sync.SaveImages())
+
     def generate_download_requests(self):
         """
         a generator that yields DownloadRequest objects based on which units
@@ -88,6 +140,34 @@ class SyncStep(publish_step.PluginStep):
         """
         for unit in self.step_get_local_blobs.units_to_download:
             yield self.index_repository.create_blob_download_request(unit.digest)
+
+    def v1_generate_download_requests(self):
+        """
+        a generator that yields DownloadRequest objects based on which units
+        were determined to be needed. This looks at the GetLocalUnits step's
+        output, which includes a list of units that need their files downloaded.
+
+        :return:    generator of DownloadRequest instances
+        :rtype:     types.GeneratorType
+        """
+        for unit in self.v1_step_get_local_units.units_to_download:
+            destination_dir = os.path.join(self.get_working_dir(), unit.image_id)
+            try:
+                os.makedirs(destination_dir, mode=0755)
+            except OSError, e:
+                # it's ok if the directory exists
+                if e.errno != errno.EEXIST:
+                    raise
+            # we already retrieved the ancestry files for the tagged images, so
+            # some of these will already exist
+            if not os.path.exists(os.path.join(destination_dir, 'ancestry')):
+                yield self.v1_index_repository.create_download_request(unit.image_id, 'ancestry',
+                                                                       destination_dir)
+
+            yield self.v1_index_repository.create_download_request(unit.image_id, 'json',
+                                                                   destination_dir)
+            yield self.v1_index_repository.create_download_request(unit.image_id, 'layer',
+                                                                   destination_dir)
 
     @classmethod
     def _validate(cls, config):
@@ -131,7 +211,11 @@ class DownloadManifestsStep(publish_step.PluginStep):
         super(DownloadManifestsStep, self).process_main()
         _logger.debug(self.description)
 
-        available_tags = self.parent.index_repository.get_tags()
+        try:
+            available_tags = self.parent.index_repository.get_tags()
+        except IOError:
+            _logger.info(_('Could not get tags through v2 API'))
+            return
         # This will be a set of Blob digests. The set is used because they can be repeated and we
         # only want to download each layer once.
         available_blobs = set()
