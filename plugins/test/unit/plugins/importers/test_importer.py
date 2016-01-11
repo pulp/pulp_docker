@@ -42,7 +42,6 @@ class TestBasics(unittest.TestCase):
         self.assertTrue(len(metadata['display_name']) > 0)
 
 
-@mock.patch('pulp_docker.plugins.importers.importer.v1_sync.SyncStep')
 @mock.patch('tempfile.mkdtemp', spec_set=True)
 @mock.patch('shutil.rmtree')
 class TestSyncRepo(unittest.TestCase):
@@ -54,39 +53,26 @@ class TestSyncRepo(unittest.TestCase):
         self.config = mock.MagicMock()
         self.importer = DockerImporter()
 
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
     @mock.patch('pulp.plugins.util.publish_step.common_utils.get_working_directory',
                 mock.MagicMock(return_value='/a/b/c'))
-    def test_calls_sync_step(self, mock_rmtree, mock_mkdtemp, v1_sync_step):
+    def test_calls_sync_step(self, mock_sync_step, mock_rmtree, mock_mkdtemp):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
-        v1_sync_step.assert_called_once_with(
+        mock_sync_step.assert_called_once_with(
             repo=self.repo, conduit=self.sync_conduit,
             config=self.config)
 
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
     @mock.patch('pulp.plugins.util.publish_step.common_utils.get_working_directory',
                 mock.MagicMock(return_value='/a/b/c'))
-    def test_calls_sync(self, mock_rmtree, mock_mkdtemp, v1_sync_step):
+    def test_calls_sync(self, mock_sync_step, mock_rmtree, mock_mkdtemp):
         """
         Assert that the sync_repo() method calls sync() on the SyncStep.
         """
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 
-        v1_sync_step.return_value.process_lifecycle.assert_called_once_with()
-
-    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep')
-    def test_fall_back_to_v1(self, sync_step, mock_rmtree, mock_mkdtemp, v1_sync_step):
-        """
-        Ensure that the sync_repo() method falls back to Docker v1 if Docker v2 isn't available.
-        """
-        # Simulate the v2 API being unavailable
-        sync_step.side_effect = NotImplementedError()
-
-        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
-
-        v1_sync_step.assert_called_once_with(
-            repo=self.repo, conduit=self.sync_conduit,
-            config=self.config)
-        v1_sync_step.return_value.process_lifecycle.assert_called_once_with()
+        mock_sync_step.return_value.process_lifecycle.assert_called_once_with()
 
 
 class TestCancel(unittest.TestCase):

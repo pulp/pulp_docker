@@ -1,20 +1,24 @@
 """
 This module contains tests for the pulp_docker.plugins.importers.sync module.
 """
+import inspect
 import os
 import shutil
 import tempfile
-import unittest
 from gettext import gettext as _
 
 import mock
+from nectar.request import DownloadRequest
 from pulp.common.plugins import importer_constants
+from pulp.common.compat import unittest
 from pulp.plugins import config as plugin_config
+from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.util import publish_step
 from pulp.server import exceptions
+from pulp.server.exceptions import MissingValue, PulpCodedException
 from pulp.server.managers import factory
 
-from pulp_docker.common import constants
+from pulp_docker.common import constants, error_codes
 from pulp_docker.plugins import models, registry
 from pulp_docker.plugins.importers import sync
 
@@ -44,6 +48,22 @@ class TestDownloadManifestsStep(unittest.TestCase):
         __init__.assert_called_once_with(
             step, step_type=constants.SYNC_STEP_METADATA, repo=repo, conduit=conduit, config=config,
             plugin_type=constants.IMPORTER_TYPE_ID)
+
+    def test_cannot_get_tags(self):
+        """
+        Make sure the failure is graceful when v2 tags cannot be retrieved.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+
+        step = sync.DownloadManifestsStep(repo, conduit, config)
+        step.parent = mock.MagicMock()
+        step.parent.index_repository.get_tags.side_effect = IOError
+
+        step.process_main()
+
+        self.assertEqual(step.parent.available_blobs.extend.call_count, 0)
 
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
                 side_effect=models.Manifest.from_json)
@@ -304,14 +324,23 @@ class TestSyncStep(unittest.TestCase):
         Set up a temporary directory.
         """
         self.working_dir = tempfile.mkdtemp()
+        plugin_config = {
+            constants.CONFIG_KEY_UPSTREAM_NAME: 'pulp/crane',
+            importer_constants.KEY_FEED: 'http://pulpproject.org/',
+        }
+        self.config = PluginCallConfiguration({}, plugin_config)
+        self.repo = mock.MagicMock(repo_id='repo1')
+        self.conduit = mock.MagicMock()
 
     def tearDown(self):
         shutil.rmtree(self.working_dir)
 
     @mock.patch('pulp.server.managers.repo._common._working_directory_path')
     @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
-    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check')
-    def test___init___with_v2_registry(self, api_version_check, _validate, _working_directory_path):
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=True)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=False)
+    def test___init___with_v2_registry(self, v1_api_check, api_version_check, _validate,
+                                       _working_directory_path):
         """
         Test the __init__() method when the V2Repository does not raise a NotImplementedError with
         the api_version_check() method, indicating that the feed URL is a Docker v2 registry.
@@ -365,7 +394,39 @@ class TestSyncStep(unittest.TestCase):
 
     @mock.patch('pulp.server.managers.repo._common._working_directory_path')
     @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
-    def test___init___without_v2_registry(self, _validate, _working_directory_path):
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    def test_init_v1(self, mock_check_v1, mock_check_v2, mock_validate, _working_directory_path):
+        _working_directory_path.return_value = self.working_dir
+        # re-run this with the mock in place
+        step = sync.SyncStep(self.repo, self.conduit, self.config)
+
+        self.assertEqual(step.step_id, constants.SYNC_STEP_MAIN)
+
+        # make sure the children are present
+        step_ids = set([child.step_id for child in step.children])
+        self.assertTrue(constants.SYNC_STEP_METADATA_V1 in step_ids)
+        self.assertTrue(constants.SYNC_STEP_GET_LOCAL_V1 in step_ids)
+        self.assertTrue(constants.SYNC_STEP_DOWNLOAD_V1 in step_ids)
+        self.assertTrue(constants.SYNC_STEP_SAVE_V1 in step_ids)
+
+        # make sure it instantiated a Repository object
+        self.assertTrue(isinstance(step.v1_index_repository, registry.V1Repository))
+        self.assertEqual(step.v1_index_repository.name, 'pulp/crane')
+        self.assertEqual(step.v1_index_repository.registry_url, 'http://pulpproject.org/')
+
+        # these are important because child steps will populate them with data
+        self.assertEqual(step.v1_available_units, [])
+        self.assertEqual(step.v1_tags, {})
+
+        mock_validate.assert_called_once_with(self.config)
+
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    def test___init___without_v2_registry(self, mock_v2_check, mock_v1_check,
+                                          _validate, _working_directory_path):
         """
         Test the __init__() method when the V2Repository raises a NotImplementedError with the
         api_version_check() method, indicating that the feed URL is not a Docker v2 registry.
@@ -373,16 +434,36 @@ class TestSyncStep(unittest.TestCase):
         _working_directory_path.return_value = self.working_dir
         repo = mock.MagicMock()
         conduit = mock.MagicMock()
-        # This feed does not implement a registry, so it will raise the NotImplementedError
-        config = plugin_config.PluginCallConfiguration(
-            {},
-            {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
-             importer_constants.KEY_MAX_DOWNLOADS: 25})
 
-        self.assertRaises(NotImplementedError, sync.SyncStep, repo, conduit, config)
+        with self.assertRaises(PulpCodedException) as error:
+            sync.SyncStep(repo, conduit, self.config)
+        self.assertEqual(error.exception.error_code, error_codes.DKR1008)
 
         # The config should get validated
-        _validate.assert_called_once_with(config)
+        _validate.assert_called_once_with(self.config)
+
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    def test___init___v1_not_enabled(self, mock_v2_check, mock_v1_check,
+                                     _validate, _working_directory_path):
+        """
+        Test the __init__() method when the V2Repository raises a NotImplementedError with the
+        api_version_check() method, indicating that the feed URL is not a Docker v2 registry.
+        """
+        _working_directory_path.return_value = self.working_dir
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = False
+
+        with self.assertRaises(PulpCodedException) as error:
+            sync.SyncStep(repo, conduit, self.config)
+        self.assertEqual(error.exception.error_code, error_codes.DKR1008)
+        self.assertEqual(mock_v1_check.call_count, 0)
+
+        # The config should get validated
+        _validate.assert_called_once_with(self.config)
 
     @mock.patch('pulp.server.managers.repo._common._working_directory_path')
     @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', mock.MagicMock())
@@ -414,12 +495,179 @@ class TestSyncStep(unittest.TestCase):
         self.assertEqual(requests[1].data, None)
         self.assertEqual(requests[1].headers, None)
 
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def test_v1_generate_download_requests(self, mock_working_dir, mock_v1_check, mock_v2_check):
+        mock_working_dir.return_value = tempfile.mkdtemp()
+        step = sync.SyncStep(self.repo, self.conduit, self.config)
+        step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+
+        try:
+            generator = step.v1_generate_download_requests()
+            self.assertTrue(inspect.isgenerator(generator))
+
+            download_reqs = list(generator)
+
+            self.assertEqual(len(download_reqs), 3)
+            for req in download_reqs:
+                self.assertTrue(isinstance(req, DownloadRequest))
+        finally:
+            shutil.rmtree(step.working_dir)
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def test_generate_download_requests_correct_urls(self, mock_working_dir, mock_v1_check,
+                                                     mock_v2_check):
+        mock_working_dir.return_value = tempfile.mkdtemp()
+        step = sync.SyncStep(self.repo, self.conduit, self.config)
+        step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+
+        try:
+            generator = step.v1_generate_download_requests()
+
+            # make sure the urls are correct
+            urls = [req.url for req in generator]
+            self.assertTrue('http://pulpproject.org/v1/images/image1/ancestry' in urls)
+            self.assertTrue('http://pulpproject.org/v1/images/image1/json' in urls)
+            self.assertTrue('http://pulpproject.org/v1/images/image1/layer' in urls)
+        finally:
+            shutil.rmtree(step.working_dir)
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def test_generate_download_requests_correct_destinations(self, mock_working_dir,
+                                                             mock_v1_check, mock_v2_check):
+        mock_working_dir.return_value = tempfile.mkdtemp()
+        step = sync.SyncStep(self.repo, self.conduit, self.config)
+        step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+
+        try:
+            generator = step.v1_generate_download_requests()
+
+            # make sure the urls are correct
+            destinations = [req.destination for req in generator]
+            self.assertTrue(os.path.join(step.working_dir, 'image1', 'ancestry')
+                            in destinations)
+            self.assertTrue(os.path.join(step.working_dir, 'image1', 'json')
+                            in destinations)
+            self.assertTrue(os.path.join(step.working_dir, 'image1', 'layer')
+                            in destinations)
+        finally:
+            shutil.rmtree(step.working_dir)
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def test_generate_download_reqs_creates_dir(self, mock_working_dir, mock_v1_check,
+                                                mock_v2_check):
+        mock_working_dir.return_value = tempfile.mkdtemp()
+        step = sync.SyncStep(self.repo, self.conduit, self.config)
+        step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+
+        try:
+            list(step.v1_generate_download_requests())
+
+            # make sure it created the destination directory
+            self.assertTrue(os.path.isdir(os.path.join(step.working_dir, 'image1')))
+        finally:
+            shutil.rmtree(step.working_dir)
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def test_generate_download_reqs_existing_dir(self, mock_working_dir, mock_v1_check,
+                                                 mock_v2_check):
+        mock_working_dir.return_value = tempfile.mkdtemp()
+        step = sync.SyncStep(self.repo, self.conduit, self.config)
+        step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+        os.makedirs(os.path.join(step.working_dir, 'image1'))
+
+        try:
+            # just make sure this doesn't complain
+            list(step.v1_generate_download_requests())
+        finally:
+            shutil.rmtree(step.working_dir)
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def test_generate_download_reqs_perm_denied(self, mock_working_dir, mock_v1_check,
+                                                mock_v2_check):
+        mock_working_dir.return_value = tempfile.mkdtemp()
+        try:
+            step = sync.SyncStep(self.repo, self.conduit, self.config)
+            step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+            step.working_dir = '/not/allowed'
+
+            # make sure the permission denies OSError bubbles up
+            self.assertRaises(OSError, list, step.v1_generate_download_requests())
+        finally:
+            shutil.rmtree(mock_working_dir.return_value)
+
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    def test_generate_download_reqs_ancestry_exists(self, mock_working_dir, mock_v1_check,
+                                                    mock_v2_check):
+        mock_working_dir.return_value = tempfile.mkdtemp()
+        step = sync.SyncStep(self.repo, self.conduit, self.config)
+        step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
+        os.makedirs(os.path.join(step.working_dir, 'image1'))
+        # simulate the ancestry file already existing
+        open(os.path.join(step.working_dir, 'image1/ancestry'), 'w').close()
+
+        try:
+            # there should only be 2 reqs instead of 3, since the ancestry file already exists
+            reqs = list(step.v1_generate_download_requests())
+            self.assertEqual(len(reqs), 2)
+        finally:
+            shutil.rmtree(step.working_dir)
+
     def test_required_settings(self):
         """
         Assert that the required_settings class attribute is set correctly.
         """
         self.assertEqual(sync.SyncStep.required_settings,
                          (constants.CONFIG_KEY_UPSTREAM_NAME, importer_constants.KEY_FEED))
+
+    def test_validate_pass(self):
+        sync.SyncStep._validate(self.config)
+
+    def test_validate_no_name_or_feed(self):
+        config = PluginCallConfiguration({}, {})
+
+        try:
+            sync.SyncStep._validate(config)
+        except MissingValue as e:
+            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
+            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
+        else:
+            raise AssertionError('validation should have failed')
+
+    def test_validate_no_name(self):
+        config = PluginCallConfiguration({}, {importer_constants.KEY_FEED: 'http://foo'})
+
+        try:
+            sync.SyncStep._validate(config)
+        except MissingValue, e:
+            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
+            self.assertEqual(len(e.property_names), 1)
+        else:
+            raise AssertionError('validation should have failed')
+
+    def test_validate_no_feed(self):
+        config = PluginCallConfiguration({}, {constants.CONFIG_KEY_UPSTREAM_NAME: 'centos'})
+
+        try:
+            sync.SyncStep._validate(config)
+        except MissingValue, e:
+            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
+            self.assertEqual(len(e.property_names), 1)
+        else:
+            raise AssertionError('validation should have failed')
 
     def test__validate_missing_one_key(self):
         """

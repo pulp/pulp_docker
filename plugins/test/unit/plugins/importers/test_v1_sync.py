@@ -1,4 +1,3 @@
-import inspect
 import json
 import os
 import shutil
@@ -6,195 +5,16 @@ import tempfile
 import unittest
 
 import mock
-from nectar.request import DownloadRequest
-from pulp.common.plugins import importer_constants, reporting_constants
+from pulp.common.plugins import importer_constants
 from pulp.plugins.config import PluginCallConfiguration
 from pulp.plugins.model import Repository as RepositoryModel, Unit
-from pulp.server.exceptions import MissingValue
 from pulp.server.managers import factory
 
 from pulp_docker.common import constants
-from pulp_docker.plugins import models, registry
 from pulp_docker.plugins.importers import v1_sync
 
 
 factory.initialize()
-
-
-@mock.patch('pulp.server.managers.repo._common._working_directory_path')
-class TestSyncStep(unittest.TestCase):
-    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
-    def setUp(self, _working_directory_path):
-        super(TestSyncStep, self).setUp()
-
-        self.working_dir = tempfile.mkdtemp()
-        _working_directory_path.return_value = self.working_dir
-        self.repo = RepositoryModel('repo1')
-        self.conduit = mock.MagicMock()
-        plugin_config = {
-            constants.CONFIG_KEY_UPSTREAM_NAME: 'pulp/crane',
-            importer_constants.KEY_FEED: 'http://pulpproject.org/',
-        }
-        self.config = PluginCallConfiguration({}, plugin_config)
-        self.step = v1_sync.SyncStep(self.repo, self.conduit, self.config)
-
-    def tearDown(self):
-        shutil.rmtree(self.working_dir)
-
-    @mock.patch.object(v1_sync.SyncStep, 'validate')
-    def test_init(self, mock_validate, _working_directory_path):
-        _working_directory_path.return_value = self.working_dir
-        # re-run this with the mock in place
-        self.step = v1_sync.SyncStep(self.repo, self.conduit, self.config)
-
-        self.assertEqual(self.step.step_id, constants.SYNC_STEP_MAIN)
-
-        # make sure the children are present
-        step_ids = set([child.step_id for child in self.step.children])
-        self.assertTrue(constants.SYNC_STEP_METADATA in step_ids)
-        self.assertTrue(reporting_constants.SYNC_STEP_GET_LOCAL in step_ids)
-        self.assertTrue(constants.SYNC_STEP_DOWNLOAD in step_ids)
-        self.assertTrue(constants.SYNC_STEP_SAVE in step_ids)
-
-        # make sure it instantiated a Repository object
-        self.assertTrue(isinstance(self.step.index_repository, registry.V1Repository))
-        self.assertEqual(self.step.index_repository.name, 'pulp/crane')
-        self.assertEqual(self.step.index_repository.registry_url, 'http://pulpproject.org/')
-
-        # these are important because child steps will populate them with data
-        self.assertEqual(self.step.available_units, [])
-        self.assertEqual(self.step.tags, {})
-
-        mock_validate.assert_called_once_with(self.config)
-
-    def test_validate_pass(self, _working_directory_path):
-        self.step.validate(self.config)
-
-    def test_validate_no_name_or_feed(self, _working_directory_path):
-        config = PluginCallConfiguration({}, {})
-
-        try:
-            self.step.validate(config)
-        except MissingValue, e:
-            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
-            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
-        else:
-            raise AssertionError('validation should have failed')
-
-    def test_validate_no_name(self, _working_directory_path):
-        config = PluginCallConfiguration({}, {importer_constants.KEY_FEED: 'http://foo'})
-
-        try:
-            self.step.validate(config)
-        except MissingValue, e:
-            self.assertTrue(constants.CONFIG_KEY_UPSTREAM_NAME in e.property_names)
-            self.assertEqual(len(e.property_names), 1)
-        else:
-            raise AssertionError('validation should have failed')
-
-    def test_validate_no_feed(self, _working_directory_path):
-        config = PluginCallConfiguration({}, {constants.CONFIG_KEY_UPSTREAM_NAME: 'centos'})
-
-        try:
-            self.step.validate(config)
-        except MissingValue, e:
-            self.assertTrue(importer_constants.KEY_FEED in e.property_names)
-            self.assertEqual(len(e.property_names), 1)
-        else:
-            raise AssertionError('validation should have failed')
-
-    def test_generate_download_requests(self, _working_directory_path):
-        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            generator = self.step.generate_download_requests()
-            self.assertTrue(inspect.isgenerator(generator))
-
-            download_reqs = list(generator)
-
-            self.assertEqual(len(download_reqs), 3)
-            for req in download_reqs:
-                self.assertTrue(isinstance(req, DownloadRequest))
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_requests_correct_urls(self, _working_directory_path):
-        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            generator = self.step.generate_download_requests()
-
-            # make sure the urls are correct
-            urls = [req.url for req in generator]
-            self.assertTrue('http://pulpproject.org/v1/images/image1/ancestry' in urls)
-            self.assertTrue('http://pulpproject.org/v1/images/image1/json' in urls)
-            self.assertTrue('http://pulpproject.org/v1/images/image1/layer' in urls)
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_requests_correct_destinations(self, _working_directory_path):
-        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            generator = self.step.generate_download_requests()
-
-            # make sure the urls are correct
-            destinations = [req.destination for req in generator]
-            self.assertTrue(os.path.join(self.step.working_dir, 'image1', 'ancestry')
-                            in destinations)
-            self.assertTrue(os.path.join(self.step.working_dir, 'image1', 'json')
-                            in destinations)
-            self.assertTrue(os.path.join(self.step.working_dir, 'image1', 'layer')
-                            in destinations)
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_reqs_creates_dir(self, _working_directory_path):
-        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
-        self.step.working_dir = tempfile.mkdtemp()
-
-        try:
-            list(self.step.generate_download_requests())
-
-            # make sure it created the destination directory
-            self.assertTrue(os.path.isdir(os.path.join(self.step.working_dir, 'image1')))
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_reqs_existing_dir(self, _working_directory_path):
-        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
-        self.step.working_dir = tempfile.mkdtemp()
-        os.makedirs(os.path.join(self.step.working_dir, 'image1'))
-
-        try:
-            # just make sure this doesn't complain
-            list(self.step.generate_download_requests())
-        finally:
-            shutil.rmtree(self.step.working_dir)
-
-    def test_generate_download_reqs_perm_denied(self, _working_directory_path):
-        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
-        self.step.working_dir = '/not/allowed'
-
-        # make sure the permission denies OSError bubbles up
-        self.assertRaises(OSError, list, self.step.generate_download_requests())
-
-    def test_generate_download_reqs_ancestry_exists(self, _working_directory_path):
-        self.step.step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
-        self.step.working_dir = tempfile.mkdtemp()
-        os.makedirs(os.path.join(self.step.working_dir, 'image1'))
-        # simulate the ancestry file already existing
-        open(os.path.join(self.step.working_dir, 'image1/ancestry'), 'w').close()
-
-        try:
-            # there should only be 2 reqs instead of 3, since the ancestry file already exists
-            reqs = list(self.step.generate_download_requests())
-            self.assertEqual(len(reqs), 2)
-        finally:
-            shutil.rmtree(self.step.working_dir)
 
 
 class TestGetMetadataStep(unittest.TestCase):
@@ -213,7 +33,7 @@ class TestGetMetadataStep(unittest.TestCase):
                                             config=self.config)
         self.step.working_dir = self.working_dir
         self.step.parent = mock.MagicMock()
-        self.index = self.step.parent.index_repository
+        self.index = self.step.parent.v1_index_repository
 
     def tearDown(self):
         super(TestGetMetadataStep, self).tearDown()
@@ -224,7 +44,7 @@ class TestGetMetadataStep(unittest.TestCase):
             'latest': 'abc1'
         }
         self.index.get_image_ids.return_value = ['abc123']
-        self.step.parent.tags = {}
+        self.step.parent.v1_tags = {}
         # make the ancestry file and put it in the expected place
         os.makedirs(os.path.join(self.working_dir, 'abc123'))
         with open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w') as ancestry:
@@ -232,14 +52,15 @@ class TestGetMetadataStep(unittest.TestCase):
 
         self.step.process_main()
 
-        self.assertEqual(self.step.parent.tags, {'latest': 'abc123'})
+        self.assertEqual(self.step.parent.v1_tags, {'latest': 'abc123'})
 
     def test_updates_available_units(self):
         self.index.get_tags.return_value = {
             'latest': 'abc1'
         }
         self.index.get_image_ids.return_value = ['abc123']
-        self.step.parent.tags = {}
+        self.step.parent.v1_tags = {}
+        self.step.parent.v1_available_units = []
         # make the ancestry file and put it in the expected place
         os.makedirs(os.path.join(self.working_dir, 'abc123'))
         with open(os.path.join(self.working_dir, 'abc123/ancestry'), 'w') as ancestry:
@@ -247,7 +68,7 @@ class TestGetMetadataStep(unittest.TestCase):
 
         self.step.process_main()
 
-        available_ids = [unit_key['image_id'] for unit_key in self.step.parent.available_units]
+        available_ids = [image.image_id for image in self.step.parent.v1_available_units]
         self.assertTrue('abc123' in available_ids)
         self.assertTrue('xyz789' in available_ids)
 
