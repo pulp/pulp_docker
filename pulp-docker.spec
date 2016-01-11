@@ -60,9 +60,6 @@ cp -R plugins/etc/httpd %{buildroot}/%{_sysconfdir}
 
 mkdir -p %{buildroot}/%{_bindir}
 
-# Remove tests
-rm -rf %{buildroot}/%{python_sitelib}/test
-
 %clean
 rm -rf %{buildroot}
 
