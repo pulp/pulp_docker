@@ -137,6 +137,116 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Mon Jan 11 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.1.beta
+- Bumping version to 2.0.0-0.1.beta (dkliban@redhat.com)
+- Add a formal Tag Unit model to track repository tags. (rbarlow@redhat.com)
+- Can sync v1 and v2 APIs together, and optionally disable v1 sync
+  (mhrivnak@redhat.com)
+- passing new-style Repo object to controllers & saving before import_content
+  (mhrivnak@redhat.com)
+- ref #1422 - compatibility with lazy changes. (jortel@redhat.com)
+- Merge branch '863' (rbarlow@redhat.com)
+- Convert the plugin to use mongoengine models. (rbarlow@redhat.com)
+- Convert shebang to python2 (ipanova@redhat.com)
+- Merge branch '1.1-dev' (dkliban@redhat.com)
+- Merge branch '1.0-dev' into 1.1-dev (dkliban@redhat.com)
+- Adds fc23 to dist_list.txt config and removes fc21. (dkliban@redhat.com)
+- Removing a Docker repository can cause a TypeError. (ipanova@redhat.com)
+- Merge branch 'fix_pr_comments' (rbarlow@redhat.com)
+- Merge branch 'use_devel_flake8' (rbarlow@redhat.com)
+- Fix a few style issues mentioned in review comments. (rbarlow@redhat.com)
+- Use flake8 from the pulp.devel test runner. (rbarlow@redhat.com)
+- Merge branch 'docker_v2_api' into merge_v2_upstream (rbarlow@redhat.com)
+- Require mock<1.1 for test compatibility. (rbarlow@redhat.com)
+- Depend on Pulp 2.8 in the spec file, since we use features only present in
+  2.8. (rbarlow@redhat.com)
+- Repair some unit tests that fail against Pulp master. (rbarlow@redhat.com)
+- Revert "Update pulp_docker to use mongoengine based units"
+  (rbarlow@redhat.com)
+- Merge branch '1331' into docker_v2_api (rbarlow@redhat.com)
+- Merge branch '1316' into docker_v2_api (rbarlow@redhat.com)
+- Add the ability for users to be able to sync from other Pulp servers.
+  (rbarlow@redhat.com)
+- Fix repo deletion. (rbarlow@redhat.com)
+- Merge branch '1.0-dev' into 1.1-dev (ipanova@redhat.com)
+- Removing shutil.move and copytree where /var/cache/pulp is involved.
+  (ipanova@redhat.com)
+- Merge pull request #96 from midnightercz/docker_v2_api (rbarlow@redhat.com)
+- Merge pull request #93 from rbarlow/1256 (rbarlow@redhat.com)
+- Merge pull request #92 from rbarlow/1241 (rbarlow@redhat.com)
+- - typo fix (jluza@redhat.com)
+- Reconfigure the httpd vhost to better suit the Docker client.
+  (rbarlow@redhat.com)
+- Form the redirect URL using the Docker API version. (rbarlow@redhat.com)
+- Have each step use its own space inside the working_dir. (rbarlow@redhat.com)
+- Merge branch '1049' into docker_v2_api (rbarlow@redhat.com)
+- Merge branch '1217' into docker_v2_api (rbarlow@redhat.com)
+- Merge branch 'adjust_api_endpoints' into docker_v2_api (rbarlow@redhat.com)
+- Rework the "app" file for Docker v2. (rbarlow@redhat.com)
+- Serve Docker v2 at /pulp/docker/v2 instead of /v2. (rbarlow@redhat.com)
+- Add a migration for users to move to pulp-docker-2 (rbarlow@redhat.com)
+- ref #1219 - repo sections arranged consistent with other plugins.
+  (jortel@redhat.com)
+- ref #1203 - support manifest search, copy and remove. (jortel@redhat.com)
+- Add support for publishing Docker v2 content. (rbarlow@redhat.com)
+- Merge pull request #79 from barnabycourt/bump-version (bcourt@redhat.com)
+- Merge branch '1.2-release-notes' (bcourt@redhat.com)
+- Merge branch '1.1-dev' (bcourt@redhat.com)
+- Create a new Blob model. (rbarlow@redhat.com)
+- Add support to sync with Docker v2 repositories. (rbarlow@redhat.com)
+- compat with platform db model. (jortel@redhat.com)
+- Update to version 1.2.x (bcourt@redhat.com)
+- Add 1.2.x release notes (bcourt@redhat.com)
+- Add 1.1.x release notes (bcourt@redhat.com)
+- Update pulp_docker to use mongoengine based units (bcourt@redhat.com)
+- Merge branch 'docker_v2_api' (rbarlow@redhat.com)
+- Merge branch '967' into docker_v2_api (rbarlow@redhat.com)
+- Add a unit for the new Docker metadata type. (rbarlow@redhat.com)
+- Merge pull request #78 from asmacdo/use-mongoengine-repo (asmacdo@gmail.com)
+- Merge branch '1.0-dev' (dkliban@redhat.com)
+- Merge branch '1.0-testing' into 1.0-dev (dkliban@redhat.com)
+- Removed fc20 from dist_list.txt (dkliban@redhat.com)
+- Merge branch '1.0-dev' (dkliban@redhat.com)
+- Merge branch '1.0-testing' into 1.0-dev (dkliban@redhat.com)
+- Merge branch '1.0-release' into 1.0-testing (dkliban@redhat.com)
+- Merge pull request #74 from dkliban/add_f22_build (dkliban@redhat.com)
+- Added Fedora 22 to dist list (dkliban@redhat.com)
+- Automatic commit of package [pulp-docker] release [1.0.2-0.2.beta]. (pulp-
+  infra@redhat.com)
+- Bumping version to 1.0.3 alpha (dkliban@redhat.com)
+- Bumping version for 1.0.2 beta release (dkliban@redhat.com)
+- Automatic commit of package [pulp-docker] release [1.0.2-0.1.alpha]. (pulp-
+  infra@redhat.com)
+- convert to stop using managers that no longer exist (asmacdo@gmail.com)
+- Merge branch '1.0-dev' (ipanova@redhat.com)
+- Merge branch 'issue966' into 1.0-dev (ipanova@redhat.com)
+- Automatic commit of package [pulp-docker] release [1.0.1-1]. (pulp-
+  infra@redhat.com)
+- Merge branch '1.0-dev' (dkliban@redhat.com)
+- Merge branch '1.0-testing' into 1.0-dev (dkliban@redhat.com)
+- Merge pull request #72 from dkliban/1.0-testing (dkliban@redhat.com)
+- Added release notes (dkliban@redhat.com)
+- Bumping version for GA release (dkliban@redhat.com)
+- Fixing discrepancy "canceled" vs. "cancelled (ipanova@redhat.com)
+- Automatic commit of package [pulp-docker] release [1.0.1-0.3.rc]. (pulp-
+  infra@redhat.com)
+- Bumping version for RC (dkliban@redhat.com)
+- Add nosexcover to test_requirements.txt. (rbarlow@redhat.com)
+- Automatic commit of package [pulp-docker] release [1.0.1-0.2.beta]. (pulp-
+  infra@redhat.com)
+- Bumping version (dkliban@redhat.com)
+- Add a test_requirement.txt file. (rbarlow@redhat.com)
+- Merge branch '1.0-dev' (asmacdo@gmail.com)
+- Correct the repo-registry-id validation error (asmacdo@gmail.com)
+- Merge branch 'syncbug' (mhrivnak@redhat.com)
+- The API for fetching tags from a remote registry or index changed. This uses
+  the new API. (mhrivnak@redhat.com)
+- Failure to sync no longer logs tracebacks, also reports a more helpful
+  message. (mhrivnak@redhat.com)
+- bumping version to 1.1.0 (mhrivnak@redhat.com)
+- Merge branch '1.0-dev' (asmacdo@gmail.com)
+- add repo-registry-id validation information to docs (asmacdo@gmail.com)
+
 * Thu Nov 19 2015 Randy Barlow <rbarlow@redhat.com> 2.0.0-1
 - Remove the types file
 
