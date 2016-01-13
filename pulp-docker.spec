@@ -3,7 +3,7 @@
 
 Name: pulp-docker
 Version: 2.0.0
-Release: 0.1.beta%{?dist}
+Release: 0.2.beta%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
 License: GPLv2
