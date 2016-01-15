@@ -236,13 +236,11 @@ class TestSaveUnitsStep(unittest.TestCase):
         units = list(step.get_iterator())
 
         for unit in units:
-            unit.import_content = mock.MagicMock()
-            unit.save = mock.MagicMock()
+            unit.save_and_import_content = mock.MagicMock()
 
             step.process_main(item=unit)
-
-            unit.import_content.assert_called_once_with(os.path.join('/some/path', unit.digest))
-            unit.save.assert_called_once_with()
+            path = os.path.join('/some/path', unit.digest)
+            unit.save_and_import_content.assert_called_once_with(path)
             self.assertEqual(associate_single_unit.mock_calls[-1][1][0],
                              step.parent.get_repo.return_value.repo_obj)
             self.assertEqual(associate_single_unit.mock_calls[-1][1][1], unit)
@@ -272,13 +270,11 @@ class TestSaveUnitsStep(unittest.TestCase):
         units = list(step.get_iterator())
 
         for unit in units:
-            unit.import_content = mock.MagicMock()
-            unit.save = mock.MagicMock()
+            unit.save_and_import_content = mock.MagicMock()
 
             step.process_main(item=unit)
-
-            unit.import_content.assert_called_once_with(os.path.join(working_dir, unit.digest))
-            unit.save.assert_called_once_with()
+            path = os.path.join(working_dir, unit.digest)
+            unit.save_and_import_content.assert_called_once_with(path)
             self.assertEqual(associate_single_unit.mock_calls[-1][1][0],
                              step.parent.get_repo.return_value.repo_obj)
             self.assertEqual(associate_single_unit.mock_calls[-1][1][1], unit)
@@ -303,13 +299,12 @@ class TestSaveUnitsStep(unittest.TestCase):
         units = list(step.get_iterator())
 
         for unit in units:
-            unit.import_content = mock.MagicMock()
-            unit.save = mock.MagicMock()
+            unit.save_and_import_content = mock.MagicMock()
 
             step.process_main(item=unit)
 
-            unit.import_content.assert_called_once_with(os.path.join(working_dir, unit.digest))
-            unit.save.assert_called_once_with()
+            path = os.path.join(working_dir, unit.digest)
+            unit.save_and_import_content.assert_called_once_with(path)
             self.assertEqual(associate_single_unit.mock_calls[-1][1][0],
                              step.parent.get_repo.return_value)
             self.assertEqual(associate_single_unit.mock_calls[-1][1][1], unit)

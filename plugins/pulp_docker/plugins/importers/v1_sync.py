@@ -150,7 +150,7 @@ class SaveImages(SaveUnitsStep):
         item.save()
         for name in os.listdir(tmp_dir):
             path = os.path.join(tmp_dir, name)
-            item.import_content(path, location=os.path.basename(path))
+            item.safe_import_content(path, location=os.path.basename(path))
 
         repo_controller.associate_single_unit(self.get_repo().repo_obj, item)
 
