@@ -269,9 +269,8 @@ class SaveUnitsStep(publish_step.SaveUnitsStep):
         :param item: The Unit to save in Pulp.
         :type  item: pulp.server.db.model.FileContentUnit
         """
-        item.save()
         item.set_storage_path(item.digest)
-        item.import_content(os.path.join(self.get_working_dir(), item.digest))
+        item.save_and_import_content(os.path.join(self.get_working_dir(), item.digest))
         repository.associate_single_unit(self.get_repo().repo_obj, item)
 
 
