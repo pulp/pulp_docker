@@ -372,7 +372,7 @@ class TestV2Repository(unittest.TestCase):
         r = registry.V2Repository(name, download_config, registry_url, working_dir)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
 
-        self.assertRaises(NotImplementedError, r.api_version_check)
+        self.assertEqual(r.api_version_check(), False)
 
     def test_api_version_check_ioerror(self):
         """
@@ -384,8 +384,8 @@ class TestV2Repository(unittest.TestCase):
         working_dir = '/a/working/dir'
         r = registry.V2Repository(name, download_config, registry_url, working_dir)
 
-        # The IOError will be raised since registry_url isn't a real registry
-        self.assertRaises(NotImplementedError, r.api_version_check)
+        # False will be returned since registry_url isn't a real registry
+        self.assertEqual(r.api_version_check(), False)
 
     def test_api_version_check_missing_header(self):
         """

@@ -92,7 +92,7 @@ class TestDownloadManifestsStep(unittest.TestCase):
     def test_process_main_with_repeated_layers(self, super_process_main, from_json):
         """
         Test process_main() when the various tags contains some layers in common, which is a
-        typical pattern. The available_units set on the SyncStep should only have the layers once
+        typical pattern. The available_units set on the V2SyncStep should only have the layers once
         each so that we don't try to download them more than once.
         """
         repo = mock.MagicMock()
@@ -472,11 +472,11 @@ class TestSaveUnitsStep(unittest.TestCase):
         self.assertEqual(step.parent.get_conduit.return_value.save_unit.call_count, 0)
 
 
-class TestSyncStep(unittest.TestCase):
+class TestV2SyncStep(unittest.TestCase):
     """
-    This class contains tests for the SyncStep class.
+    This class contains tests for the V2SyncStep class.
     """
-    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    @mock.patch('pulp_docker.plugins.importers.sync.V2SyncStep._validate')
     @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check')
     def test___init___with_v2_registry(self, api_version_check, _validate):
         """
@@ -491,7 +491,7 @@ class TestSyncStep(unittest.TestCase):
              importer_constants.KEY_MAX_DOWNLOADS: 25})
         working_dir = '/some/path'
 
-        step = sync.SyncStep(repo, conduit, config, working_dir)
+        step = sync.V2SyncStep(repo, conduit, config, working_dir)
 
         self.assertEqual(step.description, _('Syncing Docker Repository'))
         # The config should get validated
@@ -529,26 +529,6 @@ class TestSyncStep(unittest.TestCase):
         # And the final step
         self.assertEqual(step.children[3].working_dir, working_dir)
 
-    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
-    def test___init___without_v2_registry(self, _validate):
-        """
-        Test the __init__() method when the V2Repository raises a NotImplementedError with the
-        api_version_check() method, indicating that the feed URL is not a Docker v2 registry.
-        """
-        repo = mock.MagicMock()
-        conduit = mock.MagicMock()
-        # This feed does not implement a registry, so it will raise the NotImplementedError
-        config = plugin_config.PluginCallConfiguration(
-            {},
-            {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
-             importer_constants.KEY_MAX_DOWNLOADS: 25})
-        working_dir = '/some/path'
-
-        self.assertRaises(NotImplementedError, sync.SyncStep, repo, conduit, config, working_dir)
-
-        # The config should get validated
-        _validate.assert_called_once_with(config)
-
     @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', mock.MagicMock())
     def test_generate_download_requests(self):
         """
@@ -561,7 +541,7 @@ class TestSyncStep(unittest.TestCase):
             {'feed': 'https://registry.example.com', 'upstream_name': 'busybox',
              importer_constants.KEY_MAX_DOWNLOADS: 25})
         working_dir = '/some/path'
-        step = sync.SyncStep(repo, conduit, config, working_dir)
+        step = sync.V2SyncStep(repo, conduit, config, working_dir)
         step.step_get_local_units.units_to_download = [
             {'digest': i} for i in ['cool', 'stuff']]
 
@@ -582,7 +562,7 @@ class TestSyncStep(unittest.TestCase):
         """
         Assert that the required_settings class attribute is set correctly.
         """
-        self.assertEqual(sync.SyncStep.required_settings,
+        self.assertEqual(sync.V2SyncStep.required_settings,
                          (constants.CONFIG_KEY_UPSTREAM_NAME, importer_constants.KEY_FEED))
 
     @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', mock.MagicMock())
@@ -614,7 +594,7 @@ class TestSyncStep(unittest.TestCase):
             {}, {'upstream_name': 'busybox', importer_constants.KEY_MAX_DOWNLOADS: 25})
 
         try:
-            sync.SyncStep._validate(config)
+            sync.V2SyncStep._validate(config)
             self.fail('An Exception should have been raised, but was not!')
         except exceptions.MissingValue as e:
             self.assertEqual(e.property_names, ['feed'])
@@ -627,7 +607,7 @@ class TestSyncStep(unittest.TestCase):
             {}, {importer_constants.KEY_MAX_DOWNLOADS: 25})
 
         try:
-            sync.SyncStep._validate(config)
+            sync.V2SyncStep._validate(config)
             self.fail('An Exception should have been raised, but was not!')
         except exceptions.MissingValue as e:
             self.assertEqual(set(e.property_names), set(['upstream_name', 'feed']))
@@ -642,4 +622,4 @@ class TestSyncStep(unittest.TestCase):
              importer_constants.KEY_MAX_DOWNLOADS: 25})
 
         # This should not raise an Exception
-        sync.SyncStep._validate(config)
+        sync.V2SyncStep._validate(config)

@@ -25,6 +25,7 @@ class V1Repository(object):
     DOCKER_ENDPOINT_HEADER = 'x-docker-endpoints'
     IMAGES_PATH = '/v1/repositories/%s/images'
     TAGS_PATH = '/v1/repositories/%s/tags'
+    API_VERSION_CHECK_PATH = '/v1/_ping'
 
     def __init__(self, name, download_config, registry_url, working_dir):
         """
@@ -103,6 +104,23 @@ class V1Repository(object):
         # this tells us what host to use when accessing image files
         if self.DOCKER_ENDPOINT_HEADER in headers:
             self.endpoint = headers[self.DOCKER_ENDPOINT_HEADER]
+
+    def api_version_check(self):
+        """
+        Make a call to the registry URL's /v1/_ping API call to determine if the registry supports
+        API v1.
+
+        :return: True if the v1 API is found, else False
+        :rtype:  bool
+        """
+        _logger.debug('Determining if the registry URL can do v1 of the Docker API.')
+
+        try:
+            self._get_single_path(self.API_VERSION_CHECK_PATH)
+        except IOError:
+            return False
+
+        return True
 
     def add_auth_header(self, request):
         """
@@ -267,25 +285,29 @@ class V2Repository(object):
         """
         Make a call to the registry URL's /v2/ API call to determine if the registry supports API
         v2. If it does not, raise NotImplementedError. If it does, return.
+
+        :return: True if the v2 API is found, else False
+        :rtype:  bool
         """
         _logger.debug('Determining if the registry URL can do v2 of the Docker API.')
-        exception = NotImplementedError('%s is not a Docker v2 registry.' % self.registry_url)
 
         try:
             headers, body = self._get_path(self.API_VERSION_CHECK_PATH)
         except IOError:
-            raise exception
+            return False
 
         try:
             version = headers['Docker-Distribution-API-Version']
             if version != "registry/2.0":
-                raise exception
+                return False
             _logger.debug(_('The docker registry is using API version: %(v)s') % {'v': version})
         except KeyError:
             # If the Docker-Distribution-API-Version header isn't present, we will assume that this
             # is a valid Docker 2.0 API server so that simple file-based webservers can serve as our
             # remote feed.
             pass
+
+        return True
 
     def create_blob_download_request(self, digest, destination_dir):
         """

@@ -65,21 +65,6 @@ class TestSyncRepo(unittest.TestCase):
 
         mock_sync_step.return_value.sync.assert_called_once_with()
 
-    @mock.patch('pulp_docker.plugins.importers.v1_sync.SyncStep')
-    def test_fall_back_to_v1(self, v1_sync_step, mock_rmtree, mock_mkdtemp, mock_sync_step):
-        """
-        Ensure that the sync_repo() method falls back to Docker v1 if Docker v2 isn't available.
-        """
-        # Simulate the v2 API being unavailable
-        mock_sync_step.side_effect = NotImplementedError()
-
-        self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
-
-        v1_sync_step.assert_called_once_with(
-            repo=self.repo, conduit=self.sync_conduit, config=self.config,
-            working_dir=mock_mkdtemp.return_value)
-        v1_sync_step.return_value.sync.assert_called_once_with()
-
     def test_makes_temp_dir(self, mock_rmtree, mock_mkdtemp, mock_sync_step):
         self.importer.sync_repo(self.repo, self.sync_conduit, self.config)
 

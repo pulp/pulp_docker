@@ -10,7 +10,7 @@ import pulp.server.managers.factory as manager_factory
 
 from pulp_docker.common import constants, tarutils
 from pulp_docker.common.models import Image, Manifest, Blob
-from pulp_docker.plugins.importers import sync, upload, v1_sync
+from pulp_docker.plugins.importers import sync, upload
 
 
 _logger = logging.getLogger(__name__)
@@ -80,19 +80,9 @@ class DockerImporter(Importer):
         """
         working_dir = tempfile.mkdtemp(dir=repo.working_dir)
         try:
-            try:
-                # This will raise NotImplementedError if the config's feed_url is determined not to
-                # support the Docker v2 API.
-                self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
-                                               working_dir=working_dir)
-            except NotImplementedError:
-                # Since the feed_url was determined not to support the Docker v2 API, let's use the
-                # old v1 SyncStep instead.
-                self.sync_step = v1_sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
-                                                  working_dir=working_dir)
-
+            self.sync_step = sync.SyncStep(repo=repo, conduit=sync_conduit, config=config,
+                                           working_dir=working_dir)
             return self.sync_step.sync()
-
         finally:
             shutil.rmtree(working_dir, ignore_errors=True)
 

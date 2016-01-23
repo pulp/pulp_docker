@@ -13,6 +13,7 @@ from pulp.server.exceptions import MissingValue
 
 from pulp_docker.common import constants, models
 from pulp_docker.plugins import registry
+from pulp_docker.plugins.importers import v1_sync
 
 
 _logger = logging.getLogger(__name__)
@@ -48,6 +49,75 @@ class SyncStep(PluginStep):
         """
         super(SyncStep, self).__init__(constants.SYNC_STEP_MAIN, repo, conduit, config,
                                        working_dir, constants.IMPORTER_TYPE_ID)
+        self.description = _('Syncing Docker Repository')
+
+        download_config = nectar_config.importer_config_to_nectar_config(config.flatten())
+        upstream_name = config.get(constants.CONFIG_KEY_UPSTREAM_NAME)
+        url = config.get(importer_constants.KEY_FEED)
+
+        # Create a Repository object to interact with.
+        self.index_repository = registry.V2Repository(
+            upstream_name, download_config, url, working_dir)
+        self.v1_index_repository = registry.V1Repository(upstream_name, download_config, url,
+                                                         working_dir)
+
+        v2_found = self.index_repository.api_version_check()
+        v1_found = self.v1_index_repository.api_version_check()
+
+        if v2_found:
+            _logger.debug(_('v2 API found'))
+            self.add_child(V2SyncStep(repo=repo, conduit=conduit, config=config,
+                                      working_dir=working_dir))
+        if v1_found:
+            _logger.debug(_('v1 API found'))
+            self.add_child(v1_sync.SyncStep(repo=repo, conduit=conduit, config=config,
+                                            working_dir=working_dir))
+        if not any((v1_found, v2_found)):
+            msg = _('This feed URL is not a Docker v1 or v2 endpoint: %(url)s'.format(url=url))
+            _logger.error(msg)
+            raise ValueError(msg)
+
+    def sync(self):
+        """
+        actually initiate the sync
+
+        :return:    a final sync report
+        :rtype:     pulp.plugins.model.SyncReport
+        """
+        self.process_lifecycle()
+        return self._build_final_report()
+
+
+class V2SyncStep(PluginStep):
+    """
+    This PluginStep is the primary entry point into a repository sync against a Docker v2 registry.
+    """
+    # The sync will fail if these settings are not provided in the config
+    required_settings = (constants.CONFIG_KEY_UPSTREAM_NAME, importer_constants.KEY_FEED)
+
+    def __init__(self, repo=None, conduit=None, config=None,
+                 working_dir=None):
+        """
+        This method initializes the SyncStep. It first validates the config to ensure that the
+        required keys are present. It then constructs some needed items (such as a download config),
+        and determines whether the feed URL is a Docker v2 registry or not. If it is, it
+        instantiates child tasks that are appropriate for syncing a v2 registry, and if it is not it
+        raises a NotImplementedError.
+
+        :param repo:        repository to sync
+        :type  repo:        pulp.plugins.model.Repository
+        :param conduit:     sync conduit to use
+        :type  conduit:     pulp.plugins.conduits.repo_sync.RepoSyncConduit
+        :param config:      config object for the sync
+        :type  config:      pulp.plugins.config.PluginCallConfiguration
+        :param working_dir: full path to the directory in which transient files
+                            should be stored before being moved into long-term
+                            storage. This should be deleted by the caller after
+                            step processing is complete.
+        :type  working_dir: basestring
+        """
+        super(V2SyncStep, self).__init__(constants.SYNC_STEP_MAIN, repo, conduit, config,
+                                         working_dir, constants.IMPORTER_TYPE_ID)
         self.description = _('Syncing Docker Repository')
 
         self._validate(config)
@@ -92,16 +162,6 @@ class SyncStep(PluginStep):
             digest = unit_key['digest']
             yield self.index_repository.create_blob_download_request(digest,
                                                                      self.get_working_dir())
-
-    def sync(self):
-        """
-        actually initiate the sync
-
-        :return:    a final sync report
-        :rtype:     pulp.plugins.model.SyncReport
-        """
-        self.process_lifecycle()
-        return self._build_final_report()
 
     @classmethod
     def _validate(cls, config):
