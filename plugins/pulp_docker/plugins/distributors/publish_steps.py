@@ -92,15 +92,15 @@ class PublishBlobsStep(publish_step.UnitModelPluginStep):
                                                model_classes=[models.Blob])
         self.description = _('Publishing Blobs.')
 
-    def process_unit(self, unit):
+    def process_main(self, item):
         """
-        Link the unit to the Blob file.
+        Link the item to the Blob file.
 
-        :param unit: The unit to process
-        :type unit:  pulp_docker.plugins.models.Blob
+        :param item: The Blob to process
+        :type  item: pulp_docker.plugins.models.Blob
         """
-        self._create_symlink(unit._storage_path,
-                             os.path.join(self.get_blobs_directory(), unit.unit_key['digest']))
+        misc.create_symlink(item._storage_path,
+                            os.path.join(self.get_blobs_directory(), item.unit_key['digest']))
 
     def get_blobs_directory(self):
         """
@@ -126,15 +126,15 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
                                                    model_classes=[models.Manifest])
         self.description = _('Publishing Manifests.')
 
-    def process_unit(self, unit):
+    def process_main(self, item):
         """
-        Link the unit to the Manifest file.
+        Link the item to the Manifest file.
 
-        :param unit: The unit to process
-        :type unit:  pulp_docker.plugins.models.Blob
+        :param item: The Blob to process
+        :type  item: pulp_docker.plugins.models.Blob
         """
-        self._create_symlink(unit._storage_path,
-                             os.path.join(self.get_manifests_directory(), unit.unit_key['digest']))
+        misc.create_symlink(item._storage_path,
+                            os.path.join(self.get_manifests_directory(), item.unit_key['digest']))
 
     def get_manifests_directory(self):
         """

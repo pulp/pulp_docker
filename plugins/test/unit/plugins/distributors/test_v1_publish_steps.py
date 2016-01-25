@@ -41,7 +41,7 @@ class TestPublishImagesStep(unittest.TestCase):
         step.initialize()
         mock_context.return_value.initialize.assert_called_once_with()
 
-    def test_process_units(self):
+    def test_process_main(self):
         step = v1_publish_steps.PublishImagesStep()
         step.parent = self.parent
         step.redirect_context = Mock()
@@ -51,7 +51,7 @@ class TestPublishImagesStep(unittest.TestCase):
         unit = Mock(unit_key={'image_id': 'foo_image'}, storage_path=self.content_directory)
         step.get_working_dir = Mock(return_value=self.publish_directory)
 
-        step.process_unit(unit)
+        step.process_main(unit)
 
         step.redirect_context.add_unit_metadata.assert_called_once_with(unit)
         for file_name in file_list:
