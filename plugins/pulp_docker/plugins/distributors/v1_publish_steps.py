@@ -95,18 +95,18 @@ class PublishImagesStep(UnitModelPluginStep):
                                                     self.get_repo())
         self.redirect_context.initialize()
 
-    def process_unit(self, unit):
+    def process_main(self, item):
         """
         Link the unit to the image content directory and the package_dir
 
-        :param unit: The unit to process
-        :type unit:  pulp_docker.common.models.Image
+        :param item: The Image to process
+        :type  item: pulp_docker.common.models.Image
         """
-        self.redirect_context.add_unit_metadata(unit)
-        target_base = os.path.join(self.get_web_directory(), unit.unit_key['image_id'])
+        self.redirect_context.add_unit_metadata(item)
+        target_base = os.path.join(self.get_web_directory(), item.unit_key['image_id'])
         files = ['ancestry', 'json', 'layer']
         for file_name in files:
-            misc.create_symlink(os.path.join(unit.storage_path, file_name),
+            misc.create_symlink(os.path.join(item.storage_path, file_name),
                                 os.path.join(target_base, file_name))
 
     def finalize(self):
