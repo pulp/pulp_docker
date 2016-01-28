@@ -137,6 +137,12 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Thu Jan 28 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.4.beta
+- Use the new new steps API during publishing. (rbarlow@redhat.com)
+- Merge pull request #118 from pcreech/issues/1457 (pcreech17@gmail.com)
+- Ensure file objects are cleaned up on error (pcreech@redhat.com)
+- Bumping version to 2.0.0-0.4.beta (dkliban@redhat.com)
+
 * Tue Jan 19 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.3.beta
 - Bumping version to 2.0.0-0.3.beta (dkliban@redhat.com)
 
