@@ -22,9 +22,10 @@ def migrate():
     for folder in os.listdir(OLD_DOCKER_V1_PUBLISH_PATH):
         if folder == 'v1':
             continue
-        folder = os.path.join(OLD_DOCKER_V1_PUBLISH_PATH, folder)
-        if os.path.exists(folder):
-            shutil.move(folder, NEW_DOCKER_V1_PUBLISH_PATH)
+        source_folder = os.path.join(OLD_DOCKER_V1_PUBLISH_PATH, folder)
+        destination_folder = os.path.join(NEW_DOCKER_V1_PUBLISH_PATH, folder)
+        if os.path.exists(source_folder) and not os.path.exists(destination_folder):
+            shutil.move(source_folder, NEW_DOCKER_V1_PUBLISH_PATH)
 
     # Now we must look for and repair broken symlinks
     _repair_links()
