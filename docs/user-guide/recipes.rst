@@ -236,9 +236,14 @@ to use that tarball.
 Sync
 ------
 
-The pulp-docker plugin supports syncing from upstream repositories as of version 0.2.1. For example::
+The pulp-docker plugin supports syncing from upstream repositories as of version 0.2.1.
 
-    $ pulp-admin docker repo create --repo-id=synctest --feed=https://index.docker.io --upstream-name=busybox
+.. note::
+   ``registry-1.docker.io`` is a Docker V2 Registry API. For V1 API ``index.docker.io`` should be used.
+
+::
+
+    $ pulp-admin docker repo create --repo-id=synctest --feed=https://registry-1.docker.io --upstream-name=busybox
     Repository [synctest] successfully created
 
     $ pulp-admin docker repo sync run --repo-id synctest
