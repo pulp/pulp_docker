@@ -3,6 +3,7 @@ This module contains the primary sync entry point for Docker v2 registries.
 """
 from gettext import gettext as _
 import errno
+import httplib
 import itertools
 import logging
 import os
@@ -13,7 +14,7 @@ from pulp.server.controllers import repository
 from pulp.server.exceptions import MissingValue, PulpCodedException
 
 from pulp_docker.common import constants, error_codes
-from pulp_docker.plugins import models, registry
+from pulp_docker.plugins import models, registry, token_util
 from pulp_docker.plugins.importers import v1_sync
 
 
@@ -68,7 +69,7 @@ class SyncStep(publish_step.PluginStep):
 
         # determine which API versions are supported and add corresponding steps
         v2_found = self.index_repository.api_version_check()
-        v1_enabled = config.get(constants.CONFIG_KEY_ENABLE_V1, default=True)
+        v1_enabled = config.get(constants.CONFIG_KEY_ENABLE_V1, default=False)
         if not v1_enabled:
             _logger.debug(_('v1 API skipped due to config'))
         v1_found = v1_enabled and self.v1_index_repository.api_version_check()
@@ -104,7 +105,7 @@ class SyncStep(publish_step.PluginStep):
         self.add_child(self.step_get_local_manifests)
         self.add_child(self.step_get_local_blobs)
         self.add_child(
-            publish_step.DownloadStep(
+            TokenAuthDownloadStep(
                 step_type=constants.SYNC_STEP_DOWNLOAD, downloads=self.generate_download_requests(),
                 repo=self.repo, config=self.config, description=_('Downloading remote files')))
         self.add_child(SaveUnitsStep())
@@ -299,3 +300,54 @@ class SaveTagsStep(publish_step.SaveUnitsStep):
                                                       tag_name=tag, manifest_digest=manifest.digest)
             if new_tag:
                 repository.associate_single_unit(self.get_repo().repo_obj, new_tag)
+
+
+class TokenAuthDownloadStep(publish_step.DownloadStep):
+    """
+    Download remote files. For v2, this may require a bearer token to be used. This step attempts
+    to download files, and if it fails due to a 401, it will retrieve the auth token and retry the
+    download.
+    """
+
+    def __init__(self, step_type, downloads=None, repo=None, conduit=None, config=None,
+                 working_dir=None, plugin_type=None, description=''):
+        """
+        Initialize the step, setting its description.
+        """
+
+        super(TokenAuthDownloadStep, self).__init__(
+            step_type, downloads=downloads, repo=repo, conduit=conduit, config=config,
+            working_dir=working_dir, plugin_type=plugin_type)
+        self.description = _('Downloading remote files')
+        self.token = None
+        self._requests_map = {}
+
+    def process_main(self, item=None):
+        """
+        Overrides the parent method to get a new token and try again if response is a 401.
+        """
+        # Allow the original request to be retrieved from the url.
+        for request in self.downloads:
+            self._requests_map[request.url] = request
+
+        for request in self.downloads:
+            if self.token:
+                token_util.add_auth_header(request, self.token)
+            self.downloader.download_one(request, events=True)
+
+    def download_failed(self, report):
+        """
+        If the download fails due to a 401, attempt to retreive a token and try again.
+
+        :param report: download report
+        :type  report: nectar.report.DownloadReport
+        """
+        if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+            _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
+            request = self._requests_map[report.url]
+            token = token_util.request_token(self.downloader, request, report.headers)
+            token_util.add_auth_header(request, token)
+            _logger.debug("Trying download again with new bearer token.")
+            report = self.downloader.download_one(request)
+        if report.state == report.DOWNLOAD_FAILED:
+            super(TokenAuthDownloadStep, self).download_failed(report)

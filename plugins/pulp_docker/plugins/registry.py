@@ -1,6 +1,7 @@
 from cStringIO import StringIO
 from gettext import gettext as _
 import errno
+import httplib
 import json
 import logging
 import os
@@ -14,6 +15,7 @@ from pulp.server import exceptions as pulp_exceptions
 
 from pulp_docker.common import error_codes
 from pulp_docker.plugins import models
+from pulp_docker.plugins import token_util
 
 
 _logger = logging.getLogger(__name__)
@@ -292,6 +294,7 @@ class V2Repository(object):
         self.registry_url = registry_url
         self.downloader = HTTPThreadedDownloader(self.download_config, AggregatingEventListener())
         self.working_dir = working_dir
+        self.token = None
 
     def api_version_check(self):
         """
@@ -392,7 +395,19 @@ class V2Repository(object):
         url = urlparse.urljoin(self.registry_url, path)
         _logger.debug(_('Retrieving {0}'.format(url)))
         request = DownloadRequest(url, StringIO())
+
+        if self.token:
+            token_util.add_auth_header(request, self.token)
+
         report = self.downloader.download_one(request)
+
+        # If the download was unauthorized, attempt to get a token and try again
+        if report.state == report.DOWNLOAD_FAILED:
+            if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+                _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
+                self.token = token_util.request_token(self.downloader, request, report.headers)
+                token_util.add_auth_header(request, self.token)
+                report = self.downloader.download_one(request)
 
         if report.state == report.DOWNLOAD_FAILED:
             raise IOError(report.error_msg)
