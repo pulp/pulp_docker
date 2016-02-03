@@ -440,26 +440,118 @@ class TestSyncStep(unittest.TestCase):
 
     @mock.patch('pulp.server.managers.repo._common._working_directory_path')
     @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
-    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
-    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=False)
-    def test___init___v1_not_enabled(self, mock_v2_check, mock_v1_check,
-                                     _validate, _working_directory_path):
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check')
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check')
+    def test___init__nothing_enabled(self, v1_check, v2_check, validate, working_dir_path):
         """
-        Test the __init__() method when the V2Repository raises a NotImplementedError with the
-        api_version_check() method, indicating that the feed URL is not a Docker v2 registry.
+        Test when both v1 and v2 are disabled, PulpCodedException is raised.
         """
-        _working_directory_path.return_value = self.working_dir
+        working_dir_path.return_value = self.working_dir
         repo = mock.MagicMock()
         conduit = mock.MagicMock()
         self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = False
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V2] = False
 
         with self.assertRaises(PulpCodedException) as error:
             sync.SyncStep(repo, conduit, self.config)
-        self.assertEqual(error.exception.error_code, error_codes.DKR1008)
-        self.assertEqual(mock_v1_check.call_count, 0)
 
-        # The config should get validated
-        _validate.assert_called_once_with(self.config)
+        validate.assert_called_once_with(self.config)
+        self.assertEqual(error.exception.error_code, error_codes.DKR1008)
+        self.assertFalse(v1_check.called)
+        self.assertFalse(v2_check.called)
+
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep.add_v1_steps')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep.add_v2_steps')
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=True)
+    def test___init___only_v1_enabled(
+            self,
+            v2_check,
+            v1_check,
+            validate,
+            working_dir_path,
+            add_v2_steps,
+            add_v1_steps):
+        """
+        Test only v1 enabled.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        working_dir_path.return_value = self.working_dir
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V2] = False
+
+        sync.SyncStep(repo, conduit, self.config)
+
+        validate.assert_called_once_with(self.config)
+        add_v1_steps.assert_called_once_with(repo, self.config)
+        v1_check.assert_called_once_with()
+        self.assertFalse(v2_check.called)
+        self.assertFalse(add_v2_steps.called)
+
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep.add_v1_steps')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep.add_v2_steps')
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=True)
+    def test___init___only_v2_enabled(
+            self,
+            v2_check,
+            v1_check,
+            validate,
+            working_dir_path,
+            add_v2_steps,
+            add_v1_steps):
+        """
+        Test only v2 enabled.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        working_dir_path.return_value = self.working_dir
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = False
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V2] = True
+
+        sync.SyncStep(repo, conduit, self.config)
+
+        validate.assert_called_once_with(self.config)
+        add_v2_steps.assert_called_once_with(repo, conduit, self.config)
+        v2_check.assert_called_once_with()
+        self.assertFalse(v1_check.called)
+        self.assertFalse(add_v1_steps.called)
+
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep.add_v1_steps')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep.add_v2_steps')
+    @mock.patch('pulp.server.managers.repo._common._working_directory_path')
+    @mock.patch('pulp_docker.plugins.importers.sync.SyncStep._validate')
+    @mock.patch('pulp_docker.plugins.registry.V1Repository.api_version_check', return_value=True)
+    @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', return_value=True)
+    def test___init___v1_and_v2_enabled(
+            self,
+            v2_check,
+            v1_check,
+            validate,
+            working_dir_path,
+            add_v2_steps,
+            add_v1_steps):
+        """
+        Test both v1 and v2 enabled.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        working_dir_path.return_value = self.working_dir
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V2] = True
+
+        sync.SyncStep(repo, conduit, self.config)
+
+        validate.assert_called_once_with(self.config)
+        add_v1_steps.assert_called_once_with(repo, self.config)
+        add_v2_steps.assert_called_once_with(repo, conduit, self.config)
+        v1_check.assert_called_once_with()
+        v2_check.assert_called_once_with()
 
     @mock.patch('pulp.server.managers.repo._common._working_directory_path')
     @mock.patch('pulp_docker.plugins.registry.V2Repository.api_version_check', mock.MagicMock())

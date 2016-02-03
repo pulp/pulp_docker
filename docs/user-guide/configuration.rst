@@ -12,3 +12,11 @@ The Docker importer is configured by editing
 The importer supports the settings documented in Pulp's `importer config docs`_.
 
 .. _importer config docs: https://pulp-user-guide.readthedocs.org/en/latest/server.html#importers
+
+The following docker specific properties are supported:
+
+``enable_v1``
+  Enables the docker v1 protocol. Defaults to False when not specified.
+
+``enable_v2``
+  Enables the docker v2 protocol. Defaults to True when not specified.

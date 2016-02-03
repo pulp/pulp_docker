@@ -29,6 +29,7 @@ CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 # Config keys for an importer override config
 CONFIG_KEY_MASK_ID = 'mask_id'
 CONFIG_KEY_ENABLE_V1 = 'enable_v1'
+CONFIG_KEY_ENABLE_V2 = 'enable_v2'
 
 SYNC_STEP_MAIN = 'sync_step_main'
 SYNC_STEP_METADATA = 'sync_step_metadata'

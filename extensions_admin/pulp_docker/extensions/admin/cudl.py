@@ -49,6 +49,10 @@ d = _('Enable sync of v1 API. defaults to "true"')
 OPT_ENABLE_V1 = PulpCliOption('--enable-v1', d, required=False,
                               parse_func=okaara_parsers.parse_boolean)
 
+d = _('Enable sync of v2 API. defaults to "true"')
+OPT_ENABLE_V2 = PulpCliOption('--enable-v2', d, required=False,
+                              parse_func=okaara_parsers.parse_boolean)
+
 
 DESC_FEED = _('URL for the upstream docker index, not including repo name')
 
@@ -66,6 +70,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
         self.add_option(OPT_PROTECTED)
         self.add_option(OPT_REPO_REGISTRY_ID)
         self.add_option(OPT_ENABLE_V1)
+        self.add_option(OPT_ENABLE_V2)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 
@@ -114,7 +119,7 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
         is needed to create an importer config.
 
         :param user_input:  dictionary of data passed in by okaara
-        :type  user_inpus:  dict
+        :type  user_input:  dict
 
         :return:    importer config
         :rtype:     dict
@@ -124,9 +129,12 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
         name = user_input.pop(OPT_UPSTREAM_NAME.keyword)
         if name is not None:
             config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
-        enable_v1 = user_input.pop(OPT_ENABLE_V1.keyword)
+        enable_v1 = user_input.pop(OPT_ENABLE_V1.keyword, None)
         if enable_v1 is not None:
             config[constants.CONFIG_KEY_ENABLE_V1] = enable_v1
+        enable_v2 = user_input.pop(OPT_ENABLE_V2.keyword, None)
+        if enable_v2 is not None:
+            config[constants.CONFIG_KEY_ENABLE_V2] = enable_v2
 
         return config
 
