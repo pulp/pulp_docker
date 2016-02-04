@@ -368,7 +368,7 @@ class TestSyncStep(unittest.TestCase):
         self.assertEqual(
             [type(child) for child in step.children],
             [sync.DownloadManifestsStep, publish_step.GetLocalUnitsStep,
-             publish_step.GetLocalUnitsStep, publish_step.DownloadStep, sync.SaveUnitsStep,
+             publish_step.GetLocalUnitsStep, sync.TokenAuthDownloadStep, sync.SaveUnitsStep,
              sync.SaveTagsStep])
         # Ensure the first step was initialized correctly
         self.assertEqual(step.children[0].repo, repo)
@@ -395,6 +395,7 @@ class TestSyncStep(unittest.TestCase):
     def test_init_v1(self, mock_check_v1, mock_check_v2, mock_validate, _working_directory_path):
         _working_directory_path.return_value = self.working_dir
         # re-run this with the mock in place
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         step = sync.SyncStep(self.repo, self.conduit, self.config)
 
         self.assertEqual(step.step_id, constants.SYNC_STEP_MAIN)
@@ -588,6 +589,7 @@ class TestSyncStep(unittest.TestCase):
     @mock.patch('pulp.server.managers.repo._common._working_directory_path')
     def test_v1_generate_download_requests(self, mock_working_dir, mock_v1_check, mock_v2_check):
         mock_working_dir.return_value = tempfile.mkdtemp()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         step = sync.SyncStep(self.repo, self.conduit, self.config)
         step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
 
@@ -609,6 +611,7 @@ class TestSyncStep(unittest.TestCase):
     def test_generate_download_requests_correct_urls(self, mock_working_dir, mock_v1_check,
                                                      mock_v2_check):
         mock_working_dir.return_value = tempfile.mkdtemp()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         step = sync.SyncStep(self.repo, self.conduit, self.config)
         step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
 
@@ -629,6 +632,7 @@ class TestSyncStep(unittest.TestCase):
     def test_generate_download_requests_correct_destinations(self, mock_working_dir,
                                                              mock_v1_check, mock_v2_check):
         mock_working_dir.return_value = tempfile.mkdtemp()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         step = sync.SyncStep(self.repo, self.conduit, self.config)
         step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
 
@@ -652,6 +656,7 @@ class TestSyncStep(unittest.TestCase):
     def test_generate_download_reqs_creates_dir(self, mock_working_dir, mock_v1_check,
                                                 mock_v2_check):
         mock_working_dir.return_value = tempfile.mkdtemp()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         step = sync.SyncStep(self.repo, self.conduit, self.config)
         step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
 
@@ -669,6 +674,7 @@ class TestSyncStep(unittest.TestCase):
     def test_generate_download_reqs_existing_dir(self, mock_working_dir, mock_v1_check,
                                                  mock_v2_check):
         mock_working_dir.return_value = tempfile.mkdtemp()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         step = sync.SyncStep(self.repo, self.conduit, self.config)
         step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         os.makedirs(os.path.join(step.working_dir, 'image1'))
@@ -685,6 +691,7 @@ class TestSyncStep(unittest.TestCase):
     def test_generate_download_reqs_perm_denied(self, mock_working_dir, mock_v1_check,
                                                 mock_v2_check):
         mock_working_dir.return_value = tempfile.mkdtemp()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         try:
             step = sync.SyncStep(self.repo, self.conduit, self.config)
             step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
@@ -701,6 +708,7 @@ class TestSyncStep(unittest.TestCase):
     def test_generate_download_reqs_ancestry_exists(self, mock_working_dir, mock_v1_check,
                                                     mock_v2_check):
         mock_working_dir.return_value = tempfile.mkdtemp()
+        self.config.override_config[constants.CONFIG_KEY_ENABLE_V1] = True
         step = sync.SyncStep(self.repo, self.conduit, self.config)
         step.v1_step_get_local_units.units_to_download.append(models.Image(image_id='image1'))
         os.makedirs(os.path.join(step.working_dir, 'image1'))
