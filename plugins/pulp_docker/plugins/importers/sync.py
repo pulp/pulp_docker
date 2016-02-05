@@ -348,6 +348,6 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
             token = token_util.request_token(self.downloader, request, report.headers)
             token_util.add_auth_header(request, token)
             _logger.debug("Trying download again with new bearer token.")
-            report = self.downloader.download_one(request)
+            report = self.downloader.download_one(request, events=True)
         if report.state == report.DOWNLOAD_FAILED:
             super(TokenAuthDownloadStep, self).download_failed(report)
