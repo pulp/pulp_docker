@@ -256,6 +256,5 @@ class Tag(pulp_models.ContentUnit):
     # unit_key_fields we defined above: https://pulp.plan.io/issues/1477
     # Until that issue is resolved, we need to install a uniqueness constraint here.
     meta = {'collection': 'units_{type_id}'.format(type_id=constants.TAG_TYPE_ID),
-            'indexes': [{'unique': True, 'fields': list(unit_key_fields)}],
             'allow_inheritance': False,
             'queryset_class': TagQuerySet}
