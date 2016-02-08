@@ -68,10 +68,13 @@ class SyncStep(publish_step.PluginStep):
                                                          self.get_working_dir())
 
         # determine which API versions are supported and add corresponding steps
-        v2_found = self.index_repository.api_version_check()
+        v2_enabled = config.get(constants.CONFIG_KEY_ENABLE_V2, default=True)
         v1_enabled = config.get(constants.CONFIG_KEY_ENABLE_V1, default=False)
+        if not v2_enabled:
+            _logger.debug(_('v2 API skipped due to config'))
         if not v1_enabled:
             _logger.debug(_('v1 API skipped due to config'))
+        v2_found = v2_enabled and self.index_repository.api_version_check()
         v1_found = v1_enabled and self.v1_index_repository.api_version_check()
         if v2_found:
             _logger.debug(_('v2 API found'))

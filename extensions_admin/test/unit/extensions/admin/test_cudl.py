@@ -61,6 +61,15 @@ class TestCreateDockerRepositoryCommand(unittest.TestCase):
         result = command._parse_importer_config(user_input)
         self.assertEqual(result[constants.CONFIG_KEY_ENABLE_V1], False)
 
+    def test_parse_importer_config_enable_v2_false(self):
+        command = cudl.CreateDockerRepositoryCommand(Mock())
+        user_input = {
+            cudl.OPT_UPSTREAM_NAME.keyword: 'pulp/crane',
+            cudl.OPT_ENABLE_V2.keyword: False,
+        }
+        result = command._parse_importer_config(user_input)
+        self.assertEqual(result[constants.CONFIG_KEY_ENABLE_V2], False)
+
 
 class TestUpdateDockerRepositoryCommand(unittest.TestCase):
 
