@@ -5,6 +5,7 @@ import httplib
 import json
 import logging
 import os
+import re
 import traceback
 import urlparse
 
@@ -289,7 +290,16 @@ class V2Repository(object):
                                 be saved
         :type  working_dir:     basestring
         """
-        self.name = name
+
+        # Docker's registry aligns non-namespaced images to the library namespace.
+        # if we have a docker registry image, and no namespace, add the library
+        # namespace to the image name.
+
+        if '/' not in name and re.search(r'registry[-,\w]*.docker.io', registry_url, re.IGNORECASE):
+            self.name = "library/" + name
+        else:
+            self.name = name
+
         self.download_config = download_config
         self.registry_url = registry_url
         self.downloader = HTTPThreadedDownloader(self.download_config, AggregatingEventListener())

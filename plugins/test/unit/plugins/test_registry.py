@@ -600,3 +600,42 @@ class TestV2Repository(unittest.TestCase):
 
         self.assertEqual(headers, {'some': 'cool stuff'})
         self.assertEqual(body, "This is the stuff you've been waiting for.")
+
+    @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader')
+    def test_dockerhub_v2_registry_without_namespace(self, http_threaded_downloader):
+        name = 'test_image'
+        registry_url = "https://registry-1.docker.io"
+        download_config = mock.MagicMock()
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        self.assertEqual('library/test_image', r.name, "Non-name-spaced image not prepended")
+
+    @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader')
+    def test_dockerhub_v2_registry_with_namespace(self, http_threaded_downloader):
+        name = 'library/test_image'
+        registry_url = "https://registry-1.docker.io"
+        download_config = mock.MagicMock()
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        self.assertNotEqual('library/library/test_image', r.name,
+                            "Name-spaced image prepended with library")
+
+    @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader')
+    def test_non_dockerhub_v2_registry_with_namespace(self, http_threaded_downloader):
+        name = 'library/test_image'
+        registry_url = "https://somewhere.not-docker.io"
+        download_config = mock.MagicMock()
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        self.assertNotEqual('library/library/test_image', r.name,
+                            "Name-spaced Non-docker hub image prepended with library")
+
+    @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader')
+    def test_non_dockerhub_v2_registry_without_namespace(self, http_threaded_downloader):
+        name = 'test_image'
+        registry_url = "https://somewhere.not-docker.io"
+        download_config = mock.MagicMock()
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        self.assertNotEqual('library/test_image', r.name,
+                            "Non-docker hub image prepended with library")
