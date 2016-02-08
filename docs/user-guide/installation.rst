@@ -1,20 +1,16 @@
 Installation
 ============
 
-.. _Pulp User Guide: http://pulp-user-guide.readthedocs.org
+.. _Pulp User Guide: http://pulp.readthedocs.org
 
 Prerequisites
 -------------
 
-The only requirement is to meet the prerequisites of the Pulp Platform. Please
-see the `Pulp User Guide`_ for prerequisites including repository setup.
+pulp-docker 2.0 requires at least Pulp 2.8.
 
-.. note::
+The only other requirement is to meet the prerequisites of the Pulp Platform.
+Please see the `Pulp User Guide`_ for prerequisites including repository setup.
 
-   If you are installing on Fedora, you will need to install ``docker-io`` instead
-   of ``docker``. See the official `Docker Documentation`_ for more information.
-
-.. _Docker Documentation: https://docs.docker.com/
 
 Server
 ------
@@ -38,4 +34,3 @@ Admin Client
 ::
 
     $ sudo yum install pulp-docker-admin-extensions
-

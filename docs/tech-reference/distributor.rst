@@ -7,10 +7,14 @@ Web Distributor
 
 Type ID: ``docker_distributor_web``
 
-The Web distributor is used to publish a docker repository in a way that can be consumed
-and served by Crane directly. By default the :ref:`redirect file <redirect_file>` is stored as
-``/var/lib/pulp/published/docker/app/<reponame>.json``, and the repo data itself is stored in
-``/var/lib/pulp/published/docker/web/<repo_id>/``.
+The Web distributor is used to publish a Docker repository in a way that can be consumed
+and served by Crane directly. By default the
+:ref:`redirect files <redirect_file>` are stored as
+``/var/lib/pulp/published/docker/v1/app/<reponame>.json`` and
+``/var/lib/pulp/published/docker/v2/app/<reponame>.json`` for the Docker v1 and
+v2 content, respectively. The repo data itself is stored in
+``/var/lib/pulp/published/docker/v1/web/<repo_id>/`` and
+``/var/lib/pulp/published/docker/v2/web/<repo_id>/``.
 
 The global configuration file for the docker_web_distributor plugin
 can be found in ``/etc/pulp/server/plugins.conf.d/docker_distributor.json``.
@@ -22,7 +26,8 @@ Supported keys
 
 ``docker_publish_directory``
  The publish directory used for this distributor. The web server should be configured to serve
- <publish_directory>/web. The default value is ``/var/lib/pulp/published/docker``.
+ ``<publish_directory>/v1/web`` and ``<publish_directory>/v2/web``. The default value is
+ ``/var/lib/pulp/published/docker``.
 
 ``protected``
  if "true" requests for this repo will be checked for an entitlement certificate authorizing
@@ -30,9 +35,10 @@ Supported keys
  This defaults to true.
 
 ``redirect-url``
- The server URL that will be used when generating the redirect map for connecting the docker
+ The server URL that will be used when generating the redirect map for connecting the Docker
  API to the location the content is stored. The value defaults to
- ``https://<server_name_from_pulp_server.conf>/pulp/docker/<repo_name>``.
+ ``https://<server_name_from_pulp_server.conf>/pulp/docker/v1/<repo_name>``.
+ This is used for v1 content.
 
 ``repo-registry-id``
  The name that should be used for the repository when it is served by Crane. If specified
@@ -45,9 +51,10 @@ Export Distributor
 
 Type ID: ``docker_distributor_export``
 
-The export distributor is used to save the contents of a publish into a tar file that can be
-moved easily for instances where Crane is running on a different server than your pulp instance.
-By default the :ref:`redirect file <redirect_file>` is stored in the root of the tar file as
+The export distributor is used to save the contents of a v1 publish into a tar
+file that can be moved easily for instances where Crane is running on a
+different server than your Pulp instance. By default the
+:ref:`redirect file <redirect_file>` is stored in the root of the tar file as
 ``<reponame>.json``, and the repo data itself is stored in the ``/<repo_id>/`` sub directory of
 the tar file.
 
@@ -65,7 +72,7 @@ Supported keys
 
 ``export_file``
  The fully qualified path and name of the tar file that will be created by the export.
- This defaults to ``<docker_publish_directory>/export/repo/<repo_id>.tar``
+ This defaults to ``<docker_publish_directory>/v1/export/repo/<repo_id>.tar``
 
 ``protected``
  if "true" requests for this repo will be checked for an entitlement certificate authorizing

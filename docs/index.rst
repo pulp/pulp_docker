@@ -1,5 +1,5 @@
-Pulp Docker Support
-===================
+Pulp Dockermentation
+====================
 
 This project adds support to Pulp for managing Docker images.
 
