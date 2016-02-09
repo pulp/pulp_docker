@@ -225,6 +225,7 @@ class DownloadManifestsStep(publish_step.PluginStep):
         # This will be a set of Blob digests. The set is used because they can be repeated and we
         # only want to download each layer once.
         available_blobs = set()
+        self.total_units = len(available_tags)
         for tag in available_tags:
             digest, manifest = self.parent.index_repository.get_manifest(tag)
             # Save the manifest to the working directory
@@ -236,6 +237,7 @@ class DownloadManifestsStep(publish_step.PluginStep):
                 available_blobs.add(layer.blob_sum)
             # Remember this tag for the SaveTagsStep.
             self.parent.save_tags_step.tagged_manifests[tag] = manifest
+            self.progress_successes += 1
 
         # Update the available units with the Manifests and Blobs we learned about
         available_blobs = [models.Blob(digest=d) for d in available_blobs]
@@ -298,11 +300,14 @@ class SaveTagsStep(publish_step.SaveUnitsStep):
         create one. We'll rely on the uniqueness constraint in MongoDB to allow us to try to create
         it, and if that fails we'll fall back to updating the existing one.
         """
-        for tag, manifest in self.tagged_manifests.items():
+        tagged_manifest_items = self.tagged_manifests.items()
+        self.total_units = len(tagged_manifest_items)
+        for tag, manifest in tagged_manifest_items:
             new_tag = models.Tag.objects.tag_manifest(repo_id=self.get_repo().repo_obj.repo_id,
                                                       tag_name=tag, manifest_digest=manifest.digest)
             if new_tag:
                 repository.associate_single_unit(self.get_repo().repo_obj, new_tag)
+                self.progress_successes += 1
 
 
 class TokenAuthDownloadStep(publish_step.DownloadStep):
