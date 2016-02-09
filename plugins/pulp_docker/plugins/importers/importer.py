@@ -4,7 +4,6 @@ import logging
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
 from pulp.server.controllers import repository
-from pulp.server.db import model
 from pulp.server.db.model.criteria import UnitAssociationCriteria
 from pulp.server.managers.repo import unit_association
 import pulp.server.managers.factory as manager_factory
@@ -126,8 +125,6 @@ class DockerImporter(Importer):
                             'details':      json-serializable object, providing details
         :rtype:           dict
         """
-        repo = model.Repository.objects.get_repo_or_missing_resource(repo.id)
-
         upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config)
         upload_step.process_lifecycle()
 

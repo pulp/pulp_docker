@@ -91,9 +91,8 @@ class TestUploadUnit(unittest.TestCase):
     """
     Assert correct operation of DockerImporter.upload_unit().
     """
-    @mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
     @mock.patch('pulp_docker.plugins.importers.importer.upload.UploadStep')
-    def test_correct_calls(self, UploadStep, objects):
+    def test_correct_calls(self, UploadStep):
         """
         Assert that upload_unit() builds the UploadStep correctly and calls its process_lifecycle()
         method.
@@ -106,9 +105,8 @@ class TestUploadUnit(unittest.TestCase):
         DockerImporter().upload_unit(repo, constants.IMAGE_TYPE_ID, unit_key,
                                      {}, data.busybox_tar_path, conduit, config)
 
-        objects.get_repo_or_missing_resource.assert_called_once_with(repo.id)
-        UploadStep.assert_called_once_with(repo=objects.get_repo_or_missing_resource.return_value,
-                                           file_path=data.busybox_tar_path, config=config)
+        UploadStep.assert_called_once_with(repo=repo, file_path=data.busybox_tar_path,
+                                           config=config)
         UploadStep.return_value.process_lifecycle.assert_called_once_with()
 
 
@@ -299,7 +297,6 @@ class TestValidateConfig(unittest.TestCase):
             self.assertEqual(DockerImporter().validate_config(repo, config), (True, ''))
 
 
-@mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
 class TestRemoveUnits(unittest.TestCase):
 
     # We are under a significant time crunch and don't have time to correct all the tests with this
@@ -336,7 +333,6 @@ class TestRemoveUnits(unittest.TestCase):
         self.assertEqual(mock_repo.scratchpad['tags'], [])
 
 
-@mock.patch('pulp_docker.plugins.importers.importer.model.Repository.objects')
 class TestPurgeUnreferencedTags(unittest.TestCase):
 
     def setUp(self):
