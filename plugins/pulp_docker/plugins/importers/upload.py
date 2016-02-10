@@ -51,12 +51,12 @@ class UploadStep(PluginStep):
         self.available_units = []
 
         # populated by ProcessMetadata
-        self.tags = {}
+        self.v1_tags = {}
 
         self.add_child(ProcessMetadata(constants.UPLOAD_STEP_METADATA))
         # save this step so its "units_to_download" attribute can be accessed later
-        self.step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
-        self.add_child(self.step_get_local_units)
+        self.v1_step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
+        self.add_child(self.v1_step_get_local_units)
         self.add_child(AddImages(step_type=constants.UPLOAD_STEP_SAVE))
 
 
@@ -78,7 +78,7 @@ class ProcessMetadata(PluginStep):
         mask_id = self.get_config().get(constants.CONFIG_KEY_MASK_ID)
         self.parent.metadata = metadata
         self.parent.available_units = self.get_models(metadata, mask_id)
-        self.parent.tags = tarutils.get_tags(self.parent.file_path)
+        self.parent.v1_tags = tarutils.get_tags(self.parent.file_path)
 
     def get_models(self, metadata, mask_id=''):
         """
