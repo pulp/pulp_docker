@@ -306,5 +306,5 @@ class SaveUnitsStep(PluginStep):
         :param unit: a pulp unit
         :type  unit: pulp.plugins.model.Unit
         """
-        _logger.debug('moving files in to place for Unit {unit}' % format(unit=unit))
+        _logger.debug('moving files in to place for Unit {unit}'.format(unit=unit))
         shutil.move(os.path.join(self.working_dir, unit.unit_key['digest']), unit.storage_path)
