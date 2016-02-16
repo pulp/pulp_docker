@@ -376,7 +376,7 @@ class V2Repository(object):
                 msg = msg.format(e=expected_digest, d=digest)
                 raise IOError(msg)
         else:
-            digest = models.Manifest.digest(manifest)
+            digest = models.Manifest.calculate_digest(manifest)
         return digest, manifest
 
     def get_tags(self):
