@@ -134,6 +134,43 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Fri Feb 19 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.5.beta
+- Merge pull request #137 from pcreech/issues/1672 (pcreech17@gmail.com)
+- Manifest.digest static method was renamed (pcreech@redhat.com)
+- Update the documentation to reflect the v2 changes. (rbarlow@redhat.com)
+- Merge pull request #135 from pcreech/issues/1650 (pcreech17@gmail.com)
+- Merge branch 'fix_setups' (rbarlow@redhat.com)
+- Fix upload step attributes for v1 (pcreech@redhat.com)
+- Pass the old-style repo object to the UploadStep. (rbarlow@redhat.com)
+- Merge pull request #131 from pcreech/issues/1638 (pcreech17@gmail.com)
+- Merge branch '1217' (rbarlow@redhat.com)
+- Add release notes for pulp-docker-2.0. (rbarlow@redhat.com)
+- Merge pull request #132 from pcreech/authors (pcreech17@gmail.com)
+- Update tag and manifest counts during sync (pcreech@redhat.com)
+- Add Patrick to authors file (pcreech@redhat.com)
+- Merge pull request #130 from dkliban/remove-unit-key-index
+  (dkliban@redhat.com)
+- Merge pull request #125 from jortel/issue-1597 (jortel@redhat.com)
+- Merge pull request #129 from pcreech/issues/1404 (pcreech17@gmail.com)
+- Removes uniqueness constraint on unit key (dkliban@redhat.com)
+- Add library namespace to docker hub images (pcreech@redhat.com)
+- Ensure that successesful downloads are reported (asmacdo@gmail.com)
+- Merge remote-tracking branch 'pulp/master' into issue-1597
+  (jortel@redhat.com)
+- Mark setup.pys as executable. (rbarlow@redhat.com)
+- Merge pull request #121 from asmacdo/v2-get-token (asmacdo@gmail.com)
+- Make requests to docker registry with bearer tokens (asmacdo@gmail.com)
+- Support v2 enabled importer configuration property. closes #1597
+  (jortel@redhat.com)
+- Merge pull request #124 from rbarlow/dont_install_tests (rbarlow@redhat.com)
+- Do not install tests. (rbarlow@redhat.com)
+- Merge branch '1598' (ipanova@redhat.com)
+- 1598 - Clarify in docs that index.docker.io only supported for v1
+  (ipanova@redhat.com)
+- 1492 - migration fails when /v1 directory already exists (ipanova@redhat.com)
+- Do not install tests. (rbarlow@redhat.com)
+- Bumping version to 2.0.0-0.5.beta (dkliban@redhat.com)
+
 * Thu Jan 28 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.4.beta
 - Use the new new steps API during publishing. (rbarlow@redhat.com)
 - Merge pull request #118 from pcreech/issues/1457 (pcreech17@gmail.com)
