@@ -38,7 +38,8 @@ v2 registries.
    
     ``registry-1.docker.io`` is a Docker V2 Registry API. For V1 API
     ``index.docker.io`` should be used, along with ``--enable-v1 true`` and
-    ``--enable-v2 false``.
+    ``--enable-v2 false``. Please note however that V1 content is deprecated
+    and Docker may remove it at any time.
 
 ::
 
