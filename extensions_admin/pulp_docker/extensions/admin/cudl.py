@@ -57,7 +57,38 @@ OPT_ENABLE_V2 = PulpCliOption('--enable-v2', d, required=False,
 DESC_FEED = _('URL for the upstream docker index, not including repo name')
 
 
-class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, ImporterConfigMixin):
+class CreateUpdateMixin(object):
+    """
+    Store some common methods that are shared by create and update.
+    """
+    def _parse_importer_config(self, user_input):
+        """
+        Subclasses should override this to provide whatever option parsing
+        is needed to create an importer config.
+
+        :param user_input:  dictionary of data passed in by okaara
+        :type  user_input:  dict
+
+        :return:    importer config
+        :rtype:     dict
+        """
+        config = self.parse_user_input(user_input)
+
+        name = user_input.pop(OPT_UPSTREAM_NAME.keyword, None)
+        if name is not None:
+            config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
+        enable_v1 = user_input.pop(OPT_ENABLE_V1.keyword, None)
+        if enable_v1 is not None:
+            config[constants.CONFIG_KEY_ENABLE_V1] = enable_v1
+        enable_v2 = user_input.pop(OPT_ENABLE_V2.keyword, None)
+        if enable_v2 is not None:
+            config[constants.CONFIG_KEY_ENABLE_V2] = enable_v2
+
+        return config
+
+
+class CreateDockerRepositoryCommand(CreateUpdateMixin, CreateAndConfigureRepositoryCommand,
+                                    ImporterConfigMixin):
     default_notes = {REPO_NOTE_TYPE_KEY: constants.REPO_NOTE_DOCKER}
     IMPORTER_TYPE_ID = constants.IMPORTER_TYPE_ID
 
@@ -113,33 +144,9 @@ class CreateDockerRepositoryCommand(CreateAndConfigureRepositoryCommand, Importe
 
         return data
 
-    def _parse_importer_config(self, user_input):
-        """
-        Subclasses should override this to provide whatever option parsing
-        is needed to create an importer config.
 
-        :param user_input:  dictionary of data passed in by okaara
-        :type  user_input:  dict
-
-        :return:    importer config
-        :rtype:     dict
-        """
-        config = self.parse_user_input(user_input)
-
-        name = user_input.pop(OPT_UPSTREAM_NAME.keyword)
-        if name is not None:
-            config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
-        enable_v1 = user_input.pop(OPT_ENABLE_V1.keyword, None)
-        if enable_v1 is not None:
-            config[constants.CONFIG_KEY_ENABLE_V1] = enable_v1
-        enable_v2 = user_input.pop(OPT_ENABLE_V2.keyword, None)
-        if enable_v2 is not None:
-            config[constants.CONFIG_KEY_ENABLE_V2] = enable_v2
-
-        return config
-
-
-class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin):
+class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin,
+                                    CreateUpdateMixin):
 
     def __init__(self, context):
         UpdateRepositoryCommand.__init__(self, context)
@@ -152,13 +159,14 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
         self.add_option(OPT_PROTECTED)
         self.add_option(OPT_REPO_REGISTRY_ID)
         self.add_option(OPT_ENABLE_V1)
+        self.add_option(OPT_ENABLE_V2)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 
     def run(self, **kwargs):
         arg_utils.convert_removed_options(kwargs)
 
-        importer_config = self.parse_user_input(kwargs)
+        importer_config = self._parse_importer_config(kwargs)
 
         name = kwargs.pop(OPT_UPSTREAM_NAME.keyword, None)
         if name is not None:
