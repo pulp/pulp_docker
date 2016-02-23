@@ -87,6 +87,11 @@ class ImageSearchCommand(DisplayUnitAssociationsCommand):
         # Get the list of images
         repo_id = kwargs.pop(options.OPTION_REPO_ID.keyword)
         kwargs['type_ids'] = [constants.IMAGE_TYPE_ID]
+
+        # image_id is required
+        if kwargs.get('fields') and 'image_id' not in kwargs.get('fields'):
+            kwargs['fields'].append('image_id')
+
         images = self.context.server.repo_unit.search(repo_id, **kwargs).response_body
 
         # Get the list of tags for the repo
