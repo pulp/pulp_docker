@@ -8,6 +8,8 @@ import itertools
 import logging
 import os
 
+from mongoengine import NotUniqueError
+
 from pulp.common.plugins import importer_constants
 from pulp.plugins.util import nectar_config, publish_step
 from pulp.server.controllers import repository
@@ -276,7 +278,10 @@ class SaveUnitsStep(publish_step.SaveUnitsStep):
         :type  item: pulp.server.db.model.FileContentUnit
         """
         item.set_storage_path(item.digest)
-        item.save_and_import_content(os.path.join(self.get_working_dir(), item.digest))
+        try:
+            item.save_and_import_content(os.path.join(self.get_working_dir(), item.digest))
+        except NotUniqueError:
+            item = item.__class__.objects.get(**item.unit_key)
         repository.associate_single_unit(self.get_repo().repo_obj, item)
 
 
