@@ -134,6 +134,19 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Wed Mar 02 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.6.beta
+- Merge pull request #142 from dkliban/check-unique (dkliban@redhat.com)
+- Adds check for duplicate unit key (dkliban@redhat.com)
+- Merge pull request #139 from asmacdo/index-deprecated (asmacdo@gmail.com)
+- Merge pull request #140 from seandst/413 (sean.myers@redhat.com)
+- add v1 deprecation to recipe (asmacdo@gmail.com)
+- Merge pull request #138 from asmacdo/1693-require-image-id
+  (asmacdo@gmail.com)
+- Allow users to --enable-v{1,2} with repo update. (rbarlow@redhat.com)
+- Bumping version to 2.0.0-0.6.beta (dkliban@redhat.com)
+- Block attempts to load server.conf when running tests (sean.myers@redhat.com)
+- Force search to include all required fields (asmacdo@gmail.com)
+
 * Fri Feb 19 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.5.beta
 - Merge pull request #137 from pcreech/issues/1672 (pcreech17@gmail.com)
 - Manifest.digest static method was renamed (pcreech@redhat.com)
