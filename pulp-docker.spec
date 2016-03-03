@@ -134,6 +134,9 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Thu Mar 03 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.7.beta
+- Bumping version to 2.0.0-0.7.beta (dkliban@redhat.com)
+
 * Wed Mar 02 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.6.beta
 - Merge pull request #142 from dkliban/check-unique (dkliban@redhat.com)
 - Adds check for duplicate unit key (dkliban@redhat.com)
