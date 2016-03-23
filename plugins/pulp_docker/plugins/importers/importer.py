@@ -125,8 +125,12 @@ class DockerImporter(Importer):
                             'details':      json-serializable object, providing details
         :rtype:           dict
         """
-        upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config)
-        upload_step.process_lifecycle()
+        try:
+            upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config)
+            upload_step.process_lifecycle()
+        except Exception as e:
+            return {'success_flag': False, 'summary': e.message, 'details': {}}
+        return {'success_flag': True, 'summary': '', 'details': {}}
 
     def import_units(self, source_repo, dest_repo, import_conduit, config, units=None):
         """
