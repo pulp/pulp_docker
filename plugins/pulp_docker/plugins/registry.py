@@ -407,7 +407,7 @@ class V2Repository(object):
         request = DownloadRequest(url, StringIO())
 
         if self.token:
-            token_util.add_auth_header(request, self.token)
+            request.headers = token_util.update_auth_header(request.headers, self.token)
 
         report = self.downloader.download_one(request)
 
@@ -416,7 +416,7 @@ class V2Repository(object):
             if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
                 _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
                 self.token = token_util.request_token(self.downloader, request, report.headers)
-                token_util.add_auth_header(request, self.token)
+                request.headers = token_util.update_auth_header(request.headers, self.token)
                 report = self.downloader.download_one(request)
 
         if report.state == report.DOWNLOAD_FAILED:
