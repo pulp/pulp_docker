@@ -1,6 +1,17 @@
 2.0 Release Notes
 =================
 
+2.0.1
+-----
+
+pulp_docker 2.0.1 includes a migration to bring pulp_docker's file storage scheme in-line
+with the scheme used in the Pulp platform.
+
+To apply this migration, follow the Upgrade steps seen below, in the 2.0.0 release notes.
+
+See https://pulp.plan.io/issues/1818 for more details.
+
+
 2.0.0
 -----
 
