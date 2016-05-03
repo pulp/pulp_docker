@@ -1,8 +1,23 @@
 2.0 Release Notes
 =================
 
+2.0.2
+-----
+
+See the :fixedbugs:`2.0.2`.
+
+The fix for #1831 required that during sync, if the remote registry has a v2 API, but getting tags
+fails, the sync will stop and report an error that the requested repository was not found.
+With 2.0.0, the sync would not report an error. This would allow a graceful fall-back to the v1 API.
+But, the "enable_v1" setting defaults to False, so that resulted in a default behavior to report
+success in the case of failure. Since use of v1 content is now an edge case, and requires manually
+enabling v1 sync, we recommend disabling v2 sync if you do not expect a repository to be available
+via a v2 API.
+
 2.0.1
 -----
+
+See the :fixedbugs:`2.0.1`.
 
 pulp_docker 2.0.1 includes a migration to bring pulp_docker's file storage scheme in-line
 with the scheme used in the Pulp platform.
@@ -10,7 +25,6 @@ with the scheme used in the Pulp platform.
 To apply this migration, follow the Upgrade steps seen below, in the 2.0.0 release notes.
 
 See https://pulp.plan.io/issues/1818 for more details.
-
 
 2.0.0
 -----

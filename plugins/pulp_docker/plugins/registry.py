@@ -158,11 +158,12 @@ class V1Repository(object):
         _logger.debug('retrieving image ids from remote registry')
         try:
             raw_data = self._get_single_path(path)
-        except IOError:
+        except IOError as e:
             _logger.debug(traceback.format_exc())
             raise pulp_exceptions.PulpCodedException(error_code=error_codes.DKR1007,
                                                      repo=self.name,
-                                                     registry=self.registry_url)
+                                                     registry=self.registry_url,
+                                                     reason=str(e))
 
         return [item['id'] for item in raw_data]
 
@@ -387,7 +388,14 @@ class V2Repository(object):
         :rtype:  list
         """
         path = self.TAGS_PATH.format(name=self.name)
-        headers, tags = self._get_path(path)
+        _logger.debug('retrieving tags from remote registry')
+        try:
+            headers, tags = self._get_path(path)
+        except IOError as e:
+            raise pulp_exceptions.PulpCodedException(error_code=error_codes.DKR1007,
+                                                     repo=self.name,
+                                                     registry=self.registry_url,
+                                                     reason=str(e))
         return json.loads(tags)['tags']
 
     def _get_path(self, path):
@@ -420,6 +428,26 @@ class V2Repository(object):
                 report = self.downloader.download_one(request)
 
         if report.state == report.DOWNLOAD_FAILED:
-            raise IOError(report.error_msg)
+            self._raise_path_error(report)
 
         return report.headers, report.destination.getvalue()
+
+    @staticmethod
+    def _raise_path_error(report):
+        """
+        Raise an exception with an appropriate error message.
+
+        Specifically because docker hub responds with a 401 for repositories that don't exist, pulp
+        cannot disambiguate Unauthorized vs. Not Found. This function tries to make an error message
+        that is clear on that point.
+
+        :param report:  download report
+        :type  report:  nectar.report.DownloadReport
+
+        :raises IOError:    always, with an appropriate message based on the report
+        """
+        if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+            # docker hub returns 401 for repos that don't exist, so we cannot disambiguate.
+            raise IOError(_('Unauthorized or Not Found'))
+        else:
+            raise IOError(report.error_msg)
