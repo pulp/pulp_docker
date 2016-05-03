@@ -19,6 +19,7 @@ DKR1006 = Error("DKR1006", _(
     "a single slash. When %(field)s is not specified, the repo-id value is used. In that case the "
     "repo-id needs to adhere to the same requirements as %(field)s."),
     ['field', 'value'])
-DKR1007 = Error("DKR1007", _("Could not fetch repository %(repo)s from registry %(registry)s"),
-                ['repo', 'registry'])
+DKR1007 = Error("DKR1007", _("Could not fetch repository %(repo)s from registry %(registry)s - "
+                             "%(reason)s"),
+                ['repo', 'registry', 'reason'])
 DKR1008 = Error("DKR1008", _("Could not find registry API at %(registry)s"), ['registry'])

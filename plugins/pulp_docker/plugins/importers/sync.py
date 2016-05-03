@@ -219,11 +219,8 @@ class DownloadManifestsStep(publish_step.PluginStep):
         super(DownloadManifestsStep, self).process_main()
         _logger.debug(self.description)
 
-        try:
-            available_tags = self.parent.index_repository.get_tags()
-        except IOError:
-            _logger.info(_('Could not get tags through v2 API'))
-            return
+        available_tags = self.parent.index_repository.get_tags()
+
         # This will be a set of Blob digests. The set is used because they can be repeated and we
         # only want to download each layer once.
         available_blobs = set()

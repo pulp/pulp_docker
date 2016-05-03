@@ -1,4 +1,5 @@
 from cStringIO import StringIO
+import httplib
 import json
 import os
 import shutil
@@ -407,7 +408,8 @@ class TestV2Repository(unittest.TestCase):
 
         self.assertFalse(r.api_version_check())
 
-    def test_api_version_check_ioerror(self):
+    @mock.patch('pulp_docker.plugins.registry.V2Repository._get_path', side_effect=IOError)
+    def test_api_version_check_ioerror(self, mock_get_path):
         """
         The the api_version_check() method when _get_path() raises an IOError.
         """
@@ -560,7 +562,25 @@ class TestV2Repository(unittest.TestCase):
 
         self.assertEqual(tags, ["best_ever", "latest", "decent"])
 
-    def test__get_path_failed(self):
+    @mock.patch('pulp_docker.plugins.registry.V2Repository._get_path', side_effect=IOError)
+    def test_get_tags_failed(self, mock_download_one):
+        """
+        When get_tags fails, make sure the correct exception is raised.
+        """
+        name = 'pulp'
+        download_config = DownloaderConfig()
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+
+        with self.assertRaises(PulpCodedException) as assertion:
+            r.get_tags()
+
+        self.assertEqual(assertion.exception.error_code, error_codes.DKR1007)
+
+    @mock.patch('pulp_docker.plugins.token_util.request_token')
+    @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader.download_one')
+    def test__get_path_failed(self, mock_download_one, mock_request_token):
         """
         Test _get_path() for the case when an IOError is raised by the downloader.
         """
@@ -569,6 +589,11 @@ class TestV2Repository(unittest.TestCase):
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
         r = registry.V2Repository(name, download_config, registry_url, working_dir)
+
+        report = DownloadReport(registry_url + '/some/path', StringIO())
+        report.error_report['response_code'] = httplib.UNAUTHORIZED
+        report.state = DownloadReport.DOWNLOAD_FAILED
+        mock_download_one.return_value = report
 
         # The request will fail because the requested path does not exist
         self.assertRaises(IOError, r._get_path, '/some/path')
@@ -600,6 +625,37 @@ class TestV2Repository(unittest.TestCase):
 
         self.assertEqual(headers, {'some': 'cool stuff'})
         self.assertEqual(body, "This is the stuff you've been waiting for.")
+
+    def test__raise_path_error_not_found(self):
+        """
+        For a standard error like 404, the report's error message should be used.
+        """
+        report = DownloadReport('http://foo/bar', '/a/b/c')
+        report.error_report = {'response_code': httplib.NOT_FOUND}
+        report.error_msg = 'oops'
+
+        with self.assertRaises(IOError) as assertion:
+            registry.V2Repository._raise_path_error(report)
+
+        self.assertEqual(assertion.exception.message, report.error_msg)
+
+    def test__raise_path_error_unathorized(self):
+        """
+        Specifically for a 401, a custom error message should be used explaining that the cause
+        could be either that the client is unauthorized, or that the resource was not found.
+        Docker hub responds 401 for the not found case, which is why this function exists.
+        """
+        report = DownloadReport('http://foo/bar', '/a/b/c')
+        report.error_report = {'response_code': httplib.UNAUTHORIZED}
+        report.error_msg = 'oops'
+
+        with self.assertRaises(IOError) as assertion:
+            registry.V2Repository._raise_path_error(report)
+
+        # not worrying about what the exact contents are; just that the function added its
+        # own message
+        self.assertNotEqual(assertion.exception.message, report.error_msg)
+        self.assertTrue(len(assertion.exception.message) > 0)
 
     @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader')
     def test_dockerhub_v2_registry_without_namespace(self, http_threaded_downloader):
