@@ -49,22 +49,6 @@ class TestDownloadManifestsStep(unittest.TestCase):
             step, step_type=constants.SYNC_STEP_METADATA, repo=repo, conduit=conduit, config=config,
             plugin_type=constants.IMPORTER_TYPE_ID)
 
-    def test_cannot_get_tags(self):
-        """
-        Make sure the failure is graceful when v2 tags cannot be retrieved.
-        """
-        repo = mock.MagicMock()
-        conduit = mock.MagicMock()
-        config = mock.MagicMock()
-
-        step = sync.DownloadManifestsStep(repo, conduit, config)
-        step.parent = mock.MagicMock()
-        step.parent.index_repository.get_tags.side_effect = IOError
-
-        step.process_main()
-
-        self.assertEqual(step.parent.available_blobs.extend.call_count, 0)
-
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
                 side_effect=models.Manifest.from_json)
     @mock.patch('pulp_docker.plugins.importers.sync.publish_step.PluginStep.process_main')
