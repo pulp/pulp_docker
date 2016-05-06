@@ -4,7 +4,7 @@ import mock
 from pulp_docker.plugins import token_util
 
 
-class TestAddAuthHeader(unittest.TestCase):
+class TestUpdateAuthHeader(unittest.TestCase):
     """
     Tests for adding a bearer token to a request header.
     """
@@ -13,22 +13,15 @@ class TestAddAuthHeader(unittest.TestCase):
         """
         Test that when there are no existing headers, it is added.
         """
-        mock_req = mock.MagicMock()
-        mock_req.headers = None
-
-        token_util.add_auth_header(mock_req, "mock token")
-        self.assertDictEqual(mock_req.headers, {"Authorization": "Bearer mock token"})
+        mock_headers = token_util.update_auth_header(None, "mock token")
+        self.assertDictEqual(mock_headers, {"Authorization": "Bearer mock token"})
 
     def test_with_headers(self):
         """
         Test that when the headers exists, the auth token is added to it.
         """
-        mock_req = mock.MagicMock()
-        mock_req.headers = {"mock": "header"}
-
-        token_util.add_auth_header(mock_req, "mock token")
-        self.assertDictEqual(mock_req.headers, {"Authorization": "Bearer mock token",
-                                                "mock": "header"})
+        updated = token_util.update_auth_header({"mock": "header"}, "mock token")
+        self.assertDictEqual(updated, {"Authorization": "Bearer mock token", "mock": "header"})
 
 
 class TestRequestToken(unittest.TestCase):
