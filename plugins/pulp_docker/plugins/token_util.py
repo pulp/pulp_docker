@@ -10,20 +10,20 @@ from nectar.request import DownloadRequest
 _logger = logging.getLogger(__name__)
 
 
-def add_auth_header(request, token):
+def update_auth_header(headers, token):
     """
     Adds the token into the request's headers as specified in the Docker v2 API documentation.
 
     https://docs.docker.com/registry/spec/auth/token/#using-the-bearer-token
 
-    :param request: a download request
-    :type  request: nectar.request.DownloadRequest
+    :param headers: headers for a request or session
+    :type  headers: dict or None
     :param token: a Bearer token to be inserted into the Authorization header
     :type  token: basestring
     """
-    if request.headers is None:
-        request.headers = {}
-    request.headers['Authorization'] = 'Bearer %s' % token
+    headers = headers or {}
+    headers['Authorization'] = 'Bearer %s' % token
+    return headers
 
 
 def request_token(downloader, request, response_headers):
@@ -64,6 +64,7 @@ def request_token(downloader, request, response_headers):
     token_data = StringIO()
     token_request = DownloadRequest(token_url, token_data)
     _logger.debug("Requesting token from {url}".format(url=token_url))
+    downloader.session.headers.pop('Authorization', None)
     report = downloader.download_one(token_request)
     if report.state == report.DOWNLOAD_FAILED:
         raise IOError(report.error_msg)
