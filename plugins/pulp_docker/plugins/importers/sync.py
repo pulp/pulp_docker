@@ -338,7 +338,7 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
         """
         for request in self.downloads:
             self._requests_map[request.url] = request
-        super(TokenAuthDownloadStep).process_main(item)
+        super(TokenAuthDownloadStep, self).process_main(item)
 
     def download_failed(self, report):
         """
