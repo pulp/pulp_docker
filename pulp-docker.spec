@@ -134,6 +134,9 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Tue May 17 2016 Sean Myers <sean.myers@redhat.com> 2.0.1-1
+- Bumping version to 2.0.1-1 (sean.myers@redhat.com)
+
 * Mon May 16 2016 pulpbot <pulp-infra@redhat.com> 2.0.1-0.4.rc
 - Bumping version to 2.0.1-0.4.rc (pulp-infra@redhat.com)
 
