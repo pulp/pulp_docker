@@ -11,7 +11,7 @@ The Docker importer is configured by editing
 
 The importer supports the settings documented in Pulp's `importer config docs`_.
 
-.. _importer config docs: https://pulp.readthedocs.org/en/latest/user-guide/server.html#importers
+.. _importer config docs: https://pulp.readthedocs.io/en/latest/user-guide/server.html#importers
 
 The following docker specific properties are supported:
 
