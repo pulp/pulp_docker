@@ -134,6 +134,12 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Thu May 26 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.1.beta
+- Bumping version to 2.0.2-0.1.beta (sean.myers@redhat.com)
+- Reverting strict mode so that Koji can build RPMs again (bbouters@redhat.com)
+- Enables strict mode for sphinx docs builds (bbouters@redhat.com)
+- Bumping version to 2.0.1-1 (sean.myers@redhat.com)
+
 * Mon Mar 14 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-1
 - Bumping version to 2.0.0-1 (dkliban@redhat.com)
 
