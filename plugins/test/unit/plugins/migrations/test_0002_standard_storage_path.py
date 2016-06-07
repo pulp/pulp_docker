@@ -50,18 +50,6 @@ class TestPlans(TestCase):
         self.assertTrue(isinstance(plan, migration.Plan))
 
     @patch(PATH_TO_MODULE + '.connection.get_collection')
-    def test_image(self, get_collection):
-        # test
-        plan = migration.image_plan()
-
-        # validation
-        get_collection.assert_called_once_with('units_docker_image')
-        self.assertEqual(plan.collection, get_collection.return_value)
-        self.assertEqual(plan.key_fields, ('image_id',))
-        self.assertFalse(plan.join_leaf)
-        self.assertTrue(isinstance(plan, migration.Plan))
-
-    @patch(PATH_TO_MODULE + '.connection.get_collection')
     def test_manifest(self, get_collection):
         # test
         plan = migration.manifest_plan()
