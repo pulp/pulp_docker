@@ -134,6 +134,22 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Wed Jun 15 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.2.beta
+- Migrate docker v1 image published links. closes #1994 (jortel@redhat.com)
+- Bumping version to 2.0.2-0.2.beta (sean.myers@redhat.com)
+- Fix syntax error in docker sync (asmacdo@gmail.com)
+- Reverting strict mode so that Koji can build RPMs again (bbouters@redhat.com)
+- Enables strict mode for sphinx docs builds (bbouters@redhat.com)
+- Bumping version to 2.0.1-1 (sean.myers@redhat.com)
+- When a sync cannot get tags from a v2 API, it will fail with a reasonable
+  message. (mhrivnak@redhat.com)
+- Download docker blobs in parallel (asmacdo@gmail.com)
+- 2.0.1 release notes entry (sean.myers@redhat.com)
+- Bumping version to 2.0.1-0.2.beta (sean.myers@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.0-1].
+  (dkliban@redhat.com)
+- Bumping version to 2.0.0-1 (dkliban@redhat.com)
+
 * Mon Apr 25 2016 Sean Myers <sean.myers@redhat.com> 2.0.1-0.1.beta
 - standard storage path migration. closes #1818 (jortel@redhat.com)
 - Fix return value of upload_unit() to be consistent with plugin API
