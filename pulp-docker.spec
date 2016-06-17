@@ -134,6 +134,9 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Fri Jun 17 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.3.beta
+- Bumping version to 2.0.2-0.3.beta (sean.myers@redhat.com)
+
 * Wed Jun 15 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.2.beta
 - Migrate docker v1 image published links. closes #1994 (jortel@redhat.com)
 - Bumping version to 2.0.2-0.2.beta (sean.myers@redhat.com)
