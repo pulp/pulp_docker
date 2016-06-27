@@ -219,11 +219,8 @@ class DownloadManifestsStep(publish_step.PluginStep):
         super(DownloadManifestsStep, self).process_main()
         _logger.debug(self.description)
 
-        try:
-            available_tags = self.parent.index_repository.get_tags()
-        except IOError:
-            _logger.info(_('Could not get tags through v2 API'))
-            return
+        available_tags = self.parent.index_repository.get_tags()
+
         # This will be a set of Blob digests. The set is used because they can be repeated and we
         # only want to download each layer once.
         available_blobs = set()
@@ -337,20 +334,15 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
 
     def process_main(self, item=None):
         """
-        Overrides the parent method to get a new token and try again if response is a 401.
+        Allow request objects to be available after a download fails.
         """
-        # Allow the original request to be retrieved from the url.
         for request in self.downloads:
             self._requests_map[request.url] = request
-
-        for request in self.downloads:
-            if self.token:
-                token_util.add_auth_header(request, self.token)
-            self.downloader.download_one(request, events=True)
+        super(TokenAuthDownloadStep, self).process_main(item)
 
     def download_failed(self, report):
         """
-        If the download fails due to a 401, attempt to retreive a token and try again.
+        If the download is unauthorized, attempt to retreive a token and try again.
 
         :param report: download report
         :type  report: nectar.report.DownloadReport
@@ -359,8 +351,12 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
             _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
             request = self._requests_map[report.url]
             token = token_util.request_token(self.downloader, request, report.headers)
-            token_util.add_auth_header(request, token)
+            self.downloader.session.headers = token_util.update_auth_header(
+                self.downloader.session.headers, token)
             _logger.debug("Trying download again with new bearer token.")
-            report = self.downloader.download_one(request, events=True)
-        if report.state == report.DOWNLOAD_FAILED:
+            # Events must be false or download_failed will recurse
+            report = self.downloader.download_one(request, events=False)
+        if report.state is report.DOWNLOAD_SUCCEEDED:
+            self.download_succeeded(report)
+        elif report.state is report.DOWNLOAD_FAILED:
             super(TokenAuthDownloadStep, self).download_failed(report)

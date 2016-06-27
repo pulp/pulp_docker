@@ -3,7 +3,7 @@
 
 Name: pulp-docker
 Version: 2.0.2
-Release: 0.1.beta%{?dist}
+Release: 1%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
 License: GPLv2
@@ -134,19 +134,33 @@ pulp-admin extensions for docker support
 
 
 %changelog
-* Thu May 26 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.1.beta
-- Bumping version to 2.0.2-0.1.beta (sean.myers@redhat.com)
+* Mon Jun 27 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-1
+- Bumping version to 2.0.2-1 (sean.myers@redhat.com)
+
+* Fri Jun 17 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.3.beta
+- Bumping version to 2.0.2-0.3.beta (sean.myers@redhat.com)
+
+* Wed Jun 15 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.2.beta
+- Migrate docker v1 image published links. closes #1994 (jortel@redhat.com)
+- Bumping version to 2.0.2-0.2.beta (sean.myers@redhat.com)
+- Fix syntax error in docker sync (asmacdo@gmail.com)
 - Reverting strict mode so that Koji can build RPMs again (bbouters@redhat.com)
 - Enables strict mode for sphinx docs builds (bbouters@redhat.com)
 - Bumping version to 2.0.1-1 (sean.myers@redhat.com)
-
-* Mon Mar 14 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-1
+- When a sync cannot get tags from a v2 API, it will fail with a reasonable
+  message. (mhrivnak@redhat.com)
+- Download docker blobs in parallel (asmacdo@gmail.com)
+- 2.0.1 release notes entry (sean.myers@redhat.com)
+- Bumping version to 2.0.1-0.2.beta (sean.myers@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.0-1].
+  (dkliban@redhat.com)
 - Bumping version to 2.0.0-1 (dkliban@redhat.com)
 
-* Tue Mar 08 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.9.rc
-- Bumping version to 2.0.0-0.9.rc (dkliban@redhat.com)
-
-* Fri Mar 04 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.8.beta
+* Mon Apr 25 2016 Sean Myers <sean.myers@redhat.com> 2.0.1-0.1.beta
+- standard storage path migration. closes #1818 (jortel@redhat.com)
+- Fix return value of upload_unit() to be consistent with plugin API
+  (ttereshc@redhat.com)
+- Bumping version to 2.0.1-0.1.beta (dkliban@redhat.com)
 - Bumping version to 2.0.0-0.8.beta (dkliban@redhat.com)
 
 * Thu Mar 03 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.7.beta

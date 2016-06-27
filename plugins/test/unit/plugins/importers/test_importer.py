@@ -91,23 +91,35 @@ class TestUploadUnit(unittest.TestCase):
     """
     Assert correct operation of DockerImporter.upload_unit().
     """
+    def setUp(self):
+        super(TestUploadUnit, self).setUp()
+        self.unit_key = {'image_id': data.busybox_ids[0]}
+        self.repo = Repository('repo1')
+        self.conduit = mock.MagicMock()
+        self.config = PluginCallConfiguration({}, {})
+
     @mock.patch('pulp_docker.plugins.importers.importer.upload.UploadStep')
     def test_correct_calls(self, UploadStep):
         """
         Assert that upload_unit() builds the UploadStep correctly and calls its process_lifecycle()
         method.
         """
-        unit_key = {'image_id': data.busybox_ids[0]}
-        repo = Repository('repo1')
-        conduit = mock.MagicMock()
-        config = PluginCallConfiguration({}, {})
-
-        DockerImporter().upload_unit(repo, constants.IMAGE_TYPE_ID, unit_key,
-                                     {}, data.busybox_tar_path, conduit, config)
-
-        UploadStep.assert_called_once_with(repo=repo, file_path=data.busybox_tar_path,
-                                           config=config)
+        report = DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key, {},
+                                              data.busybox_tar_path, self.conduit, self.config)
+        UploadStep.assert_called_once_with(repo=self.repo, file_path=data.busybox_tar_path,
+                                           config=self.config)
         UploadStep.return_value.process_lifecycle.assert_called_once_with()
+        self.assertTrue(report['success_flag'])
+
+    @mock.patch('pulp_docker.plugins.importers.importer.upload.UploadStep')
+    def test_uploadstep_failure(self, UploadStep):
+        """Assert that upload_unit() reports the failure of the UploadStep."""
+        expected_msg = 'UploadStep failure message'
+        UploadStep.side_effect = Exception(expected_msg)
+        report = DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key, {},
+                                              data.busybox_tar_path, self.conduit, self.config)
+        self.assertFalse(report['success_flag'])
+        self.assertEqual(report['summary'], expected_msg)
 
 
 class TestImportUnits(unittest.TestCase):
