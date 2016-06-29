@@ -6,6 +6,7 @@ import logging
 import os
 from gettext import gettext as _
 
+from mongoengine import NotUniqueError
 from pulp.plugins.util.publish_step import PluginStep, SaveUnitsStep
 from pulp.server.controllers import repository as repo_controller
 from pulp.server.db import model as platform_models
@@ -146,11 +147,15 @@ class SaveImages(SaveUnitsStep):
         item.parent_id = parent
         item.size = size
 
-        tmp_dir = os.path.join(self.get_working_dir(), item.image_id)
-        item.save()
-        for name in os.listdir(tmp_dir):
-            path = os.path.join(tmp_dir, name)
-            item.safe_import_content(path, location=os.path.basename(path))
+        try:
+            item.save()
+        except NotUniqueError:
+            item = item.__class__.objects.get(**item.unit_key)
+        else:
+            tmp_dir = os.path.join(self.get_working_dir(), item.image_id)
+            for name in os.listdir(tmp_dir):
+                path = os.path.join(tmp_dir, name)
+                item.safe_import_content(path, location=os.path.basename(path))
 
         repo_controller.associate_single_unit(self.get_repo().repo_obj, item)
 
