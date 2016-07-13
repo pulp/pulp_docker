@@ -325,6 +325,10 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
         Initialize the step, setting its description.
         """
 
+        # Even if basic auth is enabled, it should only be used for the token requests which are
+        # handled by the parent's token_downloader.
+        config.repo_plugin_config.pop(importer_constants.KEY_BASIC_AUTH_USER, None)
+        config.repo_plugin_config.pop(importer_constants.KEY_BASIC_AUTH_PASS, None)
         super(TokenAuthDownloadStep, self).__init__(
             step_type, downloads=downloads, repo=repo, conduit=conduit, config=config,
             working_dir=working_dir, plugin_type=plugin_type)
@@ -350,7 +354,8 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
         if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
             _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
             request = self._requests_map[report.url]
-            token = token_util.request_token(self.downloader, request, report.headers)
+            token = token_util.request_token(self.parent.index_repository.token_downloader,
+                                             request, report.headers)
             self.downloader.session.headers = token_util.update_auth_header(
                 self.downloader.session.headers, token)
             _logger.debug("Trying download again with new bearer token.")
