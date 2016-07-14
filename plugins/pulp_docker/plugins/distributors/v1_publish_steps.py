@@ -17,7 +17,7 @@ class WebPublisher(PublishStep):
     of a docker repository via a web server
     """
 
-    def __init__(self, repo, publish_conduit, config):
+    def __init__(self, repo, publish_conduit, config, repo_content_unit_q=None):
         """
         :param repo: Pulp managed Yum repository
         :type  repo: pulp.plugins.model.Repository
@@ -25,6 +25,9 @@ class WebPublisher(PublishStep):
         :type  publish_conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
+        :param repo_content_unit_q: optional Q object that will be applied to the queries performed
+                                    against RepoContentUnit model
+        :type  repo_content_unit_q: mongoengine.Q
         """
         super(WebPublisher, self).__init__(
             step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
@@ -45,7 +48,7 @@ class WebPublisher(PublishStep):
                                                          master_publish_dir,
                                                          step_type=constants.PUBLISH_STEP_OVER_HTTP)
         atomic_publish_step.description = _('Making v1 files available via web.')
-        self.add_child(PublishImagesStep())
+        self.add_child(PublishImagesStep(repo_content_unit_q=repo_content_unit_q))
         self.add_child(atomic_publish_step)
 
 
@@ -78,9 +81,11 @@ class PublishImagesStep(UnitModelPluginStep):
     Publish Images
     """
 
-    def __init__(self):
+    def __init__(self, repo_content_unit_q=None):
         super(PublishImagesStep, self).__init__(step_type=constants.PUBLISH_STEP_IMAGES,
-                                                model_classes=[models.Image])
+                                                model_classes=[models.Image],
+                                                repo_content_unit_q=repo_content_unit_q)
+
         self.context = None
         self.redirect_context = None
         self.description = _('Publishing Image Files.')

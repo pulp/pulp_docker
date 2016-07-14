@@ -19,6 +19,7 @@ setup(
         'pulp.distributors': [
             'web_distributor = pulp_docker.plugins.distributors.distributor_web:entry_point',
             'export_distributor = pulp_docker.plugins.distributors.distributor_export:entry_point',
+            'rsync_distributor = pulp_docker.plugins.distributors.rsync_distributor:entry_point'
         ],
         'pulp.server.db.migrations': [
             'pulp_docker = pulp_docker.plugins.migrations'

@@ -30,6 +30,14 @@ class Blob(pulp_models.FileContentUnit):
             'indexes': [],
             'allow_inheritance': False}
 
+    def get_symlink_name(self):
+        """
+        Provides the name that should be used when creating a symlink.
+        :return: file name as it appears in a published repository
+        :rtype: str
+        """
+        return self.digest
+
 
 class Image(pulp_models.FileContentUnit):
     """
@@ -58,6 +66,14 @@ class Image(pulp_models.FileContentUnit):
         """
         names = ('ancestry', 'json', 'layer')
         return [os.path.join(self.storage_path, n) for n in names]
+
+    def get_symlink_name(self):
+        """
+        Provides the name that should be used when creating a symlink.
+        :return: file name as it appears in a published repository
+        :rtype: str
+        """
+        return self.image_id
 
 
 class FSLayer(mongoengine.EmbeddedDocument):
@@ -191,6 +207,14 @@ class Manifest(pulp_models.FileContentUnit):
         fs_layers = [FSLayer(blob_sum=layer['blobSum']) for layer in manifest['fsLayers']]
         return cls(digest=digest, name=manifest['name'], tag=manifest['tag'],
                    schema_version=manifest['schemaVersion'], fs_layers=fs_layers)
+
+    def get_symlink_name(self):
+        """
+        Provides the name that should be used when creating a symlink.
+        :return: file name as it appears in a published repository
+        :rtype: str
+        """
+        return self.digest
 
 
 class TagQuerySet(querysets.QuerySetPreventCache):

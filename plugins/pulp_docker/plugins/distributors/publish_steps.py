@@ -2,7 +2,12 @@ from gettext import gettext as _
 import json
 import os
 
+import mongoengine
+from pulp.common import dateutils
 from pulp.plugins.util import misc, publish_step
+from pulp.plugins.rsync.publish import Publisher, RSyncPublishStep
+from pulp.plugins.util.publish_step import RSyncFastForwardUnitPublishStep
+from pulp.server.db.model import Distributor
 
 from pulp_docker.common import constants
 from pulp_docker.plugins import models
@@ -33,16 +38,62 @@ class WebPublisher(publish_step.PublishStep):
             step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
             publish_conduit=publish_conduit, config=config)
 
+        predistributor = self.get_predistributor()
+        if predistributor:
+            end_date = predistributor["last_publish"]
+            if end_date:
+                date_filter = self.create_date_range_filter(end_date=end_date)
+            else:
+                return
+        else:
+            date_filter = None
+
         # Publish v1 content, and then publish v2 content
-        self.add_child(v1_publish_steps.WebPublisher(repo, publish_conduit, config))
-        self.add_child(V2WebPublisher(repo, publish_conduit, config))
+        self.add_child(v1_publish_steps.WebPublisher(repo, publish_conduit, config,
+                                                     repo_content_unit_q=date_filter))
+        self.add_child(V2WebPublisher(repo, publish_conduit, config,
+                                      repo_content_unit_q=date_filter))
+
+    def create_date_range_filter(self, start_date=None, end_date=None):
+        """
+        Create a date filter based on start and end dates
+
+        :param start_date: start time for the filter
+        :type  start_date: datetime.datetime
+        :param end_date: end time for the filter
+        :type  end_date: datetime.datetime
+
+        :return: Q object with start and/or end dates, or None if start and end dates are not
+                 provided
+        :rtype:  mongoengine.Q or types.NoneType
+        """
+        if start_date:
+            start_date = dateutils.format_iso8601_datetime(start_date)
+        if end_date:
+            end_date = dateutils.format_iso8601_datetime(end_date)
+
+        if start_date and end_date:
+            return mongoengine.Q(created__gte=start_date, created__lte=end_date)
+        elif start_date:
+            return mongoengine.Q(created__gte=start_date)
+        elif end_date:
+            return mongoengine.Q(created__lte=end_date)
+
+    def get_predistributor(self):
+        """
+        Returns the distributor that is configured as postdistributor.
+        """
+        predistributor_id = self.get_config().flatten().get("predistributor_id", None)
+        if predistributor_id:
+            return Distributor.objects.get_or_404(repo_id=self.repo.id,
+                                                  distributor_id=predistributor_id)
 
 
 class V2WebPublisher(publish_step.PublishStep):
     """
     This class performs the work of publishing a v2 Docker repository.
     """
-    def __init__(self, repo, publish_conduit, config):
+    def __init__(self, repo, publish_conduit, config, repo_content_unit_q=None):
         """
         Initialize the V2WebPublisher.
 
@@ -52,6 +103,9 @@ class V2WebPublisher(publish_step.PublishStep):
         :type  publish_conduit: pulp.plugins.conduits.repo_publish.RepoPublishConduit
         :param config: Pulp configuration for the distributor
         :type  config: pulp.plugins.config.PluginCallConfiguration
+        :param repo_content_unit_q: optional Q object that will be applied to the queries performed
+                                    against RepoContentUnit model
+        :type  repo_content_unit_q: mongoengine.Q
         """
         super(V2WebPublisher, self).__init__(
             step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
@@ -70,8 +124,8 @@ class V2WebPublisher(publish_step.PublishStep):
             self.get_working_dir(), [('', publish_dir), (app_file, app_publish_location)],
             master_publish_dir, step_type=constants.PUBLISH_STEP_OVER_HTTP)
         atomic_publish_step.description = _('Making v2 files available via web.')
-        self.add_child(PublishBlobsStep())
-        self.publish_manifests_step = PublishManifestsStep()
+        self.add_child(PublishBlobsStep(repo_content_unit_q=repo_content_unit_q))
+        self.publish_manifests_step = PublishManifestsStep(repo_content_unit_q=repo_content_unit_q)
         self.add_child(self.publish_manifests_step)
         self.add_child(PublishTagsStep())
         self.add_child(atomic_publish_step)
@@ -83,13 +137,14 @@ class PublishBlobsStep(publish_step.UnitModelPluginStep):
     Publish Blobs.
     """
 
-    def __init__(self):
+    def __init__(self, repo_content_unit_q=None):
         """
         Initialize the PublishBlobsStep, setting its description and calling the super class's
         __init__().
         """
         super(PublishBlobsStep, self).__init__(step_type=constants.PUBLISH_STEP_BLOBS,
-                                               model_classes=[models.Blob])
+                                               model_classes=[models.Blob],
+                                               repo_content_unit_q=repo_content_unit_q)
         self.description = _('Publishing Blobs.')
 
     def process_main(self, item):
@@ -117,13 +172,14 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
     Publish Manifests.
     """
 
-    def __init__(self):
+    def __init__(self, repo_content_unit_q=None):
         """
         Initialize the PublishManifestsStep, setting its description and calling the super class's
         __init__().
         """
         super(PublishManifestsStep, self).__init__(step_type=constants.PUBLISH_STEP_MANIFESTS,
-                                                   model_classes=[models.Manifest])
+                                                   model_classes=[models.Manifest],
+                                                   repo_content_unit_q=repo_content_unit_q)
         self.description = _('Publishing Manifests.')
 
     def process_main(self, item):
@@ -220,3 +276,149 @@ class RedirectFileStep(publish_step.PublishStep):
         misc.mkdir(os.path.dirname(self.app_publish_location))
         with open(self.app_publish_location, 'w') as app_file:
             app_file.write(json.dumps(redirect_data))
+
+
+class PublishTagsForRsyncStep(RSyncFastForwardUnitPublishStep):
+
+    def __init__(self, step_type, repo_registry_id=None, repo_content_unit_q=None, repo=None,
+                 config=None, remote_repo_path=None):
+        """
+        Sets the repo_registry_id and initializes a set to keep track of processed tags.
+
+        :param step_type: The id of the step this processes
+        :type step_type: str
+        :param repo_registry_id: registry id configured in the postdistributor
+        :type repo_registry_id: str
+        :param repo_content_unit_q: optional Q object that will be applied to the queries performed
+                                    against RepoContentUnit model
+        :type  repo_content_unit_q: mongoengine.Q
+        :param repo: The repo being worked on
+        :type  repo: pulp.plugins.model.Repository
+        :param config: The publish configuration
+        :type  config: PluginCallConfiguration
+        :param remote_repo_path: relative path on remote server where published repo should live
+        :type remote_repo_path: str
+        """
+        super(PublishTagsForRsyncStep, self).__init__(step_type, [models.Tag],
+                                                      repo_content_unit_q=repo_content_unit_q,
+                                                      repo=repo, config=config,
+                                                      remote_repo_path=remote_repo_path,
+                                                      published_unit_path=['manifests'])
+        self._tag_names = set()
+        self.repo_registry_id = repo_registry_id
+
+    def process_main(self, item=None):
+        """
+        Create the manifest tag relative links.
+
+        :param item: The tag to process
+        :type  item: pulp_docker.plugins.models.Tag
+        """
+        manifest = models.Manifest.objects.get(digest=item.manifest_digest)
+        filename = item.name
+        symlink = self.make_link_unit(manifest, filename, self.get_working_dir(),
+                                      self.remote_repo_path,
+                                      self.get_config().get("remote")["root"],
+                                      self.published_unit_path)
+        self.parent.symlink_list.append(symlink)
+        self._tag_names.add(item.name)
+
+    def finalize(self):
+        """
+        Write the Tag list file so that clients can retrieve the list of available Tags.
+        """
+        tags_path = os.path.join(self.parent.get_working_dir(), '.relative', 'tags')
+        misc.mkdir(tags_path)
+        with open(os.path.join(tags_path, 'list'), 'w') as list_file:
+            tag_data = {
+                'name': self.repo_registry_id,
+                'tags': list(self._tag_names)}
+            list_file.write(json.dumps(tag_data))
+        # We don't need the tag names anymore
+        del self._tag_names
+
+
+class DockerRsyncPublisher(Publisher):
+
+    REPO_CONTENT_TYPES = (constants.IMAGE_TYPE_ID, constants.BLOB_TYPE_ID,
+                          constants.MANIFEST_TYPE_ID)
+
+    REPO_CONTENT_MODELS = (models.Blob, models.Manifest, models.Image)
+
+    def _get_postdistributor(self):
+        """
+        Returns the distributor object representing the postdistributor. A postdistirbutor is the
+        distributor used to publish the repository after an rsync publish occurs.
+
+        :return: postdistributor that was configured in rsync distributor's config
+        :rtype: pulp.server.db.model.Distributor
+        :raise pulp_exceptions.MissingResource: if distributor with postdistributor_id is found for
+               this repo
+        """
+        postdistributor_id = self.get_config().flatten().get("postdistributor_id", None)
+        return Distributor.objects.get_or_404(repo_id=self.repo.id,
+                                              distributor_id=postdistributor_id)
+
+    def _add_necesary_steps(self, date_filter=None, config=None):
+        """
+        This method adds all the steps that are needed to accomplish an RPM rsync publish. This
+        includes:
+
+        Unit Query Step - selects units associated with the repo based on the date_filter and
+                          creates relative symlinks
+        Tag Generation Step  - creates relative symlinks for for all tags and writes out list file
+        Rsync Step (content units) - rsyncs content units from /var/lib/pulp/content to remote
+                                     server
+        Rsync Step (symlinks) - rsyncs symlinks from working directory to remote server
+
+        :param date_filter: Q object with start and/or end dates, or None if start and end dates
+                             are not provided
+        :type date_filter: mongoengine.Q or types.NoneType
+        :param config: distributor configuration
+        :type config: pulp.plugins.config.PluginCallConfiguration
+
+        :return: None
+        """
+        postdistributor = self._get_postdistributor()
+        repo_registry_id = configuration.get_repo_registry_id(self.repo, postdistributor.config)
+        remote_repo_path = configuration.get_repo_relative_path(self.repo, self.config)
+
+        unit_info = {constants.IMAGE_TYPE_ID: {'extra_path': [''], 'model': models.Image},
+                     constants.MANIFEST_TYPE_ID: {'extra_path': ['manifests'],
+                                                  'model': models.Manifest},
+                     constants.BLOB_TYPE_ID: {'extra_path': ['blobs'], 'model': models.Blob}}
+
+        for unit_type in DockerRsyncPublisher.REPO_CONTENT_TYPES:
+            unit_path = unit_info[unit_type]['extra_path']
+            gen_step = RSyncFastForwardUnitPublishStep("Unit query step (things)",
+                                                       [unit_info[unit_type]['model']],
+                                                       repo=self.repo,
+                                                       remote_repo_path=remote_repo_path,
+                                                       published_unit_path=unit_path)
+            self.add_child(gen_step)
+
+        self.add_child(PublishTagsForRsyncStep("Generate tags step",
+                                               repo=self.repo,
+                                               remote_repo_path=remote_repo_path,
+                                               repo_registry_id=repo_registry_id))
+
+        origin_dest_prefix = self.get_units_directory_dest_path()
+        origin_src_prefix = self.get_units_src_path()
+
+        self.add_child(RSyncPublishStep("Rsync step (content units)", self.content_unit_file_list,
+                                        origin_src_prefix, origin_dest_prefix,
+                                        config=config))
+
+        # Stop here if distributor is only supposed to publish actual content
+        if self.get_config().flatten().get("content_units_only"):
+            return
+
+        self.add_child(RSyncPublishStep("Rsync step (symlinks)",
+                                        self.symlink_list, self.symlink_src, remote_repo_path,
+                                        config=config, links=True,
+                                        delete=self.config.get("delete")))
+
+        if constants.TAG_TYPE_ID in self.repo.content_unit_counts:
+            self.add_child(RSyncPublishStep("Rsync step (tags list)", ["tags/list"],
+                                            os.path.join(self.get_working_dir(), '.relative'),
+                                            remote_repo_path, config=config, links=True))

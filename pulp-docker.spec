@@ -96,6 +96,7 @@ Requires: python-pulp-docker-common = %{version}
 Requires: pulp-server >= 2.8.0
 Requires: python-setuptools
 Requires: python-nectar >= 1.3.0
+Requires: rsync
 
 %description plugins
 Provides a collection of platform plugins that extend the Pulp platform
