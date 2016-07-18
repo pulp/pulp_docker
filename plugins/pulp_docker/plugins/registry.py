@@ -303,6 +303,12 @@ class V2Repository(object):
 
         self.download_config = download_config
         self.registry_url = registry_url
+
+        # Use basic auth information only for retrieving tokens from auth server.
+        self.token_downloader = HTTPThreadedDownloader(self.download_config,
+                                                       AggregatingEventListener())
+        self.download_config.basic_auth_username = None
+        self.download_config.basic_auth_password = None
         self.downloader = HTTPThreadedDownloader(self.download_config, AggregatingEventListener())
         self.working_dir = working_dir
         self.token = None
@@ -423,7 +429,8 @@ class V2Repository(object):
         if report.state == report.DOWNLOAD_FAILED:
             if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
                 _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
-                self.token = token_util.request_token(self.downloader, request, report.headers)
+                self.token = token_util.request_token(self.token_downloader, request,
+                                                      report.headers)
                 request.headers = token_util.update_auth_header(request.headers, self.token)
                 report = self.downloader.download_one(request)
 

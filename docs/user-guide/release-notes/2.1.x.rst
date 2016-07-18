@@ -1,0 +1,11 @@
+2.1 Release Notes
+=================
+
+2.1.0
+-----
+
+See the :fixedbugs:`2.1.0`.
+
+We have added new options ``--basicauth-user`` and ``--basicauth-password`` when creating or updating
+repositories. These options allow the user to sync private repositories from Docker registries that
+support basic authentication.

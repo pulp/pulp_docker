@@ -53,7 +53,6 @@ d = _('Enable sync of v2 API. defaults to "true"')
 OPT_ENABLE_V2 = PulpCliOption('--enable-v2', d, required=False,
                               parse_func=okaara_parsers.parse_boolean)
 
-
 DESC_FEED = _('URL for the upstream docker index, not including repo name')
 
 
@@ -95,7 +94,7 @@ class CreateDockerRepositoryCommand(CreateUpdateMixin, CreateAndConfigureReposit
     def __init__(self, context):
         CreateAndConfigureRepositoryCommand.__init__(self, context)
         ImporterConfigMixin.__init__(self, include_ssl=True, include_sync=True,
-                                     include_unit_policy=False)
+                                     include_unit_policy=False, include_basic_auth=True)
         self.add_option(OPT_AUTO_PUBLISH)
         self.add_option(OPT_REDIRECT_URL)
         self.add_option(OPT_PROTECTED)
