@@ -134,6 +134,12 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Tue Jul 19 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-0.1.beta
+- Bumping version to 2.0.3-0.1.beta (sean.myers@redhat.com)
+- Adds banner warning about migration runtime (bbouters@redhat.com)
+- Add check for duplicate unit key during v1 sync. (ipanova@redhat.com)
+- Bumping version to 2.0.3-0.1.alpha (sean.myers@redhat.com)
+
 * Fri Jun 17 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.3.beta
 - Bumping version to 2.0.2-0.3.beta (sean.myers@redhat.com)
 
