@@ -134,6 +134,10 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Wed Jul 20 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-0.2.beta
+- Bumping version to 2.0.3-0.2.beta (sean.myers@redhat.com)
+- Remove intersphinx and enable Strict mode (bbouters@redhat.com)
+
 * Tue Jul 19 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-0.1.beta
 - Bumping version to 2.0.3-0.1.beta (sean.myers@redhat.com)
 - Adds banner warning about migration runtime (bbouters@redhat.com)
