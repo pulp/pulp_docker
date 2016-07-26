@@ -5,13 +5,17 @@ import tempfile
 import unittest
 
 import mock
+
+from mongoengine import NotUniqueError
+
 from pulp.common.plugins import importer_constants
 from pulp.plugins.config import PluginCallConfiguration
-from pulp.plugins.model import Repository as RepositoryModel, Unit
+from pulp.plugins.model import Repository as RepositoryModel
 from pulp.server.managers import factory
 
 from pulp_docker.common import constants
 from pulp_docker.plugins.importers import v1_sync
+from pulp_docker.plugins.models import Image
 
 
 factory.initialize()
@@ -111,9 +115,7 @@ class TestSaveImages(unittest.TestCase):
         self.step.conduit = mock.MagicMock()
         self.step.parent = mock.MagicMock()
         self.step.parent.step_get_local_units.units_to_download = [{'image_id': 'abc123'}]
-
-        self.unit = Unit(constants.IMAGE_TYPE_ID, {'image_id': 'abc123'},
-                         {'parent': None, 'size': 2}, os.path.join(self.dest_dir, 'abc123'))
+        self.item = Image(image_id='abc123')
 
     def tearDown(self):
         super(TestSaveImages, self).tearDown()
@@ -133,3 +135,48 @@ class TestSaveImages(unittest.TestCase):
         # write just enough metadata to make the step happy
         with open(os.path.join(self.working_dir, 'abc123/json'), 'w') as json_file:
             json.dump({'Size': 2, 'Parent': 'xyz789'}, json_file)
+
+    @mock.patch('json.load', spec_set=True)
+    @mock.patch('pulp_docker.plugins.importers.v1_sync.repo_controller.associate_single_unit')
+    @mock.patch('pulp_docker.plugins.importers.v1_sync.SaveImages.get_working_dir')
+    def test_save_image(self, mock_dir, mock_associate, mock_load):
+        # setup
+        mock_dir.return_value = self.working_dir
+        mock_load.return_value = {'Size': 2, 'Parent': 'xyz789'}
+        os.makedirs(os.path.join(self.working_dir, 'abc123'))
+        path = os.path.join(self.working_dir, 'abc123/json')
+        open(path, 'w').close()
+        self.item.save = mock.MagicMock()
+        self.item.safe_import_content = mock.MagicMock()
+
+        # test
+        self.step.process_main(self.item)
+
+        # verify
+        self.item.save.assert_called_once_with()
+        location = os.path.basename(path)
+        self.item.safe_import_content.assert_called_once_with(path, location=location)
+        self.assertEqual(mock_associate.mock_calls[-1][1][1], self.item)
+
+    @mock.patch('json.load', spec_set=True)
+    @mock.patch('pulp_docker.plugins.importers.v1_sync.repo_controller.associate_single_unit')
+    @mock.patch('pulp_docker.plugins.importers.v1_sync.SaveImages.get_working_dir')
+    def test_save_duplicate_image(self, mock_dir, mock_associate, mock_load):
+        # setup
+        mock_dir.return_value = self.working_dir
+        mock_load.return_value = {'Size': 2, 'Parent': 'xyz789'}
+        os.makedirs(os.path.join(self.working_dir, 'abc123'))
+        path = os.path.join(self.working_dir, 'abc123/json')
+        open(path, 'w').close()
+        self.item.save = mock.MagicMock()
+        self.item.save.side_effect = NotUniqueError()
+        self.item.safe_import_content = mock.MagicMock()
+        self.item.__class__.objects = mock.MagicMock()
+
+        # test
+        self.step.process_main(self.item)
+
+        # verify
+        self.item.save.assert_called_once_with()
+        self.assertFalse(self.item.safe_import_content.called)
+        self.assertTrue(mock_associate.called)

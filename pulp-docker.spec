@@ -2,7 +2,7 @@
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
 Name: pulp-docker
-Version: 2.0.2
+Version: 2.0.3
 Release: 1%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
@@ -134,8 +134,18 @@ pulp-admin extensions for docker support
 
 
 %changelog
-* Mon Jun 27 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-1
-- Bumping version to 2.0.2-1 (sean.myers@redhat.com)
+* Tue Jul 26 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-1
+- Bumping version to 2.0.3-1 (sean.myers@redhat.com)
+
+* Wed Jul 20 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-0.2.beta
+- Bumping version to 2.0.3-0.2.beta (sean.myers@redhat.com)
+- Remove intersphinx and enable Strict mode (bbouters@redhat.com)
+
+* Tue Jul 19 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-0.1.beta
+- Bumping version to 2.0.3-0.1.beta (sean.myers@redhat.com)
+- Adds banner warning about migration runtime (bbouters@redhat.com)
+- Add check for duplicate unit key during v1 sync. (ipanova@redhat.com)
+- Bumping version to 2.0.3-0.1.alpha (sean.myers@redhat.com)
 
 * Fri Jun 17 2016 Sean Myers <sean.myers@redhat.com> 2.0.2-0.3.beta
 - Bumping version to 2.0.2-0.3.beta (sean.myers@redhat.com)
