@@ -160,3 +160,83 @@ Example Redirect File Contents::
     ],
   "tags": {"latest": "769b9341d937a3dba9e460f664b4f183a6cecdd62b337220a28b3deb50ee0a02"}
  }
+
+Docker rsync Distributor
+------------------------
+
+Purpose:
+--------
+The Docker rsync distributor publishes docker content to a remote server. The distributor uses
+rsync over ssh to perform the file transfer. Docker images (v1) are published into the root of
+the remote repository. Manifests (v2) are published into ``manifests`` directory and Blobs (v2) are
+published into ``blobs`` directory.
+
+The docker rsync distributor makes it easier to serve docker content on one server and run Crane on
+another server. It is recommended that the rsync distributor is used required to publish prior to
+publishing with the docker web distributor.
+
+Configuration
+=============
+Here is an example docker_rsync_distributor configuration:
+
+.. code-block:: json
+
+    {
+     "distributor_id": "my_docker_rsync_distributor",
+     "distributor_type_id": "docker_rsync_distributor",
+     "distributor_config": {
+        "remote": {
+            "auth_type": "publickey",
+            "ssh_user": "foo",
+            "ssh_identity_file": "/home/user/.ssh/id_rsa",
+            "host": "192.168.121.1",
+            "root": "/home/foo/pulp_root_dir"
+        },
+        "postdistributor_id": "docker_web_distributor_name_cli"
+     }
+    }
+
+
+``postdistributor_id``
+  The id of the docker_distributor_web associated with the same repository. The
+  ``repo-registry-id`` configured in the postdistributor will be used when generating tags list.
+   The docker web distributor associated with the same repository is required to have the
+   ``predistributor_id`` configured. ``postdistributor_id`` is a required config.
+
+The ``distributor_config`` contains a ``remote`` section with the following settings:
+
+``auth_type``
+  Two authentication methods are supported: ``publickey`` and ``password``.
+
+``ssh_user``
+  The ssh user for remote server.
+
+``ssh_identity_file``
+  The path to the private key to be used as the ssh identity file. When ``auth_type`` is
+  ``publickey`` this is a required config. The key has to be readable by user ``apache``.
+
+``ssh_password``
+  The password to be used for ``ssh_user`` on the remote server. ``ssh_password`` is required when
+  ``auth_type`` is 'password'.
+
+``host``
+  The hostname of the remote server.
+
+``root``
+  The absolute path to the remote root directory where all the data (content and published content)
+  lives. This is the remote equivalent to ``/var/lib/pulp``. The repo id is appended to the
+  ``root`` path to determine the location of published repository.
+
+Optional Configuration
+----------------------
+
+``content_units_only``
+  If true, the distributor will publish content units only (e.g. ``/var/lib/pulp/content``). The
+  symlinks of a published repository will not be rsynced.
+
+``delete``
+  If true, ``--delete`` is appended to the rsync command for symlinks and repodata so that any old
+  files no longer present in the local published directory are removed from the remote server.
+
+``remote_units_path``
+  The relative path from the ``root`` where unit files will live. Defaults to ``content/units``.

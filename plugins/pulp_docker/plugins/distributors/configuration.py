@@ -2,7 +2,9 @@ import os
 import re
 from urlparse import urlparse
 
+from pulp.plugins.rsync import configuration as rsync_config
 from pulp.server.config import config as server_config
+from pulp.server.db.model import Distributor
 from pulp.server.exceptions import PulpCodedValidationException
 
 from pulp_docker.common import constants, error_codes
@@ -62,6 +64,55 @@ def validate_config(config, repo):
     return True, None
 
 
+def validate_rsync_distributor_config(repo, config, config_conduit):
+    """
+    Performs validation of configuration that is standard for all rsync distributors. Then performs
+    extra validation needed for docker rsync.
+
+    :param repo:   metadata describing the repository to which the
+                   configuration applies
+    :type  repo:   pulp.plugins.model.Repository
+    :param config: Pulp configuration for the distributor
+    :type  config: pulp.plugins.config.PluginCallConfiguration
+    :param config_conduit: Configuration Conduit;
+    :type  config_conduit: pulp.plugins.conduits.repo_config.RepoConfigConduit
+
+    :return: tuple comprised of a boolean indicating whether validation succeeded or failed and a
+             list of errors (if any)
+    :rtype: (bool, list of strings) or (bool, None)
+    :raises: PulpCodedValidationException if any validations failed
+    """
+    valid, errors = rsync_config.validate_config(repo, config, config_conduit)
+    if valid:
+        return validate_postdistributor(repo, config)
+    else:
+        return valid, errors
+
+
+def validate_postdistributor(repo, config):
+    """
+    Validates that the postdistributor_id is set and is valid for this repositotry.
+
+    :param repo:   metadata describing the repository to which the configuration applies
+    :type  repo:   pulp.plugins.model.Repository
+    :param config: Pulp configuration for the distributor
+    :type  config: pulp.plugins.config.PluginCallConfiguration
+
+    :return: tuple comprised of a boolean indicating whether validation succeeded or failed and a
+             list of errors (if any)
+    :rtype: (bool, list of strings) or (bool, None)
+    :raises: PulpCodedValidationException if postdistributor_id is not defined or 404 if the
+             distributor_id is not associated with the repo
+
+    """
+    postdistributor = config.flatten().get("postdistributor_id", None)
+    if postdistributor:
+        Distributor.objects.get_or_404(repo_id=repo.id, distributor_id=postdistributor)
+        return True, None
+    else:
+        raise PulpCodedValidationException(error_code=error_codes.DKR1009)
+
+
 def get_root_publish_directory(config, docker_api_version):
     """
     The publish directory for the docker plugin
@@ -110,7 +161,6 @@ def get_web_publish_dir(repo, config, docker_api_version):
     :return: the HTTP publication directory
     :rtype:  str
     """
-
     return os.path.join(get_root_publish_directory(config, docker_api_version), 'web',
                         get_repo_relative_path(repo, config))
 

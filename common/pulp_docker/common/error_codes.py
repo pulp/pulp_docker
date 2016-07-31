@@ -23,3 +23,5 @@ DKR1007 = Error("DKR1007", _("Could not fetch repository %(repo)s from registry 
                              "%(reason)s"),
                 ['repo', 'registry', 'reason'])
 DKR1008 = Error("DKR1008", _("Could not find registry API at %(registry)s"), ['registry'])
+DKR1009 = Error("DKR1009", _("Docker rsync distributor configuration requires a "
+                             "postdistributor_id."), [])
