@@ -200,8 +200,8 @@ Here is an example docker_rsync_distributor configuration:
 ``postdistributor_id``
   The id of the docker_distributor_web associated with the same repository. The
   ``repo-registry-id`` configured in the postdistributor will be used when generating tags list.
-   The docker web distributor associated with the same repository is required to have the
-   ``predistributor_id`` configured. ``postdistributor_id`` is a required config.
+  The docker web distributor associated with the same repository is required to have the
+  ``predistributor_id`` configured. ``postdistributor_id`` is a required config.
 
 The ``distributor_config`` contains a ``remote`` section with the following settings:
 
