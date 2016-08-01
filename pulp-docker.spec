@@ -91,9 +91,9 @@ Common libraries for python-pulp-docker
 %package plugins
 Summary: Pulp Docker plugins
 Group: Development/Languages
-Requires: python-pulp-common >= 2.8.0
+Requires: python-pulp-common >= 2.10.0
 Requires: python-pulp-docker-common = %{version} 
-Requires: pulp-server >= 2.8.0
+Requires: pulp-server >= 2.10.0
 Requires: python-setuptools
 Requires: python-nectar >= 1.3.0
 Requires: rsync
