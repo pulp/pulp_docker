@@ -381,7 +381,7 @@ class DockerRsyncPublisher(Publisher):
         """
         postdistributor = self._get_postdistributor()
         repo_registry_id = configuration.get_repo_registry_id(self.repo, postdistributor.config)
-        remote_repo_path = configuration.get_repo_relative_path(self.repo, self.config)
+        remote_repo_path = configuration.get_remote_repo_relative_path(self.repo, self.config)
 
         unit_info = {constants.IMAGE_TYPE_ID: {'extra_path': [''], 'model': models.Image},
                      constants.MANIFEST_TYPE_ID: {'extra_path': ['manifests'],
