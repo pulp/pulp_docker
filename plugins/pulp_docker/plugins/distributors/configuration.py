@@ -232,6 +232,22 @@ def get_repo_relative_path(repo, config):
     return repo.id
 
 
+def get_remote_repo_relative_path(repo, config):
+    """
+    Get the configured relative path for the given repository. This method is used by rsync
+    distributor. When repo_relative_path is not set, repository id is returned.
+
+    :param repo: repository to get relative path for
+    :type  repo: pulp.plugins.model.Repository
+    :param config: configuration instance for the repository
+    :type  config: pulp.plugins.config.PluginCallConfiguration or dict
+
+    :return: relative path for the repository
+    :rtype:  str
+    """
+    return config.get('repo_relative_path', repo.id)
+
+
 def get_export_repo_directory(config, docker_api_version):
     """
     Get the directory where the export publisher will publish repositories.
