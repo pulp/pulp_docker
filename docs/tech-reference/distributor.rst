@@ -177,9 +177,7 @@ publishing with the docker web distributor.
 
 Configuration
 =============
-Here is an example docker_rsync_distributor configuration:
-
-.. code-block:: json
+Here is an example docker_rsync_distributor configuration::
 
     {
      "distributor_id": "my_docker_rsync_distributor",
