@@ -1,6 +1,8 @@
 pulp_docker
 ===========
 
+Allow Pulp to manage Docker images.  Not to be confused with a Docker image running Pulp which may be found in the [Packaging repo](https://github.com/pulp/packaging/tree/docker).
+
 tagging
 -------
 
