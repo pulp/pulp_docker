@@ -393,12 +393,14 @@ class DockerRsyncPublisher(Publisher):
             gen_step = RSyncFastForwardUnitPublishStep("Unit query step (things)",
                                                        [unit_info[unit_type]['model']],
                                                        repo=self.repo,
+                                                       repo_content_unit_q=date_filter,
                                                        remote_repo_path=remote_repo_path,
                                                        published_unit_path=unit_path)
             self.add_child(gen_step)
 
         self.add_child(PublishTagsForRsyncStep("Generate tags step",
                                                repo=self.repo,
+                                               repo_content_unit_q=date_filter,
                                                remote_repo_path=remote_repo_path,
                                                repo_registry_id=repo_registry_id))
 
