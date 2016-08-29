@@ -135,6 +135,10 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Mon Aug 29 2016 Sean Myers <sean.myers@redhat.com> 2.1.0-0.2.beta
+- Bumping version to 2.1.0-0.2.beta (sean.myers@redhat.com)
+- Stops sync on any download failures (dkliban@redhat.com)
+
 * Wed Aug 03 2016 Sean Myers <sean.myers@redhat.com> 2.1.0-0.1.beta
 - update dist list to build for fedora 24, and not fedora 22
   (sean.myers@redhat.com)
