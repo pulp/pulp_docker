@@ -177,6 +177,13 @@ publishing with the docker web distributor.
 
 Configuration
 =============
+Pulp's SELinux policy includes a ``pulp_manage_rsync`` boolean. When enabled, the
+``pulp_manage_rsync`` boolean allows Pulp to use rsync and make ssh connections. The boolean is
+disabled by default. The RPM Rsync distributor will fail to publish with SELinux Enforcing unless
+the boolean is enabled. To enable it, you can do this::
+
+    $ sudo semanage boolean --modify --on pulp_manage_rsync
+
 Here is an example docker_rsync_distributor configuration::
 
     {
@@ -207,8 +214,13 @@ The ``distributor_config`` contains a ``remote`` section with the following sett
   The ssh user for remote server.
 
 ``ssh_identity_file``
-  Absolute path to the private key that will be used as the identity file for ssh. The key has to
-  be readable by user ``apache``.
+  Absolute path to the private key that will be used as identity file for ssh. The key must be
+  owned by user ``apache`` and must not be readable by other users. If the POSIX permissions are
+  too loose, the SSH application will refuse to use the key. Additionally, if SELinux is Enforcing,
+  Pulp requires the key to be labeled with the ``httpd_sys_content_t`` SELinux context. This can
+  be applied to the file with::
+
+    $ sudo chcon -t httpd_sys_content_t  /path/to/ssh_identity_file
 
 ``host``
   The hostname of the remote server.
