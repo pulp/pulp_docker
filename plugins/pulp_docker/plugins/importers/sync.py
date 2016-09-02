@@ -7,6 +7,7 @@ import httplib
 import itertools
 import logging
 import os
+import signal
 
 from mongoengine import NotUniqueError
 
@@ -365,3 +366,6 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
             self.download_succeeded(report)
         elif report.state is report.DOWNLOAD_FAILED:
             super(TokenAuthDownloadStep, self).download_failed(report)
+            # Docker blobs have ancestry relationships and need all blobs to function. Sync should
+            # stop immediately to prevent publishing of an incomplete repository.
+            os.kill(os.getpid(), signal.SIGKILL)

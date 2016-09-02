@@ -245,9 +245,12 @@ class TagQuerySet(querysets.QuerySetPreventCache):
         except mongoengine.NotUniqueError:
             # There is already a Tag with the given name and repo_id, so let's just make sure it's
             # digest is updated. No biggie.
-            Tag.objects.filter(name=tag_name, repo_id=repo_id).update(
-                manifest_digest=manifest_digest)
+            # Let's check if the manifest_digest changed
             tag = Tag.objects.get(name=tag_name, repo_id=repo_id)
+            if tag.manifest_digest != manifest_digest:
+                tag.manifest_digest = manifest_digest
+                # we don't need to set _last_updated field because it is done with pre_save signal
+                tag.save()
         return tag
 
 
