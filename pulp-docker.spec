@@ -135,6 +135,10 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Tue Sep 06 2016 Sean Myers <sean.myers@redhat.com> 2.1.0-0.3.rc
+- Bumping version to 2.1.0-0.3.rc (sean.myers@redhat.com)
+- Additional documentation for rsync distributor (dkliban@redhat.com)
+
 * Mon Aug 29 2016 Sean Myers <sean.myers@redhat.com> 2.1.0-0.2.beta
 - Bumping version to 2.1.0-0.2.beta (sean.myers@redhat.com)
 - Stops sync on any download failures (dkliban@redhat.com)
