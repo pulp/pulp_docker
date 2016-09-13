@@ -134,6 +134,11 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Tue Sep 13 2016 Sean Myers <sean.myers@redhat.com> 2.0.4-0.2.beta
+- Bumping version to 2.0.4-0.2.beta (sean.myers@redhat.com)
+- With docker_tag unit change _last_updated is changed accordingly
+  (ipanova@redhat.com)
+
 * Tue Aug 30 2016 Sean Myers <sean.myers@redhat.com> 2.0.4-0.1.beta
 - Bumping version to 2.0.4-0.1.beta (sean.myers@redhat.com)
 - Stops sync on any download failures (dkliban@redhat.com)
