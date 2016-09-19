@@ -2,7 +2,7 @@
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
 Name: pulp-docker
-Version: 2.0.3
+Version: 2.0.4
 Release: 1%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
@@ -134,8 +134,20 @@ pulp-admin extensions for docker support
 
 
 %changelog
-* Tue Jul 26 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-1
-- Bumping version to 2.0.3-1 (sean.myers@redhat.com)
+* Mon Sep 19 2016 Sean Myers <sean.myers@redhat.com> 2.0.4-1
+- Bumping version to 2.0.4-1 (sean.myers@redhat.com)
+
+* Tue Sep 13 2016 Sean Myers <sean.myers@redhat.com> 2.0.4-0.2.beta
+- Bumping version to 2.0.4-0.2.beta (sean.myers@redhat.com)
+- With docker_tag unit change _last_updated is changed accordingly
+  (ipanova@redhat.com)
+
+* Tue Aug 30 2016 Sean Myers <sean.myers@redhat.com> 2.0.4-0.1.beta
+- Bumping version to 2.0.4-0.1.beta (sean.myers@redhat.com)
+- Stops sync on any download failures (dkliban@redhat.com)
+- Install test requirements with travis (asmacdo@gmail.com)
+- pin to flake8-2.6.2 for py2.6 support (asmacdo@gmail.com)
+- Bumping version to 2.0.4-0.1.alpha (sean.myers@redhat.com)
 
 * Wed Jul 20 2016 Sean Myers <sean.myers@redhat.com> 2.0.3-0.2.beta
 - Bumping version to 2.0.3-0.2.beta (sean.myers@redhat.com)
