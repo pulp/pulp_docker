@@ -135,6 +135,89 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Tue Oct 25 2016 Sean Myers <sean.myers@redhat.com> 2.2.0-0.1.beta
+- Bumping version to 2.2.0-0.1.beta (sean.myers@redhat.com)
+- Build latest plugin upstream version for f24 (sean.myers@redhat.com)
+- Bumping version to 2.2.0-0.1.alpha (sean.myers@redhat.com)
+- Additional documentation for rsync distributor (dkliban@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.4-0.1.beta].
+  (sean.myers@redhat.com)
+- Bumping version to 2.0.4-0.1.beta (sean.myers@redhat.com)
+- With docker_tag unit change _last_updated is changed accordingly
+  (ipanova@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.1.0-0.2.beta].
+  (sean.myers@redhat.com)
+- Bumping version to 2.1.0-0.2.beta (sean.myers@redhat.com)
+- As a user, I can perform incremental publish with Docker rsync distributor
+  (ipanova@redhat.com)
+- Removing fc22 from the list of supported platforms. (ipanova@redhat.com)
+- Stops sync on any download failures (dkliban@redhat.com)
+- Make it clear in the README.md this is not a Docker image repository
+  (brunovern.a@gmail.com)
+- Add basic mention-bot config (jeremy@jcline.org)
+- Automatic commit of package [pulp-docker] release [2.1.0-0.1.beta].
+  (sean.myers@redhat.com)
+- update dist list to build for fedora 24, and not fedora 22
+  (sean.myers@redhat.com)
+- JSON lexer not supported on el7 (sean.myers@redhat.com)
+- Raises the required version of pulp-server to 2.10.0 (dkliban@redhat.com)
+- Adds support for relative_repo_path for the docker rsync distributor
+  (dkliban@redhat.com)
+- Removes docs referencing use of password authentication for rsync publishes
+  (dkliban@redhat.com)
+- Fix indentation in the docs (ttereshc@redhat.com)
+- Adds rsync distributor (dkliban@redhat.com)
+- Install test requirements with travis (asmacdo@gmail.com)
+- pin to flake8-2.6.2 for py2.6 support (asmacdo@gmail.com)
+- Bumping version to 2.0.4-0.1.alpha (sean.myers@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.3-0.2.beta].
+  (sean.myers@redhat.com)
+- Bumping version to 2.0.3-0.2.beta (sean.myers@redhat.com)
+- Remove intersphinx and enable Strict mode (bbouters@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.3-0.1.beta].
+  (sean.myers@redhat.com)
+- Bumping version to 2.0.3-0.1.beta (sean.myers@redhat.com)
+- Add 2.1.x release notes to toctree (ttereshc@redhat.com)
+- Add basic auth to docker token request (asmacdo@gmail.com)
+- Adds banner warning about migration runtime (bbouters@redhat.com)
+- Add check for duplicate unit key during v1 sync. (ipanova@redhat.com)
+- Bumping version to 2.0.3-0.1.alpha (sean.myers@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.2-0.3.beta].
+  (sean.myers@redhat.com)
+- Bumping version to 2.0.2-0.3.beta (sean.myers@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.2-0.2.beta].
+  (sean.myers@redhat.com)
+- Migrate docker v1 image published links. closes #1994 (jortel@redhat.com)
+- Bumping version to 2.0.2-0.2.beta (sean.myers@redhat.com)
+- Fix syntax error in docker sync (asmacdo@gmail.com)
+- Update link which points to pulp_docker documentation (#154)
+  (akasurde@redhat.com)
+- Reverting strict mode so that Koji can build RPMs again (bbouters@redhat.com)
+- Enables strict mode for sphinx docs builds (bbouters@redhat.com)
+- Bumping version to 2.0.1-1 (sean.myers@redhat.com)
+- Fix syntax error in docker sync (asmacdo@gmail.com)
+- When a sync cannot get tags from a v2 API, it will fail with a reasonable
+  message. (mhrivnak@redhat.com)
+- Download docker blobs in parallel (asmacdo@gmail.com)
+- 2.0.1 release notes entry (sean.myers@redhat.com)
+- Bumping version to 2.0.1-0.2.beta (sean.myers@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.1-0.1.beta].
+  (sean.myers@redhat.com)
+- standard storage path migration. closes #1818 (jortel@redhat.com)
+- Bumping version to 2.1.0-0.1.beta (dkliban@redhat.com)
+- Fix return value of upload_unit() to be consistent with plugin API
+  (ttereshc@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.0-1].
+  (dkliban@redhat.com)
+- Bumping version to 2.0.0-1 (dkliban@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.0-0.9.rc].
+  (dkliban@redhat.com)
+- Bumping version to 2.0.0-0.9.rc (dkliban@redhat.com)
+- Bumping version to 2.0.1-0.1.beta (dkliban@redhat.com)
+- Automatic commit of package [pulp-docker] release [2.0.0-0.8.beta].
+  (dkliban@redhat.com)
+- Bumping version to 2.0.0-0.8.beta (dkliban@redhat.com)
+
 * Thu Mar 03 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.7.beta
 - Bumping version to 2.0.0-0.7.beta (dkliban@redhat.com)
 
