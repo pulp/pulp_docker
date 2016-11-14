@@ -10,3 +10,7 @@ busybox_ids = (
     'bf747efa0e2fa9f7c691588ce3938944c75607a7bb5e757f7369f86904d97c78',
     '511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158',
 )
+
+repo_id = 'busybox'
+manifest_digest = 'sha256:6ca13d52ca70c883e0f0bb101e425a89e8624de51db2d2392593af6a84118090'
+tag_name = 'latest'

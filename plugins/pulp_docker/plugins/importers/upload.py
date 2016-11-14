@@ -18,9 +18,11 @@ import tarfile
 
 from pulp.plugins.util.publish_step import PluginStep, GetLocalUnitsStep
 
-from pulp_docker.common import constants, tarutils
+from pulp_docker.common import constants, error_codes, tarutils
 from pulp_docker.plugins import models
 from pulp_docker.plugins.importers import v1_sync
+from pulp.server.controllers import repository
+from pulp.server.exceptions import PulpCodedValidationException
 
 
 class UploadStep(PluginStep):
@@ -28,7 +30,7 @@ class UploadStep(PluginStep):
     This is the parent step for Image uploads.
     """
 
-    def __init__(self, repo=None, file_path=None, config=None):
+    def __init__(self, repo=None, file_path=None, config=None, metadata=None, type_id=None):
         """
         Initialize the UploadStep, configuring the correct children and setting the description.
 
@@ -36,6 +38,12 @@ class UploadStep(PluginStep):
         :type  repo:      pulp.plugins.model.Repository
         :param file_path: The path to the tar file uploaded from a 'docker save'
         :type  file_path: str
+        :param config:    plugin configuration for the repository
+        :type  config:    pulp.plugins.config.PluginCallConfiguration
+        :param metadata:  extra data about the unit
+        :type metadata:   dict
+        :param type_id:   type of unit being uploaded
+        :type type_id:    str
         """
         super(UploadStep, self).__init__(constants.UPLOAD_STEP, repo=repo,
                                          plugin_type=constants.IMPORTER_TYPE_ID,
@@ -53,11 +61,31 @@ class UploadStep(PluginStep):
         # populated by ProcessMetadata
         self.v1_tags = {}
 
+        if type_id == models.Image._content_type_id.default:
+            self._handle_image()
+        elif type_id == models.Tag._content_type_id.default:
+            self._handle_tag(metadata)
+        else:
+            raise NotImplementedError()
+
+    def _handle_image(self):
+        """
+        Handles the upload of a v1 docker image
+        """
+
         self.add_child(ProcessMetadata(constants.UPLOAD_STEP_METADATA))
         # save this step so its "units_to_download" attribute can be accessed later
         self.v1_step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
         self.add_child(self.v1_step_get_local_units)
         self.add_child(AddImages(step_type=constants.UPLOAD_STEP_SAVE))
+
+    def _handle_tag(self, metadata):
+        """
+        Handles the upload of a docker tag (tag name and digest)
+        """
+
+        self.metadata = metadata
+        self.add_child(AddTags(step_type=constants.UPLOAD_STEP_SAVE))
 
 
 class ProcessMetadata(PluginStep):
@@ -169,3 +197,34 @@ class AddImages(v1_sync.SaveImages):
         os.remove(layer_src_path)
 
         super(AddImages, self).process_main(item=item)
+
+
+class AddTags(PluginStep):
+    """
+    Create/update tags based on the metadata.
+    """
+
+    def process_main(self, item=None):
+        """
+        Update tags based on the parent metadata
+
+        :param item: Not used by this step
+        :type  item: None
+        """
+
+        tag = self.parent.metadata['name']
+        digest = self.parent.metadata['digest']
+        repo_id = self.parent.repo.id
+        manifest_type_id = models.Manifest._content_type_id.default
+        repo_manifest_ids = repository.get_associated_unit_ids(repo_id, manifest_type_id)
+
+        if models.Manifest.objects(digest=digest, id__in=repo_manifest_ids).count() == 0:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1010,
+                                               digest=digest,
+                                               repo_id=repo_id)
+
+        new_tag = models.Tag.objects.tag_manifest(repo_id=self.parent.repo.id, tag_name=tag,
+                                                  manifest_digest=digest)
+
+        if new_tag:
+            repository.associate_single_unit(self.parent.repo.repo_obj, new_tag)
