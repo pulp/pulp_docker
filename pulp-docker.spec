@@ -135,6 +135,10 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Wed Nov 23 2016 Sean Myers <sean.myers@redhat.com> 2.2.0-0.2.beta
+- Bumping version to 2.2.0-0.2.beta (sean.myers@redhat.com)
+- Adds release notes for 2.2.0 (dkliban@redhat.com)
+
 * Tue Oct 25 2016 Sean Myers <sean.myers@redhat.com> 2.2.0-0.1.beta
 - Bumping version to 2.2.0-0.1.beta (sean.myers@redhat.com)
 - Build latest plugin upstream version for f24 (sean.myers@redhat.com)
