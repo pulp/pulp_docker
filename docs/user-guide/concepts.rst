@@ -19,6 +19,14 @@ references one Manifest (by digest) and a Manifest references N Blobs
 
     Tags are a repository property in v1, but are a full Unit in v2.
 
+.. note::
+
+    In Docker v2, Manifest v1 schemas contain a ``tag`` field which is not
+    unique per repository. When determining what Manifest is associated with
+    what Tag name, users should rely on the ``name`` and ``manifest_digest``
+    fields for Tag Units and not the Manifest ``tag`` field. In the Manifest v2
+    schema, the ``tag`` field has been removed.
+
 Upload
 ^^^^^^
 

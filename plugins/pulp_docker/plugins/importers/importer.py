@@ -7,6 +7,7 @@ from pulp.server.controllers import repository
 from pulp.server.db.model.criteria import UnitAssociationCriteria
 from pulp.server.managers.repo import unit_association
 import pulp.server.managers.factory as manager_factory
+from pulp.server.exceptions import PulpCodedValidationException
 
 from pulp_docker.common import constants
 from pulp_docker.plugins import models
@@ -126,8 +127,11 @@ class DockerImporter(Importer):
         :rtype:           dict
         """
         try:
-            upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config)
+            upload_step = upload.UploadStep(repo=repo, file_path=file_path, config=config,
+                                            metadata=metadata, type_id=type_id)
             upload_step.process_lifecycle()
+        except PulpCodedValidationException:
+            raise
         except Exception as e:
             return {'success_flag': False, 'summary': e.message, 'details': {}}
         return {'success_flag': True, 'summary': '', 'details': {}}

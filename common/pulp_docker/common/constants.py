@@ -43,6 +43,7 @@ SYNC_STEP_DOWNLOAD_V1 = 'v1_sync_step_download'
 UPLOAD_STEP = 'upload_units_step'
 UPLOAD_STEP_METADATA = 'upload_step_metadata'
 UPLOAD_STEP_SAVE = 'upload_step_save'
+UPLOAD_TAG_STEP = 'upload_tags_step'
 
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'
