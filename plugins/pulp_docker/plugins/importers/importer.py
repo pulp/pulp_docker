@@ -430,7 +430,7 @@ class DockerImporter(Importer):
         # Find blob digests still referenced by other manifests (adopted)
         adopted = set()
         criteria = UnitAssociationCriteria(type_ids=[constants.MANIFEST_TYPE_ID],
-                                           unit_filters={'digest__ne': manifest.digest})
+                                           unit_filters={'digest': {'$ne': manifest.digest}})
         for manifest in unit_association.RepoUnitAssociationManager._units_from_criteria(
                 repo, criteria):
             map((lambda layer: adopted.add(layer.blob_sum)), manifest.fs_layers)
