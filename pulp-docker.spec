@@ -135,6 +135,9 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Wed Dec 14 2016 Patrick Creech <pcreech@redhat.com> 2.2.0-1
+- Bumping version to 2.2.0-1 (pcreech@redhat.com)
+
 * Fri Dec 09 2016 Patrick Creech <pcreech@redhat.com> 2.2.0-0.3.rc
 - Bumping version to 2.2.0-0.3.rc (pcreech@redhat.com)
 
