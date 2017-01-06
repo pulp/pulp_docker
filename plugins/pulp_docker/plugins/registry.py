@@ -368,8 +368,39 @@ class V2Repository(object):
         :return:          A 2-tuple of the digest and the manifest, both basestrings
         :rtype:           tuple
         """
+        manifests = []
+        request_headers = {}
+        content_type_header = 'content-type'
+        schema1 = 'application/vnd.docker.distribution.manifest.v1+json'
+        schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
         path = self.MANIFEST_PATH.format(name=self.name, reference=reference)
-        headers, manifest = self._get_path(path)
+        # set the headers for first request
+        request_headers['Accept'] = schema2
+        response_headers, manifest = self._get_path(path, headers=request_headers)
+        digest = self._digest_check(response_headers, manifest)
+
+        # add manifest and digest
+        manifests.append((manifest, digest))
+
+        # we intentionally first asked schema version 2, because it might happen that
+        # registry will have just schema version 1 and even if in request headers we
+        # set schema version 2, registry will anyway return schema version 1
+        # this way we will not make unecessary separate second request for schema version 1
+        if response_headers.get(content_type_header) == schema2:
+            request_headers['Accept'] = schema1
+            response_headers, manifest = self._get_path(path, headers=request_headers)
+            digest = self._digest_check(response_headers, manifest)
+
+            # add manifest and digest
+            manifests.append((manifest, digest))
+
+        # returned list will be whether:
+        # [(S2, digest), (S1, digest)]
+        # or
+        # [(S1, digest)]
+        return manifests
+
+    def _digest_check(self, headers, manifest):
 
         digest_header = 'docker-content-digest'
         if digest_header in headers:
@@ -384,7 +415,8 @@ class V2Repository(object):
                 raise IOError(msg)
         else:
             digest = models.Manifest.calculate_digest(manifest)
-        return digest, manifest
+
+        return digest
 
     def get_tags(self):
         """
@@ -404,7 +436,7 @@ class V2Repository(object):
                                                      reason=str(e))
         return json.loads(tags)['tags']
 
-    def _get_path(self, path):
+    def _get_path(self, path, headers=None):
         """
         Retrieve a single path within the upstream registry, and return a 2-tuple of the headers and
         the response body.
@@ -412,6 +444,8 @@ class V2Repository(object):
         :param path: a full http path to retrieve that will be urljoin'd to the upstream registry
                      url.
         :type  path: basestring
+        :param headers: headers sent in the request
+        :type headers:  dict
 
         :return:     (headers, response body)
         :rtype:      tuple
@@ -419,6 +453,7 @@ class V2Repository(object):
         url = urlparse.urljoin(self.registry_url, path)
         _logger.debug(_('Retrieving {0}'.format(url)))
         request = DownloadRequest(url, StringIO())
+        request.headers = headers
 
         if self.token:
             request.headers = token_util.update_auth_header(request.headers, self.token)

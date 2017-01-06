@@ -111,6 +111,8 @@ class V2WebPublisher(publish_step.PublishStep):
             step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
             publish_conduit=publish_conduit, config=config)
 
+        self.redirect_data = {1: set(), 2: set()}
+
         docker_api_version = 'v2'
         publish_dir = configuration.get_web_publish_dir(repo, config, docker_api_version)
         app_file = configuration.get_redirect_file_name(repo)
@@ -125,11 +127,13 @@ class V2WebPublisher(publish_step.PublishStep):
             master_publish_dir, step_type=constants.PUBLISH_STEP_OVER_HTTP)
         atomic_publish_step.description = _('Making v2 files available via web.')
         self.add_child(PublishBlobsStep(repo_content_unit_q=repo_content_unit_q))
-        self.publish_manifests_step = PublishManifestsStep(repo_content_unit_q=repo_content_unit_q)
+        self.publish_manifests_step = PublishManifestsStep(
+            self.redirect_data,
+            repo_content_unit_q=repo_content_unit_q)
         self.add_child(self.publish_manifests_step)
-        self.add_child(PublishTagsStep())
+        self.add_child(PublishTagsStep(self.redirect_data))
         self.add_child(atomic_publish_step)
-        self.add_child(RedirectFileStep(app_publish_location))
+        self.add_child(RedirectFileStep(app_publish_location, self.redirect_data))
 
 
 class PublishBlobsStep(publish_step.UnitModelPluginStep):
@@ -141,6 +145,10 @@ class PublishBlobsStep(publish_step.UnitModelPluginStep):
         """
         Initialize the PublishBlobsStep, setting its description and calling the super class's
         __init__().
+
+        param repo_content_unit_q: optional Q object that will be applied to the queries performed
+                                    against RepoContentUnit model
+        :type  repo_content_unit_q: mongoengine.Q
         """
         super(PublishBlobsStep, self).__init__(step_type=constants.PUBLISH_STEP_BLOBS,
                                                model_classes=[models.Blob],
@@ -172,15 +180,24 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
     Publish Manifests.
     """
 
-    def __init__(self, repo_content_unit_q=None):
+    def __init__(self, redirect_data, repo_content_unit_q=None):
         """
         Initialize the PublishManifestsStep, setting its description and calling the super class's
         __init__().
+
+        :param redirect_data: Dictionary of tags and digests that manifests schema version 2
+                              reference
+        :type  redirect_data: dict
+        :param repo_content_unit_q: optional Q object that will be applied to the queries performed
+                                    against RepoContentUnit model
+        :type  repo_content_unit_q: mongoengine.Q
+
         """
         super(PublishManifestsStep, self).__init__(step_type=constants.PUBLISH_STEP_MANIFESTS,
                                                    model_classes=[models.Manifest],
                                                    repo_content_unit_q=repo_content_unit_q)
         self.description = _('Publishing Manifests.')
+        self.redirect_data = redirect_data
 
     def process_main(self, item):
         """
@@ -190,7 +207,9 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
         :type  item: pulp_docker.plugins.models.Blob
         """
         misc.create_symlink(item._storage_path,
-                            os.path.join(self.get_manifests_directory(), item.unit_key['digest']))
+                            os.path.join(self.get_manifests_directory(), str(item.schema_version),
+                                         item.unit_key['digest']))
+        self.redirect_data[item.schema_version].add(item.unit_key['digest'])
 
     def get_manifests_directory(self):
         """
@@ -207,14 +226,19 @@ class PublishTagsStep(publish_step.UnitModelPluginStep):
     Publish Tags.
     """
 
-    def __init__(self):
+    def __init__(self, redirect_data):
         """
         Initialize the PublishTagsStep, setting its description and calling the super class's
         __init__().
+
+        :param redirect_data: Dictionary of tags and digests that manifests schema version 2
+                              reference
+        :type redirect_data: dict
         """
         super(PublishTagsStep, self).__init__(step_type=constants.PUBLISH_STEP_TAGS,
                                               model_classes=[models.Tag])
         self.description = _('Publishing Tags.')
+        self.redirect_data = redirect_data
         # Collect the tag names we've seen so we can write them out during the finalize() method.
         self._tag_names = set()
 
@@ -228,8 +252,10 @@ class PublishTagsStep(publish_step.UnitModelPluginStep):
         manifest = models.Manifest.objects.get(digest=item.manifest_digest)
         misc.create_symlink(
             manifest._storage_path,
-            os.path.join(self.parent.publish_manifests_step.get_manifests_directory(), item.name))
+            os.path.join(self.parent.publish_manifests_step.get_manifests_directory(),
+                         str(manifest.schema_version), item.name))
         self._tag_names.add(item.name)
+        self.redirect_data[manifest.schema_version].add(item.name)
 
     def finalize(self):
         """
@@ -250,16 +276,22 @@ class RedirectFileStep(publish_step.PublishStep):
     """
     This step creates the JSON file that describes the published repository for Crane to use.
     """
-    def __init__(self, app_publish_location):
+    def __init__(self, app_publish_location, redirect_data):
         """
         Initialize the step.
 
         :param app_publish_location: The full path to the location of the JSON file that this step
                                      will generate.
         :type  app_publish_location: basestring
+
+        :param redirect_data: Dictionary of tags and digests that manifests schema version 2
+                              reference
+        :type redirect_data:  dict
+
         """
         super(RedirectFileStep, self).__init__(step_type=constants.PUBLISH_STEP_REDIRECT_FILE)
         self.app_publish_location = app_publish_location
+        self.redirect_data = redirect_data
 
     def process_main(self):
         """
@@ -267,11 +299,13 @@ class RedirectFileStep(publish_step.PublishStep):
         """
         registry = configuration.get_repo_registry_id(self.get_repo(), self.get_config())
         redirect_url = configuration.get_redirect_url(self.get_config(), self.get_repo(), 'v2')
+        schema2_data = self.redirect_data[2]
 
         redirect_data = {
-            'type': 'pulp-docker-redirect', 'version': 2, 'repository': self.get_repo().id,
+            'type': 'pulp-docker-redirect', 'version': 3, 'repository': self.get_repo().id,
             'repo-registry-id': registry, 'url': redirect_url,
-            'protected': self.get_config().get('protected', False)}
+            'protected': self.get_config().get('protected', False),
+            'schema2_data': list(schema2_data)}
 
         misc.mkdir(os.path.dirname(self.app_publish_location))
         with open(self.app_publish_location, 'w') as app_file:
@@ -319,7 +353,7 @@ class PublishTagsForRsyncStep(RSyncFastForwardUnitPublishStep):
         symlink = self.make_link_unit(manifest, filename, self.get_working_dir(),
                                       self.remote_repo_path,
                                       self.get_config().get("remote")["root"],
-                                      self.published_unit_path)
+                                      self.published_unit_path + [str(manifest.schema_version)])
         self.parent.symlink_list.append(symlink)
         self._tag_names.add(item.name)
 
@@ -383,19 +417,16 @@ class DockerRsyncPublisher(Publisher):
         repo_registry_id = configuration.get_repo_registry_id(self.repo, postdistributor.config)
         remote_repo_path = configuration.get_remote_repo_relative_path(self.repo, self.config)
 
-        unit_info = {constants.IMAGE_TYPE_ID: {'extra_path': [''], 'model': models.Image},
-                     constants.MANIFEST_TYPE_ID: {'extra_path': ['manifests'],
-                                                  'model': models.Manifest},
-                     constants.BLOB_TYPE_ID: {'extra_path': ['blobs'], 'model': models.Blob}}
+        unit_models = {constants.IMAGE_TYPE_ID: models.Image,
+                       constants.MANIFEST_TYPE_ID: models.Manifest,
+                       constants.BLOB_TYPE_ID: models.Blob}
 
         for unit_type in DockerRsyncPublisher.REPO_CONTENT_TYPES:
-            unit_path = unit_info[unit_type]['extra_path']
             gen_step = RSyncFastForwardUnitPublishStep("Unit query step (things)",
-                                                       [unit_info[unit_type]['model']],
+                                                       [unit_models[unit_type]],
                                                        repo=self.repo,
                                                        repo_content_unit_q=date_filter,
-                                                       remote_repo_path=remote_repo_path,
-                                                       published_unit_path=unit_path)
+                                                       remote_repo_path=remote_repo_path)
             self.add_child(gen_step)
 
         self.add_child(PublishTagsForRsyncStep("Generate tags step",

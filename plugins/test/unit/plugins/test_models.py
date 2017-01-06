@@ -1,7 +1,6 @@
 """
 This modules contains tests for pulp_docker.common.models.
 """
-import math
 import os
 import unittest
 
@@ -66,18 +65,20 @@ class TestManifest(unittest.TestCase):
         tag = 'tag'
         digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
         fs_layers = [models.FSLayer(blob_sum='rsum:jsf')]
-        schema_version = 1
+        schema_version = 2
+        config_layer = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
 
         m = models.Manifest(digest=digest, name=name, tag=tag, fs_layers=fs_layers,
-                            schema_version=schema_version)
+                            schema_version=schema_version, config_layer=config_layer)
 
         self.assertEqual(m.name, name)
         self.assertEqual(m.tag, tag)
         self.assertEqual(m.digest, digest)
         self.assertEqual(m.fs_layers, fs_layers)
         self.assertEqual(m.schema_version, schema_version)
+        self.assertEqual(m.config_layer, config_layer)
 
-    def test_from_json(self):
+    def test_from_json_schema1(self):
         """
         Assert correct operation of the from_json class method.
         """
@@ -87,32 +88,42 @@ class TestManifest(unittest.TestCase):
         with open(example_manifest_path) as manifest_file:
             manifest = manifest_file.read()
 
-        m = models.Manifest.from_json(manifest, digest)
+        m = models.Manifest.from_json(manifest, digest, 'latest', 'hello-world')
 
         self.assertEqual(m.name, 'hello-world')
         self.assertEqual(m.tag, 'latest')
         self.assertEqual(m.digest, digest)
         self.assertEqual(m.schema_version, 1)
+        self.assertEqual(m.config_layer, None)
         # We will just spot check the following attributes, as they are complex data structures
         self.assertEqual(len(m.fs_layers), 4)
         self.assertEqual(
             m.fs_layers[1].blob_sum,
             "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef")
 
-    def test_save_bad_schema(self):
+    def test_from_json_schema2(self):
         """
-        Assert correct operation of the save() method with an invalid (i.e., != 1) schema
-        version.
+        Assert correct operation of the from_json class method.
         """
-        name = 'name'
-        tag = 'tag'
-        digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
-        fs_layers = [models.FSLayer(blob_sum='rsum:jsf')]
-        schema_version = math.pi
-        manifest = models.Manifest(name=name, tag=tag, digest=digest,
-                                   fs_layers=fs_layers, schema_version=schema_version)
+        digest = 'sha256:817a12c32a39bbe394944ba49de563e085f1d3c5266eb8e9723256bc4448680e'
+        config_layer = 'sha256:7968321274dc6b6171697c33df7815310468e694ac5be0ec03ff053bb135e768'
+        example_manifest_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data',
+                                             'manifest_schema2_one_layer.json')
+        with open(example_manifest_path) as manifest_file:
+            manifest = manifest_file.read()
 
-        self.assertRaises(ValueError, manifest.save)
+        m = models.Manifest.from_json(manifest, digest, 'latest', 'hello-world')
+
+        self.assertEqual(m.name, 'hello-world')
+        self.assertEqual(m.tag, 'latest')
+        self.assertEqual(m.digest, digest)
+        self.assertEqual(m.schema_version, 2)
+        self.assertEqual(m.config_layer, config_layer)
+        # We will just spot check the following attributes, as they are complex data structures
+        self.assertEqual(len(m.fs_layers), 1)
+        self.assertEqual(
+            m.fs_layers[0].blob_sum,
+            "sha256:4b0bc1c4050b03c95ef2a8e36e25feac42fd31283e8c30b3ee5df6b043155d3c")
 
     def test_unit_key(self):
         """
@@ -129,3 +140,41 @@ class TestManifest(unittest.TestCase):
         unit_key = manifest.unit_key
 
         self.assertEqual(unit_key, {'digest': digest})
+
+
+class TestTag(unittest.TestCase):
+    """
+    This class contains tests for the Tag class.
+    """
+    def test___init__(self):
+        """
+        Assert correct operation of the __init__() method.
+        """
+        name = 'name'
+        manifest_digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
+        repo_id = 'hello-world'
+        schema_version = 2
+
+        m = models.Tag(name=name, manifest_digest=manifest_digest, repo_id=repo_id,
+                       schema_version=schema_version)
+
+        self.assertEqual(m.name, name)
+        self.assertEqual(m.manifest_digest, manifest_digest)
+        self.assertEqual(m.repo_id, repo_id)
+        self.assertEqual(m.schema_version, schema_version)
+
+    def test_unit_key(self):
+        """
+        Assert correct operation of the unit_key property.
+        """
+        name = 'name'
+        manifest_digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
+        repo_id = 'hello-world'
+        schema_version = 2
+        m = models.Tag(name=name, manifest_digest=manifest_digest, repo_id=repo_id,
+                       schema_version=schema_version)
+
+        unit_key = m.unit_key
+
+        self.assertEqual(unit_key, {'name': name, 'repo_id': repo_id,
+                                    'schema_version': schema_version})

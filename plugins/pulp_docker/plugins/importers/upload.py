@@ -218,13 +218,16 @@ class AddTags(PluginStep):
         manifest_type_id = models.Manifest._content_type_id.default
         repo_manifest_ids = repository.get_associated_unit_ids(repo_id, manifest_type_id)
 
-        if models.Manifest.objects(digest=digest, id__in=repo_manifest_ids).count() == 0:
+        # check if there is manifest with such id within the queried rpeo
+        manifest = models.Manifest.objects.filter(digest=digest, id__in=repo_manifest_ids)
+        if manifest.count() == 0:
             raise PulpCodedValidationException(error_code=error_codes.DKR1010,
                                                digest=digest,
                                                repo_id=repo_id)
 
         new_tag = models.Tag.objects.tag_manifest(repo_id=self.parent.repo.id, tag_name=tag,
-                                                  manifest_digest=digest)
+                                                  manifest_digest=digest,
+                                                  schema_version=manifest[0].schema_version)
 
         if new_tag:
             repository.associate_single_unit(self.parent.repo.repo_obj, new_tag)
