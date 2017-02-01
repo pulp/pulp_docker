@@ -135,6 +135,9 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Wed Feb 01 2017 Sean Myers <sean.myers@redhat.com> 2.3.0-1
+- Bumping version to 2.3.0-1 (sean.myers@redhat.com)
+
 * Tue Jan 17 2017 Sean Myers <sean.myers@redhat.com> 2.3.0-0.1.beta
 - Bumping version to 2.3.0-0.1.beta (sean.myers@redhat.com)
 - Update dist_list: fc23 removed, fc25 added (sean.myers@redhat.com)
