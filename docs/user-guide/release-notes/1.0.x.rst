@@ -9,7 +9,7 @@ This is a minor release with some bug fixes.
 Bugfixes
 ^^^^^^^^
 
-See the :fixedbugs:`1.0.1`.
+See the :fixedbugs_pulp_docker:`1.0.1`.
 
 1.0.0
 -----
@@ -41,4 +41,4 @@ using systemd):
 Bugfixes
 ^^^^^^^^
 
-See the :fixedbugs:`1.0.0`.
+See the :fixedbugs_pulp_docker:`1.0.0`.
