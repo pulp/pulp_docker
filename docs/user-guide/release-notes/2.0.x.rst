@@ -4,7 +4,7 @@
 2.0.2
 -----
 
-See the :fixedbugs:`2.0.2`.
+See the :fixedbugs_pulp_docker:`2.0.2`.
 
 The fix for #1831 required that during sync, if the remote registry has a v2 API, but getting tags
 fails, the sync will stop and report an error that the requested repository was not found.
@@ -17,7 +17,7 @@ via a v2 API.
 2.0.1
 -----
 
-See the :fixedbugs:`2.0.1`.
+See the :fixedbugs_pulp_docker:`2.0.1`.
 
 pulp_docker 2.0.1 includes a migration to bring pulp_docker's file storage scheme in-line
 with the scheme used in the Pulp platform.
@@ -123,4 +123,4 @@ using systemd):
 Bugfixes
 ^^^^^^^^
 
-See the :fixedbugs:`2.0.0`.
+See the :fixedbugs_pulp_docker:`2.0.0`.
