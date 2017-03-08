@@ -51,34 +51,31 @@ class TestDownloadManifestsStep(unittest.TestCase):
 
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
                 side_effect=models.Manifest.from_json)
-    @mock.patch('pulp_docker.plugins.importers.sync.publish_step.PluginStep.process_main')
-    def test_process_main_with_one_layer(self, super_process_main, from_json):
+    def test_process_manifest_with_one_layer(self, from_json):
         """
-        Test process_main() when there is only one layer.
+        Test _process_manifest() when there is only one layer.
         """
         repo = mock.MagicMock()
         conduit = mock.MagicMock()
         config = mock.MagicMock()
+
         step = sync.DownloadManifestsStep(repo, conduit, config)
         step.parent = mock.MagicMock()
-        step.parent.index_repository.get_tags.return_value = ['latest']
+
         with open(os.path.join(TEST_DATA_PATH, 'manifest_one_layer.json')) as manifest_file:
             manifest = manifest_file.read()
         digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        step.parent.index_repository.get_manifest.return_value = digest, manifest
+        repo_tag = 'latest'
+        repo_upstream_name = 'busybox'
         step.parent.available_manifests = []
-        step.parent.available_blobs = []
 
         with mock.patch('__builtin__.open') as mock_open:
-            step.process_main()
+            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
 
             # Assert that the manifest was written to disk in the working dir
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        super_process_main.assert_called_once_with()
-        step.parent.index_repository.get_tags.assert_called_once_with()
-        step.parent.index_repository.get_manifest.assert_called_once_with('latest')
-        from_json.assert_called_once_with(manifest, digest)
+        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
@@ -88,44 +85,136 @@ class TestDownloadManifestsStep(unittest.TestCase):
         expected_layer = step.parent.available_manifests[0].fs_layers[0]
         self.assertEqual(expected_layer.blob_sum, expected_blob_sum)
         self.assertEqual(step.parent.available_manifests[0].fs_layers, [expected_layer])
-        # A blob with the correct digest should have been added to the parent.available_blobs
-        # list
-        expected_blob = step.parent.available_blobs[0]
-        self.assertEqual(expected_blob.digest, expected_blob_sum)
-        self.assertEqual(step.parent.available_blobs, [expected_blob])
 
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
                 side_effect=models.Manifest.from_json)
-    @mock.patch('pulp_docker.plugins.importers.sync.publish_step.PluginStep.process_main')
-    def test_process_main_with_repeated_layers(self, super_process_main, from_json):
+    def test_process_manifest_schema2_with_one_layer(self, from_json):
         """
-        Test process_main() when the various tags contains some layers in common, which is a
+        Test _process_manifest() when there is only one layer.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+
+        step = sync.DownloadManifestsStep(repo, conduit, config)
+        step.parent = mock.MagicMock()
+
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_schema2_one_layer.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:817a12c32a39bbe394944ba49de563e085f1d3c5266eb8e9723256bc4448680e'
+        repo_tag = 'latest'
+        repo_upstream_name = 'busybox'
+        step.parent.available_manifests = []
+
+        with mock.patch('__builtin__.open') as mock_open:
+            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
+
+            # Assert that the manifest was written to disk in the working dir
+            mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
+
+        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
+        # There should be one manifest that has the correct digest
+        self.assertEqual(len(step.parent.available_manifests), 1)
+        self.assertEqual(step.parent.available_manifests[0].digest, digest)
+        # There should be one layer
+        expected_blob_sum = ('sha256:4b0bc1c4050b03c95ef2a8e36e25feac42fd31283e8c30b3ee5df6b043155d'
+                             '3c')
+        expected_layer = step.parent.available_manifests[0].fs_layers[0]
+        self.assertEqual(expected_layer.blob_sum, expected_blob_sum)
+        self.assertEqual(step.parent.available_manifests[0].fs_layers, [expected_layer])
+
+    @mock.patch('pulp_docker.plugins.importers.sync.DownloadManifestsStep._process_manifest')
+    @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
+                side_effect=models.Manifest.from_json)
+    @mock.patch('pulp_docker.plugins.importers.sync.publish_step.PluginStep.process_main')
+    def test_process_main_with_one_layer(self, super_process_main, from_json, mock_manifest):
+        """
+        Test process_main() when there is only one layer.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+
+        step = sync.DownloadManifestsStep(repo, conduit, config)
+        step.parent = mock.MagicMock()
+        step.parent.index_repository.get_tags.return_value = ['latest']
+
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_one_layer.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
+        manifest = models.Manifest.from_json(manifest, digest, 'latest', 'busybox')
+        step.parent.index_repository.get_manifest.return_value = [(digest, manifest)]
+        step.parent.available_blobs = []
+
+        step.process_main()
+
+        super_process_main.assert_called_once_with()
+        step.parent.index_repository.get_tags.assert_called_once_with()
+        step.parent.index_repository.get_manifest.assert_called_once_with('latest')
+        # since it is a manifest schema 1 version, there should no config_layer
+        self.assertFalse(manifest.config_layer)
+
+    @mock.patch('pulp_docker.plugins.importers.sync.DownloadManifestsStep._process_manifest')
+    @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
+                side_effect=models.Manifest.from_json)
+    @mock.patch('pulp_docker.plugins.importers.sync.publish_step.PluginStep.process_main')
+    def test_process_main_schema2_with_one_layer(self, super_process_main, from_json,
+                                                 mock_manifest):
+        """
+        Test process_main() when there is only one layer.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+
+        step = sync.DownloadManifestsStep(repo, conduit, config)
+        step.parent = mock.MagicMock()
+        step.parent.index_repository.get_tags.return_value = ['latest']
+
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_schema2_one_layer.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:817a12c32a39bbe394944ba49de563e085f1d3c5266eb8e9723256bc4448680e'
+        manifest = models.Manifest.from_json(manifest, digest, 'latest', 'busybox')
+        step.parent.index_repository.get_manifest.return_value = [(digest, manifest)]
+        step.parent.available_blobs = []
+
+        step.process_main()
+
+        super_process_main.assert_called_once_with()
+        step.parent.index_repository.get_tags.assert_called_once_with()
+        step.parent.index_repository.get_manifest.assert_called_once_with('latest')
+        # since it is a manifest schema 2 version, there should a config_layer
+        self.assertTrue(manifest.config_layer)
+
+    @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
+                side_effect=models.Manifest.from_json)
+    def test_process_manifest_with_repeated_layers(self, from_json):
+        """
+        Test _process_manifest() when the various tags contains some layers in common, which is a
         typical pattern. The available_blobs set on the SyncStep should only have the layers once
         each so that we don't try to download them more than once.
         """
         repo = mock.MagicMock()
         conduit = mock.MagicMock()
         config = mock.MagicMock()
+
         step = sync.DownloadManifestsStep(repo, conduit, config)
         step.parent = mock.MagicMock()
-        step.parent.index_repository.get_tags.return_value = ['latest']
+
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
         digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        step.parent.index_repository.get_manifest.return_value = digest, manifest
+        repo_tag = 'latest'
+        repo_upstream_name = 'busybox'
         step.parent.available_manifests = []
-        step.parent.available_blobs = []
 
         with mock.patch('__builtin__.open') as mock_open:
-            step.process_main()
+            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
 
             # Assert that the manifest was written to disk in the working dir
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        super_process_main.assert_called_once_with()
-        step.parent.index_repository.get_tags.assert_called_once_with()
-        step.parent.index_repository.get_manifest.assert_called_once_with('latest')
-        from_json.assert_called_once_with(manifest, digest)
+        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
@@ -136,41 +225,34 @@ class TestDownloadManifestsStep(unittest.TestCase):
         expected_digests = [expected_blob_sums[i] for i in (0, 0, 1, 0)]
         layer_digests = [layer.blob_sum for layer in step.parent.available_manifests[0].fs_layers]
         self.assertEqual(layer_digests, expected_digests)
-        # The layers should have been added to the parent.available_blobs list, in no
-        # particular order
-        self.assertEqual(set([u.digest for u in step.parent.available_blobs]),
-                         set(expected_blob_sums))
 
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
                 side_effect=models.Manifest.from_json)
-    @mock.patch('pulp_docker.plugins.importers.sync.publish_step.PluginStep.process_main')
-    def test_process_main_with_unique_layers(self, super_process_main, from_json):
+    def test_process_manifest_with_unique_layers(self, from_json):
         """
-        Test process_main() when the various tags all have unique layers.
+        Test _process_manifest() when the various tags all have unique layers.
         """
         repo = mock.MagicMock()
         conduit = mock.MagicMock()
         config = mock.MagicMock()
+
         step = sync.DownloadManifestsStep(repo, conduit, config)
         step.parent = mock.MagicMock()
-        step.parent.index_repository.get_tags.return_value = ['latest']
+
         with open(os.path.join(TEST_DATA_PATH, 'manifest_unique_layers.json')) as manifest_file:
             manifest = manifest_file.read()
         digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        step.parent.index_repository.get_manifest.return_value = digest, manifest
+        repo_tag = 'latest'
+        repo_upstream_name = 'busybox'
         step.parent.available_manifests = []
-        step.parent.available_blobs = []
 
         with mock.patch('__builtin__.open') as mock_open:
-            step.process_main()
+            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
 
             # Assert that the manifest was written to disk in the working dir
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        super_process_main.assert_called_once_with()
-        step.parent.index_repository.get_tags.assert_called_once_with()
-        step.parent.index_repository.get_manifest.assert_called_once_with('latest')
-        from_json.assert_called_once_with(manifest, digest)
+        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
@@ -181,10 +263,6 @@ class TestDownloadManifestsStep(unittest.TestCase):
         fs_layer_blob_sums = [
             layer.blob_sum for layer in step.parent.available_manifests[0].fs_layers]
         self.assertEqual(fs_layer_blob_sums, expected_blob_sums)
-        # The layers should have been added to the parent.available_blobs list, in no
-        # particular order
-        self.assertEqual(set([u.digest for u in step.parent.available_blobs]),
-                         set(expected_blob_sums))
 
 
 class TestSaveUnitsStep(unittest.TestCase):
@@ -249,7 +327,9 @@ class TestSaveUnitsStep(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
         manifest_digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        manifest = models.Manifest.from_json(manifest, manifest_digest)
+        tag = 'latest'
+        upstream_name = 'synctest'
+        manifest = models.Manifest.from_json(manifest, manifest_digest, tag, upstream_name)
         step.parent.step_get_local_metadata.units_to_download = [manifest]
         units = list(step.get_iterator())
 
@@ -278,7 +358,9 @@ class TestSaveUnitsStep(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
         manifest_digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        manifest = models.Manifest.from_json(manifest, manifest_digest)
+        tag = 'latest'
+        upstream_name = 'synctest'
+        manifest = models.Manifest.from_json(manifest, manifest_digest, tag, upstream_name)
         step.parent.step_get_local_metadata.units_to_download = [manifest]
         units = list(step.get_iterator())
 

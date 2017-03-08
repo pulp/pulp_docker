@@ -118,6 +118,7 @@ class TagUpdateCommand(UploadCommand):
 
         tag_name = kwargs[TAG_NAME_OPTION.keyword]
         repo_id = kwargs[std_options.OPTION_REPO_ID.keyword]
+
         return {'name': tag_name, 'repo_id': repo_id}
 
     def generate_metadata(self, filename, **kwargs):

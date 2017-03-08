@@ -150,7 +150,7 @@ class TestAPIVersionCheck(unittest.TestCase):
         self.repo = registry.V1Repository('pulp/crane', self.config,
                                           'http://pulpproject.org/', '/a/b/c')
 
-    @mock.patch.object(registry.V1Repository, '_get_single_path', spec_set=True)
+    @mock.patch.object(registry.V1Repository, '_get_single_path')
     def test_success(self, mock_get_path):
         ret = self.repo.api_version_check()
 
@@ -516,7 +516,8 @@ class TestV2Repository(unittest.TestCase):
             report = DownloadReport(request.url, request.destination)
             report.download_succeeded()
             report.headers = {'Docker-Distribution-API-Version': 'registry/2.0',
-                              'docker-content-digest': digest}
+                              'docker-content-digest': digest,
+                              'Content-Type': 'not schema2 type'}
             report.destination.write(manifest)
             return report
 
@@ -530,10 +531,9 @@ class TestV2Repository(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
 
-        d, m = r.get_manifest('best_version_ever')
+        m = r.get_manifest('best_version_ever')
 
-        self.assertEqual(d, digest)
-        self.assertEqual(m, manifest)
+        self.assertEqual([(manifest, digest)], m)
 
     def test_get_tags(self):
         """

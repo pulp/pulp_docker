@@ -363,6 +363,13 @@ the tag we specify does not exist, it will be created. If the tag exists
 however, it will be updated as tag name is unique per repository and can point
 to only one manifest.
 
+.. note::
+
+    Pulp now supports manifest schema 1 and schema 2 versions. So when tagging a manifest,
+    bear in mind that within a repo there could be two tags with the same name but pointing
+    to manifests with different schema versions.
+
+
 For instance, suppose we have the following manifests::
 
     $ pulp-admin docker repo search manifest --repo-id busybox

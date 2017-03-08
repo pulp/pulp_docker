@@ -266,7 +266,8 @@ class DockerImporter(Importer):
         # copied from the source Tag.
         manifest_digests_to_import = set()
         tag = models.Tag.objects.tag_manifest(repo_id=dest_repo.repo_id, tag_name=unit.name,
-                                              manifest_digest=unit.manifest_digest)
+                                              manifest_digest=unit.manifest_digest,
+                                              schema_version=unit.schema_version)
         units_added.add(tag)
         conduit.associate_unit(tag)
         manifest_digests_to_import.add(unit.manifest_digest)
@@ -300,6 +301,10 @@ class DockerImporter(Importer):
         units_added.add(unit)
         for layer in unit.fs_layers:
             blob_digests.add(layer.blob_sum)
+
+        # in manifest schema version 2 there is an additional blob layer called config_layer
+        if unit.config_layer:
+            blob_digests.add(unit.config_layer)
 
         # Add referenced blobs
         for blob in models.Blob.objects.filter(digest__in=sorted(blob_digests)):
@@ -427,6 +432,9 @@ class DockerImporter(Importer):
         # Find blob digests referenced by removed manifests (orphaned)
         orphaned = set()
         map((lambda layer: orphaned.add(layer.blob_sum)), manifest.fs_layers)
+        # in manifest schema version 2 there is an additional blob layer called config_layer
+        if manifest.config_layer:
+            orphaned.add(manifest.config_layer)
         if not orphaned:
             # nothing orphaned
             return
@@ -438,6 +446,8 @@ class DockerImporter(Importer):
         for manifest in unit_association.RepoUnitAssociationManager._units_from_criteria(
                 repo, criteria):
             map((lambda layer: adopted.add(layer.blob_sum)), manifest.fs_layers)
+            if manifest.config_layer:
+                adopted.add(manifest.config_layer)
 
         # Remove unreferenced blobs
         orphaned = orphaned.difference(adopted)

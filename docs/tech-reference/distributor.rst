@@ -32,7 +32,7 @@ Supported keys
 ``protected``
  if "true" requests for this repo will be checked for an entitlement certificate authorizing
  the server url for this repository; if "false" no authorization checking will be done.
- This defaults to true.
+ This defaults to false.
 
 ``redirect-url``
  The server URL that will be used when generating the redirect map for connecting the Docker
@@ -92,6 +92,38 @@ Supported keys
 
 .. _redirect_file:
 
+V3 Redirect File
+----------------
+
+For Docker v2 content, the distributors generate a json file with the details of the repository
+contents.
+
+The file is JSON formatted with the following keys
+
+* **type** *(string)* - the type of file. This will always be "pulp-docker-redirect".
+* **version** *(int)* - version of the format for the file. For Docker v2, that supports manifest schema,
+                        this will be 3.
+* **repository** *(string)* - the name of the repository this file is describing.
+* **repo-registry-id** *(string)* - the name that will be used for this repository in the Docker
+  registry.
+* **url** *(string)* - the URL for accessing the repository content.
+* **schema2_data** *(array)* - an array of tags and digests that schema version 2 manifests reference.
+* **protected** *(bool)* - whether or not the repository should be protected by an entitlement
+  certificate.
+
+Example Redirect File Contents::
+
+ {
+  "type":"pulp-docker-redirect",
+  "version":3,
+  "repository":"docker",
+  "repo-registry-id":"redhat/docker",
+  "url":"http://www.foo.com/docker",
+  "schema2_data":[]}
+  "protected": false
+ }
+
+
 V2 Redirect File
 ----------------
 
@@ -100,12 +132,12 @@ contents.
 
 The file is JSON formatted with the following keys
 
-* **type** *(string)* - the type of the file. This will always be "pulp-docker-redirect".
+* **type** *(string)* - the type of file. This will always be "pulp-docker-redirect".
 * **version** *(int)* - version of the format for the file. For Docker v2, this will be 2.
 * **repository** *(string)* - the name of the repository this file is describing.
 * **repo-registry-id** *(string)* - the name that will be used for this repository in the Docker
   registry.
-* **url** *(string)* - the url for access to the repository's content.
+* **url** *(string)* - the URL for accessing the repository content.
 * **protected** *(bool)* - whether or not the repository should be protected by an entitlement
   certificate.
 
@@ -117,7 +149,7 @@ Example Redirect File Contents::
   "repository":"docker",
   "repo-registry-id":"redhat/docker",
   "url":"http://www.foo.com/docker",
-  "protected": true
+  "protected": false
  }
 
 
@@ -129,19 +161,19 @@ repository contents.
 
 The file is JSON formatted with the following keys
 
-* **type** *(string)* - the type of the file. This will always be "pulp-docker-redirect".
+* **type** *(string)* - the type of file. This will always be "pulp-docker-redirect".
 * **version** *(int)* - version of the format for the file. For Docker v1, this will be 1.
 * **repository** *(string)* - the name of the repository this file is describing.
 * **repo-registry-id** *(string)* - the name that will be used for this repository in the Docker
   registry.
-* **url** *(string)* - the url for access to the repository's content.
+* **url** *(string)* - the URL for accessing the repository content.
 * **protected** *(bool)* - whether or not the repository should be protected by an entitlement
   certificate.
 * **images** *(array)* - an array of objects describing each image/layer in the repository.
 
   * **id** *(str)* - the image id for the image.
 
-* **tags** *(obj)* - an object containing key, value paris of "tag-name":"image-id".
+* **tags** *(obj)* - an object containing key, value pairs of "tag-name":"image-id".
 
 Example Redirect File Contents::
 
@@ -151,7 +183,7 @@ Example Redirect File Contents::
   "repository":"docker",
   "repo-registry-id":"redhat/docker",
   "url":"http://www.foo.com/docker",
-  "protected": true,
+  "protected": false,
   "images":[
     {"id":"48e5f45168b97799ad0aafb7e2fef9fac57b5f16f6db7f67ba2000eb947637eb"},
     {"id":"511136ea3c5a64f264b78b5433614aec563103b4d4702f3ba7d4d2698e22c158"},
