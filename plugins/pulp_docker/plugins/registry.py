@@ -470,7 +470,13 @@ class V2Repository(object):
                 report = self.downloader.download_one(request)
 
         if report.state == report.DOWNLOAD_FAILED:
-            self._raise_path_error(report)
+            # this condition was added in case the registry would not allow to access v2 endpoint
+            # but still token would be valid for other endpoints.
+            # see https://pulp.plan.io/issues/2643
+            if path == '/v2/' and report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+                pass
+            else:
+                self._raise_path_error(report)
 
         return report.headers, report.destination.getvalue()
 
