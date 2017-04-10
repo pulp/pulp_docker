@@ -70,6 +70,7 @@ rm -rf %{buildroot}
 %package -n python-pulp-docker-common
 Summary: Pulp Docker support common library
 Group: Development/Languages
+Provides: python2-pulp-docker-common
 Requires: python-pulp-common >= 2.8.0
 Requires: python-setuptools
 
