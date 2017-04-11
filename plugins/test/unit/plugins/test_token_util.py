@@ -84,3 +84,19 @@ class TestParse401ResponseHeaders(unittest.TestCase):
         ret = token_util.parse_401_response_headers(headers)
         self.assertDictEqual(ret, {"realm": "https://auth.docker.io/token",
                                    "service": "registry.docker.io"})
+
+    def test_multiple_resource_actions(self):
+        """
+        Ensure that the www-authenticate header is correctly parsed into a dict
+        when there are multiple resource actions specified.
+        """
+        headers = {'www-authenticate':
+                   'Bearer realm="https://auth.docker.io/token",service="registry.docker.io",'
+                   'some=1,scope="repository:samalba/my-app:pull,push",foo="bar",answer=42'}
+        ret = token_util.parse_401_response_headers(headers)
+        self.assertDictEqual(ret, {"realm": "https://auth.docker.io/token",
+                                   "service": "registry.docker.io",
+                                   "answer": 42,
+                                   "foo": "bar",
+                                   "scope": "repository:samalba/my-app:pull,push",
+                                   "some": 1})

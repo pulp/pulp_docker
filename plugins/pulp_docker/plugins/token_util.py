@@ -1,6 +1,7 @@
 from cStringIO import StringIO
 import json
 import logging
+import re
 import urllib
 import urlparse
 
@@ -82,12 +83,13 @@ def parse_401_response_headers(response_headers):
     """
     auth_header = response_headers.get('www-authenticate')
     if auth_header is None:
-        raise IOError("401 responses are expected to conatin authentication information")
+        raise IOError("401 responses are expected to contain authentication information")
     auth_header = auth_header[len("Bearer "):]
+    auth_header = re.split(',(?=[^=,]+=)', auth_header)
 
     # The remaining string consists of comma seperated key=value pairs
     auth_dict = {}
-    for key, value in (item.split('=') for item in auth_header.split(',')):
+    for key, value in (item.split('=') for item in auth_header):
         # The value is a string within a string, ex: '"value"'
         auth_dict[key] = json.loads(value)
     return auth_dict
