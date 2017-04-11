@@ -107,7 +107,8 @@ class TestUploadUnit(unittest.TestCase):
         report = DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key, {},
                                               data.busybox_tar_path, self.conduit, self.config)
         UploadStep.assert_called_once_with(repo=self.repo, file_path=data.busybox_tar_path,
-                                           config=self.config)
+                                           config=self.config, metadata={},
+                                           type_id=constants.IMAGE_TYPE_ID)
         UploadStep.return_value.process_lifecycle.assert_called_once_with()
         self.assertTrue(report['success_flag'])
 

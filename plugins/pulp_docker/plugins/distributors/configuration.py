@@ -324,4 +324,7 @@ def _is_valid_repo_registry_id(repo_registry_id):
     :return:                 True if valid, False if invalid
     :rtype:                  boolean
     """
-    return bool(re.match(r"^[a-z0-9-_.]*/?[a-z0-9-_.]*$", repo_registry_id))
+
+    component_re = re.compile('^[a-z0-9]+(?:[._-][a-z0-9]+)*$')
+    return len(repo_registry_id) < 256 and \
+        all(re.match(component_re, piece) for piece in repo_registry_id.split('/'))

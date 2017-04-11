@@ -3,7 +3,10 @@ import unittest
 import mock
 
 from pulp_docker.common import constants
-from pulp_docker.extensions.admin.upload import UploadDockerImageCommand, OPT_MASK_ANCESTOR_ID
+from pulp_docker.extensions.admin.upload import UploadDockerImageCommand, \
+    OPT_MASK_ANCESTOR_ID, TagUpdateCommand, TAG_NAME_OPTION, \
+    MANIFEST_DIGEST_OPTION
+from pulp.client.commands import options as std_options
 import data
 
 
@@ -41,4 +44,31 @@ class TestUploadDockerImageCommand(unittest.TestCase):
     def test_generate_override_config_with_random_option(self):
         kwargs = {'random': 'test_random_option'}
         ret = self.command.generate_override_config(**kwargs)
+        self.assertEqual(ret, {})
+
+
+class TestTagUpdateCommand(unittest.TestCase):
+    def setUp(self):
+        self.context = mock.MagicMock()
+        self.context.config = test_config
+        self.command = TagUpdateCommand(self.context)
+
+    def test_determine_id(self):
+        ret = self.command.determine_type_id('/a/b/c')
+        self.assertEqual(ret, constants.TAG_TYPE_ID)
+
+    def test_generate_unit_key(self):
+        kwargs = {TAG_NAME_OPTION.keyword: data.tag_name,
+                  std_options.OPTION_REPO_ID.keyword: data.repo_id}
+        unit_key = self.command.generate_unit_key(data.busybox_tar_path, **kwargs)
+        self.assertEqual(unit_key, {'name': data.tag_name, 'repo_id': data.repo_id})
+
+    def test_generate_metadata(self):
+        kwargs = {TAG_NAME_OPTION.keyword: data.tag_name,
+                  MANIFEST_DIGEST_OPTION.keyword: data.manifest_digest}
+        metadata = self.command.generate_metadata(data.busybox_tar_path, **kwargs)
+        self.assertEqual(metadata, {'name': data.tag_name, 'digest': data.manifest_digest})
+
+    def test_generate_override_config(self):
+        ret = self.command.generate_override_config()
         self.assertEqual(ret, {})

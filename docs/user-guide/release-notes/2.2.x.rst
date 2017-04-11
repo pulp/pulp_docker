@@ -1,0 +1,11 @@
+2.2 Release Notes
+=================
+
+2.2.0
+-----
+
+See the :fixedbugs_pulp_docker:`2.2.0`.
+
+The docker rsync distributor has been improved to perform incremental publishes in cases where
+repositories have experienced only additive changes since the previous publish with the rsync
+distributor.

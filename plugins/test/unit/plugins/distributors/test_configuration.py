@@ -88,14 +88,13 @@ class TestValidateConfig(unittest.TestCase):
 
     def test_repo_regisrty_id_with_multiple_slashes(self):
         """
-        We need to allow only one slash.
+        We need to allow multiple slashes in this field to allow namespacing.
         """
         config = PluginCallConfiguration({
-            constants.CONFIG_KEY_REPO_REGISTRY_ID: 'slashes/ok/notok'
+            constants.CONFIG_KEY_REPO_REGISTRY_ID: 'slashes/ok/alsook'
         }, {})
         repo = Mock(id='repoid')
-        assert_validation_exception(configuration.validate_config,
-                                    [error_codes.DKR1005], config, repo)
+        self.assertEquals((True, None), configuration.validate_config(config, repo))
 
     def test_invalid_repo_registry_id(self):
         config = PluginCallConfiguration({
@@ -140,7 +139,10 @@ class TestValidateConfig(unittest.TestCase):
             '134567890',
             'alpha-numeric_123',
             'periods.are.cool',
-            '..............',
+            'repo-registry-id',
+            'part/anotherpart',
+            'part/another/andanother',
+            'a' * 255
         ]
         should_not_be_valid = [
             'things with spaces',
@@ -149,7 +151,14 @@ class TestValidateConfig(unittest.TestCase):
             'upperCase',
             'uppercasE',
             '$ymbols',
-            '$tuff.th@t.m!ght.h@ve.w%!rd.r#g#x.m*anings()'
+            '$tuff.th@t.m!ght.h@ve.w%!rd.r#g#x.m*anings()',
+            '..............',
+            '/cannotstart',
+            'cannotend/'
+            'cannot//double',
+            '/cannot/start',
+            'cannot/end/',
+            'a' * 256
         ]
         for candidate in should_be_valid:
             valid = configuration._is_valid_repo_registry_id(candidate)

@@ -354,3 +354,73 @@ This produces a tarball at
 both a JSON file for use with crane, and the static Image files to which crane
 will redirect requests. See the `Crane`_ documentation for how to use that
 tarball.
+
+Tagging a Manifest
+------------------
+
+Using the ``docker repo tag`` command, we can point a docker tag to a manifest. If
+the tag we specify does not exist, it will be created. If the tag exists
+however, it will be updated as tag name is unique per repository and can point
+to only one manifest.
+
+.. note::
+
+    Pulp now supports manifest schema 1 and schema 2 versions. So when tagging a manifest,
+    bear in mind that within a repo there could be two tags with the same name but pointing
+    to manifests with different schema versions.
+
+
+For instance, suppose we have the following manifests::
+
+    $ pulp-admin docker repo search manifest --repo-id busybox
+    Created:      2016-11-10T16:27:30Z
+    Metadata:     
+      Digest:             sha256:4eccca494e527311eb4a4ebee1f90d9362971d882bb22fd7ded
+                          46d517129b1ac
+      Downloaded:         True
+      Fs Layers:          
+        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
+                  b46d4
+        Blob Sum: sha256:191ff942861f5cfdc97ba2e76b5dec5f3894a9c21d6f88fbeaec2ea373c
+                  c657a
+        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
+                  b46d4
+      Name:               library/busybox
+      Pulp User Metadata: 
+      Schema Version:     1
+      Tag:                latest
+    Repo Id:      busybox
+    Unit Id:      f064d1e9-0cbf-40ec-9648-85acbcc5e348
+    Unit Type Id: docker_manifest
+    Updated:      2016-11-10T16:27:30Z
+
+    Created:      2016-11-10T16:27:30Z
+    Metadata:     
+      Digest:             sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c0
+                          70b2844a0f56d
+      Downloaded:         True
+      Fs Layers:          
+        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
+                  b46d4
+        Blob Sum: sha256:8ddc19f16526912237dd8af81971d5e4dd0587907234be2b83e249518d5
+                  b673f
+      Name:               library/busybox
+      Pulp User Metadata: 
+      Schema Version:     1
+      Tag:                latest
+    Repo Id:      busybox
+    Unit Id:      f0663d57-a8d9-4093-a90c-5603280eafa3
+    Unit Type Id: docker_manifest
+    Updated:      2016-11-10T16:27:30Z
+
+If we have a tag named latest and it points to the first manifest with digest
+sha256:4ecca..., we can point it to the second manifest with the following
+command::
+
+    $ pulp-admin docker repo tag --repo-id busybox --tag-name latest --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
+
+We can also create a new tag and point it to the same manifest with::
+
+    $ pulp-admin docker repo tag --repo-id busybox --tag-name 1.2 --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
+
+

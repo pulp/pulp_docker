@@ -36,7 +36,7 @@ class Blob(pulp_models.FileContentUnit):
         :return: file name as it appears in a published repository
         :rtype: str
         """
-        return self.digest
+        return '/'.join(('blobs', self.digest))
 
 
 class Image(pulp_models.FileContentUnit):
@@ -96,6 +96,7 @@ class Manifest(pulp_models.FileContentUnit):
     schema_version = mongoengine.IntField(required=True)
     fs_layers = mongoengine.ListField(field=mongoengine.EmbeddedDocumentField(FSLayer),
                                       required=True)
+    config_layer = mongoengine.StringField()
 
     # For backward compatibility
     _ns = mongoengine.StringField(
@@ -107,15 +108,6 @@ class Manifest(pulp_models.FileContentUnit):
     meta = {'collection': 'units_{type_id}'.format(type_id=constants.MANIFEST_TYPE_ID),
             'indexes': ['name', 'tag'],
             'allow_inheritance': False}
-
-    def save(self):
-        """
-        Save the model to the database, after validating that the schema version is exactly 1.
-        """
-        if self.schema_version != 1:
-            raise ValueError(
-                "The DockerManifest class only supports Docker v2, Schema 1 manifests.")
-        super(Manifest, self).save()
 
     @staticmethod
     def calculate_digest(manifest, algorithm='sha256'):
@@ -189,7 +181,7 @@ class Manifest(pulp_models.FileContentUnit):
         return unpadded_b64 + paddings[len(unpadded_b64) % 4]
 
     @classmethod
-    def from_json(cls, manifest_json, digest):
+    def from_json(cls, manifest_json, digest, tag, upstream_name):
         """
         Construct and return a DockerManifest from the given JSON document.
 
@@ -199,14 +191,27 @@ class Manifest(pulp_models.FileContentUnit):
         :param digest:        The content digest of the manifest, as described at
                               https://docs.docker.com/registry/spec/api/#content-digests
         :type  digest:        basestring
+        :param tag:           Tag of the image repository
+        :type  tag:           basestring
+        :param upstream_name: Name of the upstream repository
+        :type  upstream_name: basestring
 
         :return:              An initialized DockerManifest object
         :rtype:               pulp_docker.common.models.DockerManifest
         """
+        # manifest schema version 2 does not contain tag and name information
+        # we need to retrieve them from other sources, that's why there were added 2 more
+        # parameters in this method
         manifest = json.loads(manifest_json)
-        fs_layers = [FSLayer(blob_sum=layer['blobSum']) for layer in manifest['fsLayers']]
-        return cls(digest=digest, name=manifest['name'], tag=manifest['tag'],
-                   schema_version=manifest['schemaVersion'], fs_layers=fs_layers)
+        config_layer = None
+        try:
+            fs_layers = [FSLayer(blob_sum=layer['digest']) for layer in manifest['layers']]
+            config_layer = manifest['config']['digest']
+        except KeyError:
+            fs_layers = [FSLayer(blob_sum=layer['blobSum']) for layer in manifest['fsLayers']]
+        return cls(digest=digest, name=upstream_name, tag=tag,
+                   schema_version=manifest['schemaVersion'], fs_layers=fs_layers,
+                   config_layer=config_layer)
 
     def get_symlink_name(self):
         """
@@ -214,14 +219,14 @@ class Manifest(pulp_models.FileContentUnit):
         :return: file name as it appears in a published repository
         :rtype: str
         """
-        return self.digest
+        return '/'.join(('manifests', str(self.schema_version), self.digest))
 
 
 class TagQuerySet(querysets.QuerySetPreventCache):
     """
     This is a custom QuerySet for the Tag model that allows it to have some custom behavior.
     """
-    def tag_manifest(self, repo_id, tag_name, manifest_digest):
+    def tag_manifest(self, repo_id, tag_name, manifest_digest, schema_version):
         """
         Tag a Manifest in a repository by trying to create a Tag object with the given tag_name and
         repo_id referencing the given Manifest digest. Tag objects have a uniqueness constraint on
@@ -236,17 +241,20 @@ class TagQuerySet(querysets.QuerySetPreventCache):
         :type  tag_name:        basestring
         :param manifest_digest: The digest of the Manifest that is being tagged
         :type  manifest_digest: basestring
+        :param schema_version:  The schema version  of the Manifest that is being tagged
+        :type  schema_version:  int
         :return:                If a new Tag is created it is returned. Otherwise None is returned.
         :rtype:                 Either a pulp_docker.plugins.models.Tag or None
         """
         try:
-            tag = Tag(name=tag_name, manifest_digest=manifest_digest, repo_id=repo_id)
+            tag = Tag(name=tag_name, manifest_digest=manifest_digest, repo_id=repo_id,
+                      schema_version=schema_version)
             tag.save()
         except mongoengine.NotUniqueError:
             # There is already a Tag with the given name and repo_id, so let's just make sure it's
             # digest is updated. No biggie.
             # Let's check if the manifest_digest changed
-            tag = Tag.objects.get(name=tag_name, repo_id=repo_id)
+            tag = Tag.objects.get(name=tag_name, repo_id=repo_id, schema_version=schema_version)
             if tag.manifest_digest != manifest_digest:
                 tag.manifest_digest = manifest_digest
                 # we don't need to set _last_updated field because it is done with pre_save signal
@@ -272,12 +280,13 @@ class Tag(pulp_models.ContentUnit):
     # uniqueness constraint that enforces that the Tag's name can only appear once in each
     # repository.
     repo_id = mongoengine.StringField(required=True)
+    schema_version = mongoengine.IntField(required=True)
 
     # For backward compatibility
     _ns = mongoengine.StringField(default='units_{type_id}'.format(type_id=constants.TAG_TYPE_ID))
     _content_type_id = mongoengine.StringField(required=True, default=constants.TAG_TYPE_ID)
 
-    unit_key_fields = ('name', 'repo_id')
+    unit_key_fields = ('name', 'repo_id', 'schema_version')
 
     # Pulp has a bug where it does not install a uniqueness constraint for us based on the
     # unit_key_fields we defined above: https://pulp.plan.io/issues/1477

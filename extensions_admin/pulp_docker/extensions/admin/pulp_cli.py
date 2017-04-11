@@ -11,7 +11,7 @@ from pulp_docker.extensions.admin.cudl import UpdateDockerRepositoryCommand
 from pulp_docker.extensions.admin.images import ImageCopyCommand
 from pulp_docker.extensions.admin.images import ImageRemoveCommand
 from pulp_docker.extensions.admin.images import ImageSearchCommand
-from pulp_docker.extensions.admin.upload import UploadDockerImageCommand
+from pulp_docker.extensions.admin.upload import TagUpdateCommand, UploadDockerImageCommand
 from pulp_docker.extensions.admin.repo_list import ListDockerRepositoriesCommand
 
 
@@ -95,6 +95,7 @@ def add_repo_section(context, parent_section):
     repo_section.add_command(cudl.DeleteRepositoryCommand(context))
     repo_section.add_command(UpdateDockerRepositoryCommand(context))
     repo_section.add_command(ListDockerRepositoriesCommand(context))
+    repo_section.add_command(TagUpdateCommand(context))
     add_search_section(context, repo_section)
     add_copy_section(context, repo_section)
     add_remove_section(context, repo_section)

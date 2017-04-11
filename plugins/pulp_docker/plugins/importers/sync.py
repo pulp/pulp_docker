@@ -226,22 +226,51 @@ class DownloadManifestsStep(publish_step.PluginStep):
         # only want to download each layer once.
         available_blobs = set()
         self.total_units = len(available_tags)
+        upstream_name = self.config.get('upstream_name')
         for tag in available_tags:
-            digest, manifest = self.parent.index_repository.get_manifest(tag)
-            # Save the manifest to the working directory
-            with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
-                manifest_file.write(manifest)
-            manifest = models.Manifest.from_json(manifest, digest)
-            self.parent.available_manifests.append(manifest)
-            for layer in manifest.fs_layers:
-                available_blobs.add(layer.blob_sum)
-            # Remember this tag for the SaveTagsStep.
-            self.parent.save_tags_step.tagged_manifests[tag] = manifest
-            self.progress_successes += 1
-
+            manifests = self.parent.index_repository.get_manifest(tag)
+            for manifest in manifests:
+                manifest, digest = manifest
+                manifest = self._process_manifest(manifest, digest, tag, upstream_name,
+                                                  available_blobs)
+                if manifest.config_layer:
+                    available_blobs.add(manifest.config_layer)
+                self.progress_successes += 1
         # Update the available units with the Manifests and Blobs we learned about
         available_blobs = [models.Blob(digest=d) for d in available_blobs]
         self.parent.available_blobs.extend(available_blobs)
+
+    def _process_manifest(self, manifest, digest, tag, upstream_name, available_blobs):
+        """
+        Process manifest.
+
+        :param manifest: manifest details
+        :type  manifest: basestring
+        :param digest: Digest of the manifest to be processed
+        :type digest: basesting
+        :param tag: Tag which the manifest references
+        :type tag: basestring
+        :param upstream_name: Upstream name of the repository
+        :type upstream_name: basestring
+        :param available_blobs: set of current available blobs accumulated dusring sync
+        :type available_blobs: set
+
+        :return: An initialized Manifest object
+        :rtype: pulp_docker.plugins.models.Manifest
+
+        """
+
+        # Save the manifest to the working directory
+        with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
+            manifest_file.write(manifest)
+        manifest = models.Manifest.from_json(manifest, digest, tag, upstream_name)
+        self.parent.available_manifests.append(manifest)
+        for layer in manifest.fs_layers:
+            available_blobs.add(layer.blob_sum)
+        # Remember this tag for the SaveTagsStep.
+        self.parent.save_tags_step.tagged_manifests.append((tag, manifest))
+
+        return manifest
 
 
 class SaveUnitsStep(publish_step.SaveUnitsStep):
@@ -293,8 +322,8 @@ class SaveTagsStep(publish_step.SaveUnitsStep):
         """
         super(SaveTagsStep, self).__init__(step_type=constants.SYNC_STEP_SAVE)
         self.description = _('Saving Tags')
-        # This dictionary maps tag named to Manifests that have the tag in the remote repository
-        self.tagged_manifests = {}
+        # This list contains tuple of (tag, manifest)
+        self.tagged_manifests = []
 
     def process_main(self):
         """
@@ -303,11 +332,11 @@ class SaveTagsStep(publish_step.SaveUnitsStep):
         create one. We'll rely on the uniqueness constraint in MongoDB to allow us to try to create
         it, and if that fails we'll fall back to updating the existing one.
         """
-        tagged_manifest_items = self.tagged_manifests.items()
-        self.total_units = len(tagged_manifest_items)
-        for tag, manifest in tagged_manifest_items:
+        self.total_units = len(self.tagged_manifests)
+        for tag, manifest in self.tagged_manifests:
             new_tag = models.Tag.objects.tag_manifest(repo_id=self.get_repo().repo_obj.repo_id,
-                                                      tag_name=tag, manifest_digest=manifest.digest)
+                                                      tag_name=tag, manifest_digest=manifest.digest,
+                                                      schema_version=manifest.schema_version)
             if new_tag:
                 repository.associate_single_unit(self.get_repo().repo_obj, new_tag)
                 self.progress_successes += 1
