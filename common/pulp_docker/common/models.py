@@ -15,7 +15,7 @@ class Blob(object):
     """
     This class is used to represent Docker v2 blobs.
     """
-    TYPE_ID = 'docker_blob'
+    TYPE_ID = constants.BLOB_TYPE_ID
 
     def __init__(self, digest):
         """
@@ -125,7 +125,7 @@ class Manifest(object):
 
     https://github.com/docker/distribution/blob/release/2.0/docs/spec/manifest-v2-1.md
     """
-    TYPE_ID = 'docker_manifest'
+    TYPE_ID = constants.MANIFEST_TYPE_ID
 
     def __init__(self, digest, name, tag, architecture, fs_layers, history, schema_version,
                  signatures):
