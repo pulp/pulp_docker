@@ -55,3 +55,6 @@ docs/*/_build/
 
 # pycharm
 .idea/
+
+# vim
+*.swp
