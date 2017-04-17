@@ -66,7 +66,7 @@ class V2WebPublisher(publish_step.PublishStep):
         self.web_working_dir = os.path.join(self.get_working_dir(), 'web')
         master_publish_dir = configuration.get_master_publish_dir(repo, config, docker_api_version)
         atomic_publish_step = publish_step.AtomicDirectoryPublishStep(
-            self.get_working_dir(), [('', publish_dir), (app_file, app_publish_location)],
+            self.get_working_dir(), [('web', publish_dir), (app_file, app_publish_location)],
             master_publish_dir, step_type=constants.PUBLISH_STEP_OVER_HTTP)
         atomic_publish_step.description = _('Making v2 files available via web.')
         self.add_child(PublishBlobsStep())
