@@ -278,3 +278,6 @@ Optional Configuration
 
 ``relative_repo_path``
   The relative path from the ``root`` where the repository will be published. Defaults to the repository id.
+
+``rsync_extra_args``
+  list of strings that can be used to extend default arguments used for rsync call
