@@ -2,16 +2,21 @@
 
 from setuptools import setup, find_packages
 
+requirements = [
+    'pulpcore-plugin',
+    'pulp-docker-common'
+]
 
 setup(
-    name='pulp_docker_plugins',
-    version='2.4a1',
-    packages=find_packages(exclude=['test', 'test.*']),
+    name='pulp-docker',
+    version='3.0.0a1.dev0',
+    packages=find_packages(exclude=['test']),
     url='http://www.pulpproject.org',
+    install_requires=requirements,
     license='GPLv2+',
     author='Pulp Team',
     author_email='pulp-list@redhat.com',
-    description='plugins for docker image support in pulp',
+    description='Plugin to enable docker image support in Pulp',
     entry_points={
         'pulp.importers': [
             'importer = pulp_docker.plugins.importers.importer:entry_point',

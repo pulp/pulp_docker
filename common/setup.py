@@ -2,12 +2,12 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name='pulp_docker_common',
-    version='2.4a1',
+    name='pulp-docker-common',
+    version='3.0.0a1.dev0',
     packages=find_packages(exclude=['test']),
     url='http://www.pulpproject.org',
     license='GPLv2+',
     author='Pulp Team',
     author_email='pulp-list@redhat.com',
-    description='common code for pulp\'s docker image support',
+    description='Common code for Pulp\'s docker image support',
 )
