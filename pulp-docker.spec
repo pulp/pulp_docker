@@ -1,14 +1,20 @@
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
+# The release number
+%global release_number 0.1.alpha
+
+# Create tag for the Source0 and setup
+%global git_tag %{name}-%{version}-%{release_number}
+
 Name: pulp-docker
 Version: 2.5.0
-Release: 0.1.alpha%{?dist}
+Release: %{release_number}%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
 License: GPLv2
 URL: http://pulpproject.org
-Source0: https://fedorahosted.org/releases/p/u/%{name}/%{name}-%{version}.tar.gz
+Source0: https://codeload.github.com/pulp/pulp_docker/tar.gz/%{git_tag}#/%{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:      noarch
 BuildRequires:  python2-devel
@@ -20,7 +26,7 @@ Provides a collection of platform plugins and admin client extensions to
 provide docker support
 
 %prep
-%setup -q
+%setup -q -n pulp_docker-%{git_tag}
 
 %build
 pushd common
