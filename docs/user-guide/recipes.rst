@@ -24,6 +24,14 @@ appropriate path. If you plan to serve both, Crane can scan the whole
 ``/var/lib/pulp/published/docker`` path, filtering for ``*.json`` files. Crane
 will check the ``data_dir`` for updates periodically.
 
+.. note::
+
+   As mentioned above, Crane is able to serve both content version V1 and V2, though it is
+   required to have installed proper docker client version which will be capable to fetch the content.
+   Bear in mind that in newer docker client versions, interaction with V1 registries is deprecated, and
+   since version 1.13 support for the V1 protocol is removed.
+   For more info check `docker docs <https://docs.docker.com/engine/deprecated/#interacting-with-v1-registries>`_
+
 Full documentation for /etc/crane.conf can be found in the Crane `README`_.
 
 
