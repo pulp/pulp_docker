@@ -276,5 +276,5 @@ Optional Configuration
 ``remote_units_path``
   The relative path from the ``root`` where unit files will live. Defaults to ``content/units``.
 
-``relative_repo_path``
+``repo_relative_path``
   The relative path from the ``root`` where the repository will be published. Defaults to the repository id.
