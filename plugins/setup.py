@@ -28,6 +28,7 @@ setup(
             'docker_blob=pulp_docker.plugins.models:Blob',
             'docker_image=pulp_docker.plugins.models:Image',
             'docker_manifest=pulp_docker.plugins.models:Manifest',
+            'docker_manifest_list=pulp_docker.plugins.models:ManifestList',
             'docker_tag=pulp_docker.plugins.models:Tag'
         ]
     }

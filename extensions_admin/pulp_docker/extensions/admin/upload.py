@@ -16,8 +16,8 @@ OPT_MASK_ANCESTOR_ID = PulpCliOption('--mask-id', d, aliases=['-m'], required=Fa
 d = _('name of the tag to create  or update')
 TAG_NAME_OPTION = PulpCliOption('--tag-name', d)
 
-d = _('digest of the manifest (e.g. sha256:3e006...)')
-MANIFEST_DIGEST_OPTION = PulpCliOption('--manifest-digest', d)
+d = _('digest of the image manifest or manifest list (e.g. sha256:3e006...)')
+DIGEST_OPTION = PulpCliOption('--digest', d)
 
 DESC_UPDATE_TAGS = _('create or update a tag to point to a manifest')
 
@@ -86,7 +86,7 @@ class TagUpdateCommand(UploadCommand):
                                                upload_files=False,
                                                description=DESC_UPDATE_TAGS)
         self.add_option(TAG_NAME_OPTION)
-        self.add_option(MANIFEST_DIGEST_OPTION)
+        self.add_option(DIGEST_OPTION)
 
     def determine_type_id(self, filename, **kwargs):
         """
@@ -136,6 +136,6 @@ class TagUpdateCommand(UploadCommand):
         """
 
         tag_name = kwargs[TAG_NAME_OPTION.keyword]
-        digest = kwargs[MANIFEST_DIGEST_OPTION.keyword]
+        digest = kwargs[DIGEST_OPTION.keyword]
 
         return {'name': tag_name, 'digest': digest}

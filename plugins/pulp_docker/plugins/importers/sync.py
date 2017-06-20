@@ -226,21 +226,58 @@ class DownloadManifestsStep(publish_step.PluginStep):
         # only want to download each layer once.
         available_blobs = set()
         self.total_units = len(available_tags)
-        upstream_name = self.config.get('upstream_name')
+        man_list = 'application/vnd.docker.distribution.manifest.list.v2+json'
         for tag in available_tags:
             manifests = self.parent.index_repository.get_manifest(tag)
             for manifest in manifests:
-                manifest, digest = manifest
-                manifest = self._process_manifest(manifest, digest, tag, upstream_name,
-                                                  available_blobs)
-                if manifest.config_layer:
-                    available_blobs.add(manifest.config_layer)
-                self.progress_successes += 1
+                manifest, digest, content_type = manifest
+                if content_type == man_list:
+                    self._process_manifest_list(manifest, digest, available_blobs, tag)
+                else:
+                    self._process_manifest(manifest, digest, available_blobs, tag)
         # Update the available units with the Manifests and Blobs we learned about
         available_blobs = [models.Blob(digest=d) for d in available_blobs]
         self.parent.available_blobs.extend(available_blobs)
 
-    def _process_manifest(self, manifest, digest, tag, upstream_name, available_blobs):
+    def _process_manifest_list(self, manifest_list, digest, available_blobs, tag):
+        """
+        Process manifest list.
+
+        :param manifest_list: manifest list details
+        :type  manifest_list: basestring
+        :param digest: Digest of the manifest list to be processed
+        :type digest: basesting
+        :param available_blobs: set of current available blobs accumulated dusring sync
+        :type available_blobs: set
+        :param tag: Tag which the manifest references
+        :type tag: basestring
+
+
+        :return: An initialized Manifest List object
+        :rtype: pulp_docker.plugins.models.ManifestList
+
+        """
+
+        # Save the manifest list to the working directory
+        with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
+            manifest_file.write(manifest_list)
+        manifest_list = models.ManifestList.from_json(manifest_list, digest)
+        self.parent.available_manifests.append(manifest_list)
+        for image_man in manifest_list.manifests:
+            manifests = self.parent.index_repository.get_manifest(image_man, headers=False)
+            manifest, digest, _ = manifests[0]
+            self._process_manifest(manifest, digest, available_blobs, tag=None)
+        if manifest_list.amd64_digest and manifest_list.amd64_schema_version == 2:
+            # we set the headers to False in order to get the conversion to schema1
+            manifests = self.parent.index_repository.get_manifest(tag, headers=False)
+            manifest, digest, _ = manifests[0]
+            self._process_manifest(manifest, digest, available_blobs, tag=tag)
+        # Remember this tag for the SaveTagsStep.
+        self.parent.save_tags_step.tagged_manifests.append((tag, manifest_list,
+                                                            constants.MANIFEST_LIST_TYPE))
+        self.progress_successes += 1
+
+    def _process_manifest(self, manifest, digest, available_blobs, tag=None):
         """
         Process manifest.
 
@@ -250,8 +287,6 @@ class DownloadManifestsStep(publish_step.PluginStep):
         :type digest: basesting
         :param tag: Tag which the manifest references
         :type tag: basestring
-        :param upstream_name: Upstream name of the repository
-        :type upstream_name: basestring
         :param available_blobs: set of current available blobs accumulated dusring sync
         :type available_blobs: set
 
@@ -263,14 +298,17 @@ class DownloadManifestsStep(publish_step.PluginStep):
         # Save the manifest to the working directory
         with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
             manifest_file.write(manifest)
-        manifest = models.Manifest.from_json(manifest, digest, tag, upstream_name)
+        manifest = models.Manifest.from_json(manifest, digest)
         self.parent.available_manifests.append(manifest)
         for layer in manifest.fs_layers:
             available_blobs.add(layer.blob_sum)
+        if manifest.config_layer:
+            available_blobs.add(manifest.config_layer)
+        self.progress_successes += 1
         # Remember this tag for the SaveTagsStep.
-        self.parent.save_tags_step.tagged_manifests.append((tag, manifest))
-
-        return manifest
+        if tag:
+            self.parent.save_tags_step.tagged_manifests.append((tag, manifest,
+                                                                constants.MANIFEST_IMAGE_TYPE))
 
 
 class SaveUnitsStep(publish_step.SaveUnitsStep):
@@ -333,10 +371,11 @@ class SaveTagsStep(publish_step.SaveUnitsStep):
         it, and if that fails we'll fall back to updating the existing one.
         """
         self.total_units = len(self.tagged_manifests)
-        for tag, manifest in self.tagged_manifests:
+        for tag, manifest, manifest_type in self.tagged_manifests:
             new_tag = models.Tag.objects.tag_manifest(repo_id=self.get_repo().repo_obj.repo_id,
                                                       tag_name=tag, manifest_digest=manifest.digest,
-                                                      schema_version=manifest.schema_version)
+                                                      schema_version=manifest.schema_version,
+                                                      manifest_type=manifest_type)
             if new_tag:
                 repository.associate_single_unit(self.get_repo().repo_obj, new_tag)
                 self.progress_successes += 1

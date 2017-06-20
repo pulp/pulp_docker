@@ -66,16 +66,15 @@ class TestDownloadManifestsStep(unittest.TestCase):
             manifest = manifest_file.read()
         digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
         repo_tag = 'latest'
-        repo_upstream_name = 'busybox'
         step.parent.available_manifests = []
 
         with mock.patch('__builtin__.open') as mock_open:
-            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
+            step._process_manifest(manifest, digest, set(), repo_tag)
 
             # Assert that the manifest was written to disk in the working dir
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
+        from_json.assert_called_once_with(manifest, digest)
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
@@ -85,6 +84,51 @@ class TestDownloadManifestsStep(unittest.TestCase):
         expected_layer = step.parent.available_manifests[0].fs_layers[0]
         self.assertEqual(expected_layer.blob_sum, expected_blob_sum)
         self.assertEqual(step.parent.available_manifests[0].fs_layers, [expected_layer])
+
+    @mock.patch('pulp_docker.plugins.importers.sync.DownloadManifestsStep._process_manifest')
+    @mock.patch('pulp_docker.plugins.importers.sync.models.ManifestList.from_json',
+                side_effect=models.ManifestList.from_json)
+    def test_process_manifest_list(self, from_json, mock_manifest):
+        """
+        Test _process_manifest_list().
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = mock.MagicMock()
+
+        step = sync.DownloadManifestsStep(repo, conduit, config)
+        step.parent = mock.MagicMock()
+        step.parent.available_manifests = []
+        step.parent.save_tags_step.tagged_manifests = []
+        step.parent.index_repository.get_manifest.side_effect = [
+            [('digest1', 'manifest1', 'image')],
+            [('digest2', 'manifest2', 'image')],
+            [('digest3', 'manifest3', 'image')]
+        ]
+
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_list.json')) as manifest_file:
+            manifest_list = manifest_file.read()
+        digest = 'sha256:69fd2d3fa813bcbb3a572f1af80fe31a1710409e15dde91af79be62b37ab4f7'
+        repo_tag = 'latest'
+
+        with mock.patch('__builtin__.open') as mock_open:
+            step._process_manifest_list(manifest_list, digest, set(), repo_tag)
+
+            # Assert that the manifest was written to disk in the working dir
+            mock_open.return_value.__enter__.return_value.write.assert_called_once_with(
+                manifest_list
+            )
+
+        from_json.assert_called_once_with(manifest_list, digest)
+        # There should be one manifest that has the correct digest
+        self.assertEqual(len(step.parent.available_manifests), 1)
+        self.assertEqual(step.parent.available_manifests[0].digest, digest)
+        expected_man = ['sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
+                        'sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92']
+        self.assertEqual(step.parent.available_manifests[0].manifests, expected_man)
+        self.assertEqual(mock_manifest.call_count, 3)
+        self.assertEqual(step.parent.index_repository.get_manifest.call_count, 3)
+        self.assertEqual(len(step.parent.save_tags_step.tagged_manifests), 1)
 
     @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
                 side_effect=models.Manifest.from_json)
@@ -103,16 +147,15 @@ class TestDownloadManifestsStep(unittest.TestCase):
             manifest = manifest_file.read()
         digest = 'sha256:817a12c32a39bbe394944ba49de563e085f1d3c5266eb8e9723256bc4448680e'
         repo_tag = 'latest'
-        repo_upstream_name = 'busybox'
         step.parent.available_manifests = []
 
         with mock.patch('__builtin__.open') as mock_open:
-            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
+            step._process_manifest(manifest, digest, set(), repo_tag)
 
             # Assert that the manifest was written to disk in the working dir
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
+        from_json.assert_called_once_with(manifest, digest)
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
@@ -142,8 +185,8 @@ class TestDownloadManifestsStep(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_one_layer.json')) as manifest_file:
             manifest = manifest_file.read()
         digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        manifest = models.Manifest.from_json(manifest, digest, 'latest', 'busybox')
-        step.parent.index_repository.get_manifest.return_value = [(digest, manifest)]
+        manifest = models.Manifest.from_json(manifest, digest)
+        step.parent.index_repository.get_manifest.return_value = [(digest, manifest, 'image')]
         step.parent.available_blobs = []
 
         step.process_main()
@@ -174,8 +217,8 @@ class TestDownloadManifestsStep(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_schema2_one_layer.json')) as manifest_file:
             manifest = manifest_file.read()
         digest = 'sha256:817a12c32a39bbe394944ba49de563e085f1d3c5266eb8e9723256bc4448680e'
-        manifest = models.Manifest.from_json(manifest, digest, 'latest', 'busybox')
-        step.parent.index_repository.get_manifest.return_value = [(digest, manifest)]
+        manifest = models.Manifest.from_json(manifest, digest)
+        step.parent.index_repository.get_manifest.return_value = [(digest, manifest, 'image')]
         step.parent.available_blobs = []
 
         step.process_main()
@@ -205,16 +248,15 @@ class TestDownloadManifestsStep(unittest.TestCase):
             manifest = manifest_file.read()
         digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
         repo_tag = 'latest'
-        repo_upstream_name = 'busybox'
         step.parent.available_manifests = []
 
         with mock.patch('__builtin__.open') as mock_open:
-            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
+            step._process_manifest(manifest, digest, set(), repo_tag)
 
             # Assert that the manifest was written to disk in the working dir
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
+        from_json.assert_called_once_with(manifest, digest)
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
@@ -243,16 +285,15 @@ class TestDownloadManifestsStep(unittest.TestCase):
             manifest = manifest_file.read()
         digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
         repo_tag = 'latest'
-        repo_upstream_name = 'busybox'
         step.parent.available_manifests = []
 
         with mock.patch('__builtin__.open') as mock_open:
-            step._process_manifest(manifest, digest, repo_tag, repo_upstream_name, set())
+            step._process_manifest(manifest, digest, set(), repo_tag)
 
             # Assert that the manifest was written to disk in the working dir
             mock_open.return_value.__enter__.return_value.write.assert_called_once_with(manifest)
 
-        from_json.assert_called_once_with(manifest, digest, repo_tag, repo_upstream_name)
+        from_json.assert_called_once_with(manifest, digest)
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
@@ -327,9 +368,7 @@ class TestSaveUnitsStep(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
         manifest_digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        tag = 'latest'
-        upstream_name = 'synctest'
-        manifest = models.Manifest.from_json(manifest, manifest_digest, tag, upstream_name)
+        manifest = models.Manifest.from_json(manifest, manifest_digest)
         step.parent.step_get_local_metadata.units_to_download = [manifest]
         units = list(step.get_iterator())
 
@@ -358,9 +397,7 @@ class TestSaveUnitsStep(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
         manifest_digest = 'sha256:a001e892f3ba0685184486b08cda99bf81f551513f4b56e72954a1d4404195b1'
-        tag = 'latest'
-        upstream_name = 'synctest'
-        manifest = models.Manifest.from_json(manifest, manifest_digest, tag, upstream_name)
+        manifest = models.Manifest.from_json(manifest, manifest_digest)
         step.parent.step_get_local_metadata.units_to_download = [manifest]
         units = list(step.get_iterator())
 

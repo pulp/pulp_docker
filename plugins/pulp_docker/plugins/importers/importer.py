@@ -47,7 +47,7 @@ class DockerImporter(Importer):
             'id': constants.IMPORTER_TYPE_ID,
             'display_name': _('Docker Importer'),
             'types': [constants.BLOB_TYPE_ID, constants.IMAGE_TYPE_ID, constants.MANIFEST_TYPE_ID,
-                      constants.TAG_TYPE_ID]
+                      constants.MANIFEST_LIST_TYPE_ID, constants.TAG_TYPE_ID]
         }
 
     def sync_repo(self, repo, sync_conduit, config):
@@ -185,13 +185,15 @@ class DockerImporter(Importer):
         if units is None:
             criteria = UnitAssociationCriteria(
                 type_ids=[constants.IMAGE_TYPE_ID, constants.TAG_TYPE_ID,
-                          constants.MANIFEST_TYPE_ID, constants.BLOB_TYPE_ID])
+                          constants.MANIFEST_TYPE_ID, constants.MANIFEST_LIST_TYPE_ID,
+                          constants.BLOB_TYPE_ID])
             units = import_conduit.get_source_units(criteria=criteria)
 
         unit_importers = {
             models.Image: DockerImporter._import_image,
             models.Tag: DockerImporter._import_tag,
             models.Manifest: DockerImporter._import_manifest,
+            models.ManifestList: DockerImporter._import_manifest_list,
             models.Blob: DockerImporter._import_blob
         }
 
@@ -246,7 +248,7 @@ class DockerImporter(Importer):
     @staticmethod
     def _import_tag(conduit, unit, dest_repo):
         """
-        Import a Tag, and the Manifests and Blobs it references.
+        Import a Tag, and the Manifests(image manifests and manifest lists) and Blobs it references.
 
         :param conduit:   provides access to relevant Pulp functionality
         :type  conduit:   pulp.plugins.conduits.unit_import.ImportUnitConduit
@@ -267,15 +269,23 @@ class DockerImporter(Importer):
         manifest_digests_to_import = set()
         tag = models.Tag.objects.tag_manifest(repo_id=dest_repo.repo_id, tag_name=unit.name,
                                               manifest_digest=unit.manifest_digest,
-                                              schema_version=unit.schema_version)
+                                              schema_version=unit.schema_version,
+                                              manifest_type=unit.manifest_type)
         units_added.add(tag)
         conduit.associate_unit(tag)
         manifest_digests_to_import.add(unit.manifest_digest)
 
-        # Add referenced manifests
-        for manifest in models.Manifest.objects.filter(
-                digest__in=sorted(manifest_digests_to_import)):
-            units_added |= set(DockerImporter._import_manifest(conduit, manifest, dest_repo))
+        if tag.manifest_type == constants.MANIFEST_LIST_TYPE:
+            # Add referenced manifest lists
+            for manifest in models.ManifestList.objects.filter(
+                    digest__in=sorted(manifest_digests_to_import)):
+                units_added |= set(DockerImporter._import_manifest_list(
+                                   conduit, manifest, dest_repo))
+        else:
+            # Add referenced manifests
+            for manifest in models.Manifest.objects.filter(
+                    digest__in=sorted(manifest_digests_to_import)):
+                units_added |= set(DockerImporter._import_manifest(conduit, manifest, dest_repo))
 
         return list(units_added)
 
@@ -295,10 +305,8 @@ class DockerImporter(Importer):
         """
         units_added = set()
 
-        # Add manifests and catalog referenced blobs
+        # Collect referenced blobs
         blob_digests = set()
-        repository.associate_single_unit(dest_repo, unit)
-        units_added.add(unit)
         for layer in unit.fs_layers:
             blob_digests.add(layer.blob_sum)
 
@@ -309,6 +317,45 @@ class DockerImporter(Importer):
         # Add referenced blobs
         for blob in models.Blob.objects.filter(digest__in=sorted(blob_digests)):
             units_added |= set(DockerImporter._import_blob(conduit, blob, dest_repo))
+
+        # Add manifests
+        repository.associate_single_unit(dest_repo, unit)
+        units_added.add(unit)
+
+        return units_added
+
+    @staticmethod
+    def _import_manifest_list(conduit, unit, dest_repo):
+        """
+        Import a Manifest List and its referenced image manifests.
+
+        :param conduit:   provides access to relevant Pulp functionality
+        :type  conduit:   pulp.plugins.conduits.unit_import.ImportUnitConduit
+        :param unit:      The Manifest List to import
+        :type  unit:      pulp_docker.plugins.Model.ManifestList
+        :param dest_repo: The destination repository that the ManifestList is being imported to.
+        :type  dest_repo: pulp.server.db.model.Repository
+        :return:          list of Units that were copied to the destination repository
+        :rtype:           list
+        """
+
+        units_added = set()
+
+        # Collect referenced manifests
+        manifest_digests = set()
+        for manifest in unit.manifests:
+            manifest_digests.add(manifest)
+
+        if unit.amd64_digest:
+            manifest_digests.add(unit.amd64_digest)
+
+        # Add referenced manifests
+        for manifest in models.Manifest.objects.filter(digest__in=sorted(manifest_digests)):
+            units_added |= set(DockerImporter._import_manifest(conduit, manifest, dest_repo))
+
+        # Add manifest lists
+        repository.associate_single_unit(dest_repo, unit)
+        units_added.add(unit)
 
         return units_added
 
@@ -339,8 +386,9 @@ class DockerImporter(Importer):
         """
         Removes content units from the given repository.
 
-        This method also removes tags associated with Images, Tags associated with Manifests, and
-        unreferenced Blobs associated with Manifests.
+        This method also removes tags associated with Images, Tags associated with Manifests,
+        unreferenced Blobs associated with Image Manifests, unreferenced Image Manifests
+        associated with Manifest Lists.
 
         This call will not result in the units being deleted from Pulp itself, except for Tags since
         they are repository specific.
@@ -355,7 +403,8 @@ class DockerImporter(Importer):
         """
         unit_removers = {
             models.Image: DockerImporter._remove_image,
-            models.Manifest: DockerImporter._remove_manifest
+            models.Manifest: DockerImporter._remove_manifest,
+            models.ManifestList: DockerImporter._remove_manifest_list
         }
 
         map((lambda u: type(u) in unit_removers and unit_removers[type(u)](
@@ -392,16 +441,86 @@ class DockerImporter(Importer):
         cls._purge_unlinked_tags(repo, manifest)
         cls._purge_unlinked_blobs(repo, manifest)
 
-    @staticmethod
-    def _purge_unlinked_tags(repo, manifest):
+    @classmethod
+    def _remove_manifest_list(cls, repo, manifest_list):
         """
-        Purge Tags associated with the given Manifest in the repository. We don't want to leave Tags
-        that reference Manifests that no longer exist.
+        Purge Tags and image manifests associated with a given ManifestList in the repository.
 
         :param repo:     The affected repository.
         :type  repo:     pulp.server.db.model.Repository
-        :param manifest: The Manifest that is being removed
-        :type  manifest: pulp_docker.plugins.models.Manifest
+        :param manifest_list: The ManifestList being removed
+        :type  manifest_list: pulp_docker.plugins.models.ManifestList
+        """
+        cls._purge_unlinked_tags(repo, manifest_list)
+        cls._purge_unlinked_manifests(repo, manifest_list)
+
+    @staticmethod
+    def _purge_unlinked_manifests(repo, manifest_list):
+
+        # Find manifest digests referenced by removed manifest lists (orphaned)
+        orphaned = set()
+        for image_man in manifest_list.manifests:
+            orphaned.add(image_man)
+            if manifest_list.amd64_digest:
+                orphaned.add(manifest_list.amd64_digest)
+        if not orphaned:
+            # nothing orphaned
+            return
+
+        # Find manifest digests still referenced by other manifest lists (adopted)
+        adopted = set()
+        criteria = UnitAssociationCriteria(type_ids=[constants.MANIFEST_LIST_TYPE_ID],
+                                           unit_filters={'digest': {'$ne': manifest_list.digest}})
+        for man_list in unit_association.RepoUnitAssociationManager._units_from_criteria(
+                repo, criteria):
+            for image_man in man_list.manifests:
+                adopted.add(image_man)
+            if man_list.amd64_digest:
+                adopted.add(man_list.amd64_digest)
+
+        # Remove unreferenced manifests
+        orphaned = orphaned.difference(adopted)
+        if not orphaned:
+            # all adopted
+            return
+
+        # Check if those manifests have tags, tagged manifests cannot be removed
+        criteria = UnitAssociationCriteria(
+            type_ids=[constants.TAG_TYPE_ID],
+            unit_filters={'manifest_digest': {'$in': list(orphaned)},
+                          'manifest_type': constants.MANIFEST_IMAGE_TYPE})
+        for tag in unit_association.RepoUnitAssociationManager._units_from_criteria(
+                repo, criteria):
+            orphaned.remove(tag.manifest_digest)
+
+        unit_filter = {
+            'digest': {
+                '$in': sorted(orphaned)
+            }
+        }
+
+        criteria = UnitAssociationCriteria(
+            type_ids=[constants.MANIFEST_TYPE_ID],
+            unit_filters=unit_filter)
+        manager = manager_factory.repo_unit_association_manager()
+        manager.unassociate_by_criteria(
+            repo_id=repo.repo_id,
+            criteria=criteria,
+            notify_plugins=False)
+
+        for manifest in models.Manifest.objects.filter(digest__in=sorted(orphaned)):
+            DockerImporter._purge_unlinked_blobs(repo, manifest)
+
+    @staticmethod
+    def _purge_unlinked_tags(repo, manifest):
+        """
+        Purge Tags associated with the given Manifest (image or list) in the repository.
+        We don't want to leave Tags that reference Manifests (image or lists) that no longer exist.
+
+        :param repo:     The affected repository.
+        :type  repo:     pulp.server.db.model.Repository
+        :param manifest: The Manifest(image or list) that is being removed
+        :type  manifest: pulp_docker.plugins.models.Manifest/ManifestList
         """
         # Find Tag objects that reference the removed Manifest. We can remove any such Tags from
         # the repository, and from Pulp as well (since Tag objects are repository specific).

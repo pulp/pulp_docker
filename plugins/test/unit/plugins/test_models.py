@@ -61,18 +61,14 @@ class TestManifest(unittest.TestCase):
         """
         Assert correct operation of the __init__() method.
         """
-        name = 'name'
-        tag = 'tag'
         digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
         fs_layers = [models.FSLayer(blob_sum='rsum:jsf')]
         schema_version = 2
         config_layer = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
 
-        m = models.Manifest(digest=digest, name=name, tag=tag, fs_layers=fs_layers,
+        m = models.Manifest(digest=digest, fs_layers=fs_layers,
                             schema_version=schema_version, config_layer=config_layer)
 
-        self.assertEqual(m.name, name)
-        self.assertEqual(m.tag, tag)
         self.assertEqual(m.digest, digest)
         self.assertEqual(m.fs_layers, fs_layers)
         self.assertEqual(m.schema_version, schema_version)
@@ -88,10 +84,8 @@ class TestManifest(unittest.TestCase):
         with open(example_manifest_path) as manifest_file:
             manifest = manifest_file.read()
 
-        m = models.Manifest.from_json(manifest, digest, 'latest', 'hello-world')
+        m = models.Manifest.from_json(manifest, digest)
 
-        self.assertEqual(m.name, 'hello-world')
-        self.assertEqual(m.tag, 'latest')
         self.assertEqual(m.digest, digest)
         self.assertEqual(m.schema_version, 1)
         self.assertEqual(m.config_layer, None)
@@ -112,10 +106,8 @@ class TestManifest(unittest.TestCase):
         with open(example_manifest_path) as manifest_file:
             manifest = manifest_file.read()
 
-        m = models.Manifest.from_json(manifest, digest, 'latest', 'hello-world')
+        m = models.Manifest.from_json(manifest, digest)
 
-        self.assertEqual(m.name, 'hello-world')
-        self.assertEqual(m.tag, 'latest')
         self.assertEqual(m.digest, digest)
         self.assertEqual(m.schema_version, 2)
         self.assertEqual(m.config_layer, config_layer)
@@ -129,15 +121,77 @@ class TestManifest(unittest.TestCase):
         """
         Assert correct operation of the unit_key property.
         """
-        name = 'name'
-        tag = 'tag'
         digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
         fs_layers = [models.FSLayer(blob_sum='rsum:jsf')]
         schema_version = 1
-        manifest = models.Manifest(name=name, tag=tag, digest=digest,
-                                   fs_layers=fs_layers, schema_version=schema_version)
+        manifest = models.Manifest(digest=digest, fs_layers=fs_layers,
+                                   schema_version=schema_version)
 
         unit_key = manifest.unit_key
+
+        self.assertEqual(unit_key, {'digest': digest})
+
+
+class TestManifestList(unittest.TestCase):
+    """
+    This class contains tests for the ManifestList class.
+    """
+    def test___init__(self):
+        """
+        Assert correct operation of the __init__() method.
+        """
+        digest = 'sha256:69fd2d3fa813bcbb3a572f1af80fe31a1710409e15dde91af79be62b37ab4f70'
+        manifests = ['sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
+                     'sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92']
+        schema_version = 2
+        amd64_digest = 'sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf'
+        amd64_schema_version = 2
+
+        m = models.ManifestList(digest=digest, manifests=manifests,
+                                schema_version=schema_version, amd64_digest=amd64_digest,
+                                amd64_schema_version=amd64_schema_version)
+
+        self.assertEqual(m.digest, digest)
+        self.assertEqual(m.manifests, manifests)
+        self.assertEqual(m.schema_version, schema_version)
+        self.assertEqual(m.amd64_digest, amd64_digest)
+        self.assertEqual(m.amd64_schema_version, amd64_schema_version)
+
+    def test_from_json(self):
+        """
+        Assert correct operation of the from_json class method.
+        """
+        digest = 'sha256:69fd2d3fa813bcbb3a572f1af80fe31a1710409e15dde91af79be62b37ab4f70'
+        example_manifest_path = os.path.join(os.path.dirname(__file__), '..', '..', 'data',
+                                             'manifest_list.json')
+        with open(example_manifest_path) as manifest_file:
+            manifest_list = manifest_file.read()
+
+        m = models.ManifestList.from_json(manifest_list, digest)
+
+        self.assertEqual(m.digest, digest)
+        self.assertEqual(m.schema_version, 2)
+        amd64_digest = 'sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf'
+        self.assertEqual(m.amd64_digest, amd64_digest)
+        self.assertEqual(m.amd64_schema_version, 2)
+        self.assertEqual(len(m.manifests), 2)
+
+    def test_unit_key(self):
+        """
+        Assert correct operation of the unit_key property.
+        """
+        digest = 'sha256:69fd2d3fa813bcbb3a572f1af80fe31a1710409e15dde91af79be62b37ab4f70'
+        manifests = ['sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
+                     'sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92']
+        schema_version = 2
+        amd64_digest = 'sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf'
+        amd64_schema_version = 2
+
+        m = models.ManifestList(digest=digest, manifests=manifests,
+                                schema_version=schema_version, amd64_digest=amd64_digest,
+                                amd64_schema_version=amd64_schema_version)
+
+        unit_key = m.unit_key
 
         self.assertEqual(unit_key, {'digest': digest})
 
@@ -154,14 +208,16 @@ class TestTag(unittest.TestCase):
         manifest_digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
         repo_id = 'hello-world'
         schema_version = 2
+        manifest_type = 'image'
 
         m = models.Tag(name=name, manifest_digest=manifest_digest, repo_id=repo_id,
-                       schema_version=schema_version)
+                       schema_version=schema_version, manifest_type=manifest_type)
 
         self.assertEqual(m.name, name)
         self.assertEqual(m.manifest_digest, manifest_digest)
         self.assertEqual(m.repo_id, repo_id)
         self.assertEqual(m.schema_version, schema_version)
+        self.assertEqual(m.manifest_type, manifest_type)
 
     def test_unit_key(self):
         """
@@ -171,10 +227,12 @@ class TestTag(unittest.TestCase):
         manifest_digest = 'sha256:6c3c624b58dbbcd3c0dd82b4c53f04194d1247c6eebdaab7c610cf7d66709b3b'
         repo_id = 'hello-world'
         schema_version = 2
+        manifest_type = 'image'
         m = models.Tag(name=name, manifest_digest=manifest_digest, repo_id=repo_id,
-                       schema_version=schema_version)
+                       schema_version=schema_version, manifest_type=manifest_type)
 
         unit_key = m.unit_key
 
         self.assertEqual(unit_key, {'name': name, 'repo_id': repo_id,
-                                    'schema_version': schema_version})
+                                    'schema_version': schema_version,
+                                    'manifest_type': manifest_type})
