@@ -3,7 +3,7 @@
 
 Name: pulp-docker
 Version: 2.4.0
-Release: 1%{?dist}
+Release: 1.1.beta%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
 License: GPLv2
@@ -71,6 +71,7 @@ rm -rf %{buildroot}
 Summary: Pulp Docker support common library
 Group: Development/Languages
 Provides: python2-pulp-docker-common
+Obsoletes: python2-pulp-docker-common < %{version}
 Requires: python-pulp-common >= 2.8.0
 Requires: python-setuptools
 
