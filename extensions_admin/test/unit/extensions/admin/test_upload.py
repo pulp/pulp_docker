@@ -22,9 +22,13 @@ class TestUploadDockerImageCommand(unittest.TestCase):
         self.context.config = test_config
         self.command = UploadDockerImageCommand(self.context)
 
-    def test_determine_id(self):
-        ret = self.command.determine_type_id('/a/b/c')
+    def test_determine_id_wth_image(self):
+        ret = self.command.determine_type_id(data.busybox_tar_path)
         self.assertEqual(ret, constants.IMAGE_TYPE_ID)
+
+    def test_determine_id_with_blob(self):
+        ret = self.command.determine_type_id(data.skopeo_tar_path)
+        self.assertEqual(ret, constants.MANIFEST_TYPE_ID)
 
     def test_generate_unit_key_and_metadata(self):
         unit_key, metadata = self.command.generate_unit_key_and_metadata(data.busybox_tar_path)

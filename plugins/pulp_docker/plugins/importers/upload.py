@@ -1,6 +1,15 @@
 """
-This module contains steps for handling Image uploads. Docker v2 objects (Manifests and Blobs) are
-not handled at this time.
+This module contains steps for handling Image uploads. Docker v2 s2 objects (Manifests and Blobs)
+saved via skopeo copy can be uploaded at this time.
+
+As of now skopeo copy creates a directory for your image with the blobs and manifest json file.
+Therefore, before uploading, the user has to tar the directory contents manually.
+Later, when skopeo is capable of creating tar files directly,
+then the user can skip the manual step of tarring the contents.
+
+Below is the existing issue raised against the skopeo team.
+
+https://github.com/projectatomic/skopeo/issues/361
 
 If you feel the need to blame this file, don't use git blame. The code was taken from this commit,
 which was later negative committed:
@@ -15,6 +24,8 @@ import json
 import os
 import stat
 import tarfile
+
+from mongoengine import NotUniqueError
 
 from pulp.plugins.util.publish_step import PluginStep, GetLocalUnitsStep
 
@@ -60,11 +71,12 @@ class UploadStep(PluginStep):
 
         # populated by ProcessMetadata
         self.v1_tags = {}
-
         if type_id == models.Image._content_type_id.default:
             self._handle_image()
         elif type_id == models.Tag._content_type_id.default:
             self._handle_tag(metadata)
+        elif type_id == models.Manifest._content_type_id.default:
+            self._handle_image_manifest()
         else:
             raise NotImplementedError()
 
@@ -86,6 +98,15 @@ class UploadStep(PluginStep):
 
         self.metadata = metadata
         self.add_child(AddTags(step_type=constants.UPLOAD_STEP_SAVE))
+
+    def _handle_image_manifest(self):
+        """
+        Handles the upload of a v2 s2 docker image
+        """
+        self.add_child(ProcessManifest(constants.UPLOAD_STEP_IMAGE_MANIFEST))
+        self.v2_step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
+        self.add_child(self.v2_step_get_local_units)
+        self.add_child(AddUnits(step_type=constants.UPLOAD_STEP_SAVE))
 
 
 class ProcessMetadata(PluginStep):
@@ -146,6 +167,47 @@ class ProcessMetadata(PluginStep):
                 image_id = parent_id
 
         return images
+
+
+class ProcessManifest(PluginStep):
+    """
+    Retrieves image manifest from an uploaded tarball and pull out the
+    metadata for further processing
+    """
+
+    def process_main(self):
+        """
+        Pull the image manifest out of the tar file
+        """
+        image_manifest = json.dumps(tarutils.get_image_manifest(self.parent.file_path))
+        digest = models.UnitMixin.calculate_digest(image_manifest)
+        with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
+            manifest_file.write(image_manifest)
+        manifest = models.Manifest.from_json(image_manifest, digest)
+        self.parent.available_units.append(manifest)
+        self.parent.available_units.extend(self.get_models(manifest))
+
+    def get_models(self, manifest):
+        """
+        Given an image manifest, returns model instances to represent each blob of the image defined
+        by the unit_key.
+
+        :param manifest: An initialized Manifest object
+        :type manifest:  pulp_docker.plugins.models.Manifest
+        :return:         list of models.Blob instances
+        :rtype:          list
+        """
+        available_blobs = set()
+        for layer in manifest.fs_layers:
+            # skip foreign blobs
+            if layer.layer_type == constants.FOREIGN_LAYER:
+                continue
+            else:
+                available_blobs.add(layer.blob_sum)
+        if manifest.config_layer:
+            available_blobs.add(manifest.config_layer)
+        available_blobs = [models.Blob(digest=d) for d in available_blobs]
+        return available_blobs
 
 
 class AddImages(v1_sync.SaveImages):
@@ -242,3 +304,53 @@ class AddTags(PluginStep):
 
         if new_tag:
             repository.associate_single_unit(self.parent.repo.repo_obj, new_tag)
+
+
+class AddUnits(PluginStep):
+    """
+    Add Manifest and Blobs extracted in the ProcessManifest Step
+    """
+    def initialize(self):
+        """
+        Extract the tarfile to get all the layers from it.
+        """
+        # Brute force, extract the tar file for now
+        with contextlib.closing(tarfile.open(self.parent.file_path)) as archive:
+            archive.extractall(self.get_working_dir())
+
+    def get_iterator(self):
+        """
+        Return an iterator that will traverse the list of Units
+        that were present in the uploaded tarball.
+
+        :return: An iterable containing the Blobs and Manifests present in the uploaded tarball.
+        :rtype:  iterator
+        """
+        return iter(self.parent.v2_step_get_local_units.units_to_download)
+
+    def process_main(self, item=None):
+        """
+        Save blobs and manifest to repository
+
+        :param item: A Docker manifest or blob unit
+        :type      : pulp_docker.plugins.models.Blob or pulp_docker.plugins.models.Manifest
+        :return:     None
+        """
+        if isinstance(item, models.Blob):
+            blob_src_path = os.path.join(self.get_working_dir(), item.digest.split(':')[1] + '.tar')
+            blob_dest_path = os.path.join(self.get_working_dir(), item.digest)
+            with open(blob_src_path) as blob_src:
+                with contextlib.closing(gzip.open(blob_dest_path, 'w')) as blob_dest:
+                    # these can be big files, so we chunk them
+                    reader = functools.partial(blob_src.read, 4096)
+                    for chunk in iter(reader, ''):
+                        blob_dest.write(chunk)
+            # we don't need the tarfile anymore
+            os.remove(blob_src_path)
+
+        item.set_storage_path(item.digest)
+        try:
+            item.save_and_import_content(os.path.join(self.get_working_dir(), item.digest))
+        except NotUniqueError:
+            item = item.__class__.objects.get(**item.unit_key)
+        repository.associate_single_unit(self.get_repo().repo_obj, item)

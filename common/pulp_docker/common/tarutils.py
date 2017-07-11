@@ -114,3 +114,24 @@ def get_youngest_children(metadata):
                 pass
 
     return list(image_ids)
+
+
+def get_image_manifest(tarfile_path):
+    """
+    Given a path to a tarfile, this returns the decoded manifest.json file if it exists
+    since for V1 it doesn't exist and for V1.+ it does exist.
+
+    :param tarfile_path: full path to tarfile
+    :type tarfile_path:  basestring
+    :return:             decoded manifest json if it exists, otherwise an empty list
+    :rtype               list or dict
+    """
+    image_manifest = []
+    with contextlib.closing(tarfile.open(tarfile_path)) as archive:
+        for member in archive.getmembers():
+            # find the "manifest.json" file
+            if os.path.basename(member.path) == 'manifest.json':
+                image_manifest = json.load(archive.extractfile(member))
+                break
+
+    return image_manifest
