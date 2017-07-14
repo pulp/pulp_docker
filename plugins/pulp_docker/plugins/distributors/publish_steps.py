@@ -111,7 +111,7 @@ class V2WebPublisher(publish_step.PublishStep):
             step_type=constants.PUBLISH_STEP_WEB_PUBLISHER, repo=repo,
             publish_conduit=publish_conduit, config=config)
 
-        self.redirect_data = {1: set(), 2: set()}
+        self.redirect_data = {1: set(), 2: set(), 'list': set(), 'amd64': {}}
 
         docker_api_version = 'v2'
         publish_dir = configuration.get_web_publish_dir(repo, config, docker_api_version)
@@ -131,6 +131,10 @@ class V2WebPublisher(publish_step.PublishStep):
             self.redirect_data,
             repo_content_unit_q=repo_content_unit_q)
         self.add_child(self.publish_manifests_step)
+        self.publish_manifest_lists_step = PublishManifestListsStep(
+            self.redirect_data,
+            repo_content_unit_q=repo_content_unit_q)
+        self.add_child(self.publish_manifest_lists_step)
         self.add_child(PublishTagsStep(self.redirect_data))
         self.add_child(atomic_publish_step)
         self.add_child(RedirectFileStep(app_publish_location, self.redirect_data))
@@ -185,8 +189,8 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
         Initialize the PublishManifestsStep, setting its description and calling the super class's
         __init__().
 
-        :param redirect_data: Dictionary of tags and digests that manifests schema version 2
-                              reference
+        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
+                              and manifest lists reference
         :type  redirect_data: dict
         :param repo_content_unit_q: optional Q object that will be applied to the queries performed
                                     against RepoContentUnit model
@@ -203,13 +207,69 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
         """
         Link the item to the Manifest file.
 
-        :param item: The Blob to process
-        :type  item: pulp_docker.plugins.models.Blob
+        :param item: The Manifest to process
+        :type  item: pulp_docker.plugins.models.Manifest
         """
         misc.create_symlink(item._storage_path,
                             os.path.join(self.get_manifests_directory(), str(item.schema_version),
                                          item.unit_key['digest']))
         self.redirect_data[item.schema_version].add(item.unit_key['digest'])
+
+    def get_manifests_directory(self):
+        """
+        Get the directory where the Manifests published to the web should be linked.
+
+        :return: The path to where Manifests should be published.
+        :rtype:  basestring
+        """
+        return os.path.join(self.parent.get_working_dir(), 'manifests')
+
+
+class PublishManifestListsStep(publish_step.UnitModelPluginStep):
+    """
+    Publish ManifestLists.
+    """
+
+    def __init__(self, redirect_data, repo_content_unit_q=None):
+        """
+        Initialize the PublishManifestListsStep, setting its description and calling the super
+        class's __init__().
+
+        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
+                              and manifest lists reference
+        :type  redirect_data: dict
+        :param repo_content_unit_q: optional Q object that will be applied to the queries performed
+                                    against RepoContentUnit model
+        :type  repo_content_unit_q: mongoengine.Q
+
+        """
+        super(PublishManifestListsStep, self).__init__(
+            step_type=constants.PUBLISH_STEP_MANIFEST_LISTS,
+            model_classes=[models.ManifestList],
+            repo_content_unit_q=repo_content_unit_q)
+        self.description = _('Publishing Manifest Lists.')
+        self.redirect_data = redirect_data
+
+    def process_main(self, item):
+        """
+        Link the item to the Manifest List file.
+
+        :param item: The Manifest List to process
+        :type  item: pulp_docker.plugins.models.ManifestList
+        """
+        misc.create_symlink(item._storage_path,
+                            os.path.join(self.get_manifests_directory(),
+                                         constants.MANIFEST_LIST_TYPE, item.unit_key['digest']))
+        self.redirect_data[constants.MANIFEST_LIST_TYPE].add(item.unit_key['digest'])
+        if item.amd64_digest:
+            # we query the tag collection because the manifest list model does not contain
+            # the tag field anymore
+            # Manifest list can have several tags
+            tags = models.Tag.objects.filter(manifest_digest=item.digest,
+                                             repo_id=self.get_repo().id)
+            for tag in tags:
+                self.redirect_data['amd64'][tag.name] = (item.amd64_digest,
+                                                         item.amd64_schema_version)
 
     def get_manifests_directory(self):
         """
@@ -231,8 +291,8 @@ class PublishTagsStep(publish_step.UnitModelPluginStep):
         Initialize the PublishTagsStep, setting its description and calling the super class's
         __init__().
 
-        :param redirect_data: Dictionary of tags and digests that manifests schema version 2
-                              reference
+        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
+                              and manifest lists reference
         :type redirect_data: dict
         """
         super(PublishTagsStep, self).__init__(step_type=constants.PUBLISH_STEP_TAGS,
@@ -249,13 +309,18 @@ class PublishTagsStep(publish_step.UnitModelPluginStep):
         :param item: The tag to process
         :type  item: pulp_docker.plugins.models.Tag
         """
-        manifest = models.Manifest.objects.get(digest=item.manifest_digest)
+        try:
+            manifest = models.Manifest.objects.get(digest=item.manifest_digest)
+            schema_version = manifest.schema_version
+        except mongoengine.DoesNotExist:
+            manifest = models.ManifestList.objects.get(digest=item.manifest_digest)
+            schema_version = constants.MANIFEST_LIST_TYPE
         misc.create_symlink(
             manifest._storage_path,
             os.path.join(self.parent.publish_manifests_step.get_manifests_directory(),
-                         str(manifest.schema_version), item.name))
+                         str(schema_version), item.name))
         self._tag_names.add(item.name)
-        self.redirect_data[manifest.schema_version].add(item.name)
+        self.redirect_data[schema_version].add(item.name)
 
     def finalize(self):
         """
@@ -284,8 +349,8 @@ class RedirectFileStep(publish_step.PublishStep):
                                      will generate.
         :type  app_publish_location: basestring
 
-        :param redirect_data: Dictionary of tags and digests that manifests schema version 2
-                              reference
+        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
+                              and manifest lists reference
         :type redirect_data:  dict
 
         """
@@ -300,12 +365,16 @@ class RedirectFileStep(publish_step.PublishStep):
         registry = configuration.get_repo_registry_id(self.get_repo(), self.get_config())
         redirect_url = configuration.get_redirect_url(self.get_config(), self.get_repo(), 'v2')
         schema2_data = self.redirect_data[2]
+        manifest_list_data = self.redirect_data['list']
+        manifest_list_amd64 = self.redirect_data['amd64']
 
         redirect_data = {
-            'type': 'pulp-docker-redirect', 'version': 3, 'repository': self.get_repo().id,
+            'type': 'pulp-docker-redirect', 'version': 4, 'repository': self.get_repo().id,
             'repo-registry-id': registry, 'url': redirect_url,
             'protected': self.get_config().get('protected', False),
-            'schema2_data': list(schema2_data)}
+            'schema2_data': list(schema2_data),
+            'manifest_list_data': list(manifest_list_data),
+            'manifest_list_amd64_tags': manifest_list_amd64}
 
         misc.mkdir(os.path.dirname(self.app_publish_location))
         with open(self.app_publish_location, 'w') as app_file:
@@ -348,12 +417,17 @@ class PublishTagsForRsyncStep(RSyncFastForwardUnitPublishStep):
         :param item: The tag to process
         :type  item: pulp_docker.plugins.models.Tag
         """
-        manifest = models.Manifest.objects.get(digest=item.manifest_digest)
+        try:
+            manifest = models.Manifest.objects.get(digest=item.manifest_digest)
+            schema_version = str(manifest.schema_version)
+        except mongoengine.DoesNotExist:
+            manifest = models.ManifestList.objects.get(digest=item.manifest_digest)
+            schema_version = constants.MANIFEST_LIST_TYPE
         filename = item.name
         symlink = self.make_link_unit(manifest, filename, self.get_working_dir(),
                                       self.remote_repo_path,
                                       self.get_config().get("remote")["root"],
-                                      self.published_unit_path + [str(manifest.schema_version)])
+                                      self.published_unit_path + [schema_version])
         self.parent.symlink_list.append(symlink)
         self._tag_names.add(item.name)
 
@@ -375,9 +449,9 @@ class PublishTagsForRsyncStep(RSyncFastForwardUnitPublishStep):
 class DockerRsyncPublisher(Publisher):
 
     REPO_CONTENT_TYPES = (constants.IMAGE_TYPE_ID, constants.BLOB_TYPE_ID,
-                          constants.MANIFEST_TYPE_ID)
+                          constants.MANIFEST_TYPE_ID, constants.MANIFEST_LIST_TYPE_ID)
 
-    REPO_CONTENT_MODELS = (models.Blob, models.Manifest, models.Image)
+    REPO_CONTENT_MODELS = (models.Blob, models.Manifest, models.ManifestList, models.Image)
 
     def _get_postdistributor(self):
         """
@@ -419,6 +493,7 @@ class DockerRsyncPublisher(Publisher):
 
         unit_models = {constants.IMAGE_TYPE_ID: models.Image,
                        constants.MANIFEST_TYPE_ID: models.Manifest,
+                       constants.MANIFEST_LIST_TYPE_ID: models.ManifestList,
                        constants.BLOB_TYPE_ID: models.Blob}
 
         for unit_type in DockerRsyncPublisher.REPO_CONTENT_TYPES:

@@ -218,16 +218,27 @@ class AddTags(PluginStep):
         manifest_type_id = models.Manifest._content_type_id.default
         repo_manifest_ids = repository.get_associated_unit_ids(repo_id, manifest_type_id)
 
-        # check if there is manifest with such id within the queried rpeo
-        manifest = models.Manifest.objects.filter(digest=digest, id__in=repo_manifest_ids)
-        if manifest.count() == 0:
-            raise PulpCodedValidationException(error_code=error_codes.DKR1010,
-                                               digest=digest,
-                                               repo_id=repo_id)
+        # check if there is manifest with such id within the queried repo
+        # since we don't know if the provided digest is of an image manifest or manifest list
+        # we need to try both.
+        manifests = models.Manifest.objects.filter(digest=digest, id__in=repo_manifest_ids)
+        manifest_type = constants.MANIFEST_IMAGE_TYPE
+        if manifests.count() == 0:
+            manifest_list_type_id = models.ManifestList._content_type_id.default
+            repo_manifest_list_ids = repository.get_associated_unit_ids(
+                repo_id, manifest_list_type_id)
+            manifests = models.ManifestList.objects.filter(digest=digest,
+                                                           id__in=repo_manifest_list_ids)
+            manifest_type = constants.MANIFEST_LIST_TYPE
+            if manifests.count() == 0:
+                raise PulpCodedValidationException(error_code=error_codes.DKR1010,
+                                                   digest=digest,
+                                                   repo_id=repo_id)
 
         new_tag = models.Tag.objects.tag_manifest(repo_id=self.parent.repo.id, tag_name=tag,
                                                   manifest_digest=digest,
-                                                  schema_version=manifest[0].schema_version)
+                                                  schema_version=manifests[0].schema_version,
+                                                  manifest_type=manifest_type)
 
         if new_tag:
             repository.associate_single_unit(self.parent.repo.repo_obj, new_tag)

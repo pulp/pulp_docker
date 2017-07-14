@@ -7,13 +7,14 @@ Docker v2 Concepts
 Repository and Tags
 ^^^^^^^^^^^^^^^^^^^
 
-A Docker v2 repository is a collection of Blobs, Manifests, and Tags. Blobs are
-the layers that together make up a Docker image. The Manifest is the metadata
-that connects the Blobs together in the correct order, and it can also contain
-other metadata such as signatures. A Manifest can be tagged in a repository, and
-the Tag object is how this is accomplished in Pulp. So in short, a Tag
-references one Manifest (by digest) and a Manifest references N Blobs
-(also by digest).
+A Docker v2 repository is a collection of Blobs, Image Manifests, Manifest Lists
+and Tags. Blobs are the layers that together make up a Docker image. The Image
+Manifest is the metadata that connects the Blobs together in the correct order,
+and it can also contain other metadata such as signatures. A Manifest List is
+a list of Image manifests for one or more platforms. An Image Manifest or
+Manifest Listcan be tagged in a repository, and the Tag object is how this is
+accomplished in Pulp. So in short, a Tag references one Manifest(image or list)
+by digest same for a Image Manifest which references N Blobs (also by digest).
 
 .. note::
 
@@ -26,6 +27,7 @@ references one Manifest (by digest) and a Manifest references N Blobs
     what Tag name, users should rely on the ``name`` and ``manifest_digest``
     fields for Tag Units and not the Manifest ``tag`` field. In the Manifest v2
     schema, the ``tag`` field has been removed.
+    Since 3.0 fields ``tag`` and ``name`` and removed completely from Manifest model.
 
 Upload
 ^^^^^^

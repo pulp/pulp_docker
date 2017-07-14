@@ -5,7 +5,7 @@ import mock
 from pulp_docker.common import constants
 from pulp_docker.extensions.admin.upload import UploadDockerImageCommand, \
     OPT_MASK_ANCESTOR_ID, TagUpdateCommand, TAG_NAME_OPTION, \
-    MANIFEST_DIGEST_OPTION
+    DIGEST_OPTION
 from pulp.client.commands import options as std_options
 import data
 
@@ -65,7 +65,7 @@ class TestTagUpdateCommand(unittest.TestCase):
 
     def test_generate_metadata(self):
         kwargs = {TAG_NAME_OPTION.keyword: data.tag_name,
-                  MANIFEST_DIGEST_OPTION.keyword: data.manifest_digest}
+                  DIGEST_OPTION.keyword: data.manifest_digest}
         metadata = self.command.generate_metadata(data.busybox_tar_path, **kwargs)
         self.assertEqual(metadata, {'name': data.tag_name, 'digest': data.manifest_digest})
 

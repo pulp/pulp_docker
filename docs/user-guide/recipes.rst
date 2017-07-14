@@ -373,56 +373,31 @@ to only one manifest.
 
 .. note::
 
-    Pulp now supports manifest schema 1 and schema 2 versions. So when tagging a manifest,
-    bear in mind that within a repo there could be two tags with the same name but pointing
-    to manifests with different schema versions.
+    Pulp now supports image manifest schema 1 and schema 2 versions, same as manifest lists schema 2.
+    So when tagging a manifest( image or list), bear in mind that within a repo there could be two
+    tags with the same name but pointing to manifests with different schema versions.
 
 
-For instance, suppose we have the following manifests::
+For instance, suppose we have the following image manifest that is tagged ::
 
-    $ pulp-admin docker repo search manifest --repo-id busybox
-    Created:      2016-11-10T16:27:30Z
+    pulp-admin docker repo search tag --repo-id man-list --str-eq='name=uclibc'
+
+    Created:      2017-07-12T11:43:29Z
     Metadata:     
-      Digest:             sha256:4eccca494e527311eb4a4ebee1f90d9362971d882bb22fd7ded
-                          46d517129b1ac
-      Downloaded:         True
-      Fs Layers:          
-        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
-                  b46d4
-        Blob Sum: sha256:191ff942861f5cfdc97ba2e76b5dec5f3894a9c21d6f88fbeaec2ea373c
-                  c657a
-        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
-                  b46d4
-      Name:               library/busybox
+      Manifest Digest:    sha256:26b0ddb0504097612cd7ed2265eade43f2490cd111a7cfcf7d1
+                          51dba83b20a5e
+      Manifest Type:      image
+      Name:               uclibc
       Pulp User Metadata: 
+      Repo Id:            man-list
       Schema Version:     1
-      Tag:                latest
-    Repo Id:      busybox
-    Unit Id:      f064d1e9-0cbf-40ec-9648-85acbcc5e348
-    Unit Type Id: docker_manifest
-    Updated:      2016-11-10T16:27:30Z
+    Repo Id:      man-list
+    Unit Id:      a37aa675-194c-4f07-925b-e1e12d98ad85
+    Unit Type Id: docker_tag
+    Updated:      2017-07-12T11:43:29Z
 
-    Created:      2016-11-10T16:27:30Z
-    Metadata:     
-      Digest:             sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c0
-                          70b2844a0f56d
-      Downloaded:         True
-      Fs Layers:          
-        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
-                  b46d4
-        Blob Sum: sha256:8ddc19f16526912237dd8af81971d5e4dd0587907234be2b83e249518d5
-                  b673f
-      Name:               library/busybox
-      Pulp User Metadata: 
-      Schema Version:     1
-      Tag:                latest
-    Repo Id:      busybox
-    Unit Id:      f0663d57-a8d9-4093-a90c-5603280eafa3
-    Unit Type Id: docker_manifest
-    Updated:      2016-11-10T16:27:30Z
-
-If we have a tag named latest and it points to the first manifest with digest
-sha256:4ecca..., we can point it to the second manifest with the following
+If we have a tag named uclibc and it points to the manifest with digest
+sha256:26b0ddb0..., we can point it to the new manifest with the following
 command::
 
     $ pulp-admin docker repo tag --repo-id busybox --tag-name latest --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
@@ -430,5 +405,3 @@ command::
 We can also create a new tag and point it to the same manifest with::
 
     $ pulp-admin docker repo tag --repo-id busybox --tag-name 1.2 --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
-
-

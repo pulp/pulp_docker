@@ -36,7 +36,7 @@ class TestBasics(unittest.TestCase):
         self.assertEqual(
             set(metadata['types']),
             set([constants.BLOB_TYPE_ID, constants.IMAGE_TYPE_ID, constants.MANIFEST_TYPE_ID,
-                 constants.TAG_TYPE_ID]))
+                 constants.MANIFEST_LIST_TYPE_ID, constants.TAG_TYPE_ID]))
         self.assertTrue(len(metadata['display_name']) > 0)
 
 

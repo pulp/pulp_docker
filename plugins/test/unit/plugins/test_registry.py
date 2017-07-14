@@ -515,9 +515,10 @@ class TestV2Repository(unittest.TestCase):
             self.assertEqual(type(request.destination), type(StringIO()))
             report = DownloadReport(request.url, request.destination)
             report.download_succeeded()
+            schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
             report.headers = {'Docker-Distribution-API-Version': 'registry/2.0',
                               'docker-content-digest': digest,
-                              'Content-Type': 'not schema2 type'}
+                              'content-type': schema2}
             report.destination.write(manifest)
             return report
 
@@ -531,9 +532,10 @@ class TestV2Repository(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
 
-        m = r.get_manifest('best_version_ever')
+        schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
+        m = r.get_manifest('best_version_ever', None)
 
-        self.assertEqual([(manifest, digest)], m)
+        self.assertEqual([(manifest, digest, schema2)], m)
 
     def test_get_tags(self):
         """

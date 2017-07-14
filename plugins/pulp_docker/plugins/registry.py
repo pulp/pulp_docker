@@ -359,7 +359,7 @@ class V2Repository(object):
         req = DownloadRequest(url, os.path.join(self.working_dir, digest))
         return req
 
-    def get_manifest(self, reference):
+    def get_manifest(self, reference, headers=True):
         """
         Get the manifest and its digest for the given reference.
 
@@ -373,31 +373,46 @@ class V2Repository(object):
         content_type_header = 'content-type'
         schema1 = 'application/vnd.docker.distribution.manifest.v1+json'
         schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
+        man_list = 'application/vnd.docker.distribution.manifest.list.v2+json'
         path = self.MANIFEST_PATH.format(name=self.name, reference=reference)
-        # set the headers for first request
-        request_headers['Accept'] = schema2
+        # we need to skip the check of returned mediatype in case we pull
+        # the manifest by digest
+        if headers:
+            # set the headers for first request
+            request_headers['Accept'] = schema2
+            request_headers['Accept'] = man_list
         response_headers, manifest = self._get_path(path, headers=request_headers)
-        digest = self._digest_check(response_headers, manifest)
-
+        # we need to disable here the digest check because of wrong digests registry returns
+        # https://github.com/docker/distribution/pull/2310
+        # we will just calculate it without camparing it to the value that registry has in the
+        # docker-content-digest response header
+        digest = models.UnitMixin.calculate_digest(manifest)
         # add manifest and digest
-        manifests.append((manifest, digest))
+        manifests.append((manifest, digest, response_headers.get(content_type_header)))
 
-        # we intentionally first asked schema version 2, because it might happen that
-        # registry will have just schema version 1 and even if in request headers we
-        # set schema version 2, registry will anyway return schema version 1
-        # this way we will not make unecessary separate second request for schema version 1
-        if response_headers.get(content_type_header) == schema2:
+        # since in accept headers we have man_list and schema2 mediatype, registry would return
+        # whether man list, schema2 or schema1.
+        # if it is schema1 we do not need to make any other requests
+        # if it is manifest list, we do not need to make any other requests, the converted type
+        # for older clients will be requested later during the manifest list process time
+        # if it is schema2 we need to ask schema1 for older clients.
+        if headers and response_headers.get(content_type_header) == schema2:
             request_headers['Accept'] = schema1
             response_headers, manifest = self._get_path(path, headers=request_headers)
             digest = self._digest_check(response_headers, manifest)
 
             # add manifest and digest
-            manifests.append((manifest, digest))
+            manifests.append((manifest, digest, response_headers.get(content_type_header)))
 
         # returned list will be whether:
-        # [(S2, digest), (S1, digest)]
+        # [(S2, digest, content_type), (S1, digest, content_type)]
         # or
-        # [(S1, digest)]
+        # [(list, digest, content_type)]
+        # or
+        # [(S1, digest, content_type)]
+        # [(S2, digest, content_type)]
+        # note the tuple has a new entry content_type which we need later to process
+        # returned manifest mediatypes
         return manifests
 
     def _digest_check(self, headers, manifest):

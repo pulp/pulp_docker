@@ -115,6 +115,7 @@ def add_search_section(context, parent_section):
     section = parent_section.create_subsection(SECTION_SEARCH, DESC_SEARCH)
     section.add_command(ImageSearchCommand(context))
     section.add_command(content.ManifestSearchCommand(context))
+    section.add_command(content.ManifestListSearchCommand(context))
     section.add_command(content.TagSearchCommand(context))
     return section
 
@@ -132,6 +133,7 @@ def add_copy_section(context, parent_section):
     section = parent_section.create_subsection(SECTION_COPY, DESC_COPY)
     section.add_command(ImageCopyCommand(context))
     section.add_command(content.ManifestCopyCommand(context))
+    section.add_command(content.ManifestListCopyCommand(context))
     section.add_command(content.TagCopyCommand(context))
     return section
 
@@ -149,6 +151,7 @@ def add_remove_section(context, parent_section):
     section = parent_section.create_subsection(SECTION_REMOVE, DESC_REMOVE)
     section.add_command(ImageRemoveCommand(context))
     section.add_command(content.ManifestRemoveCommand(context))
+    section.add_command(content.ManifestListRemoveCommand(context))
     section.add_command(content.TagRemoveCommand(context))
     return section
 
