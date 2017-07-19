@@ -13,6 +13,7 @@ CLI_WEB_DISTRIBUTOR_ID = 'docker_web_distributor_name_cli'
 CLI_EXPORT_DISTRIBUTOR_ID = 'docker_export_distributor_name_cli'
 DISTRIBUTOR_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_distributor.json'
 DISTRIBUTOR_EXPORT_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_distributor_export.json'
+FOREIGN_LAYER = 'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip'
 
 REPO_NOTE_DOCKER = 'docker-repo'
 
