@@ -82,6 +82,7 @@ class FSLayer(mongoengine.EmbeddedDocument):
     """
     # This will be the digest of a Blob document.
     blob_sum = mongoengine.StringField(required=True)
+    layer_type = mongoengine.StringField()
 
 
 class UnitMixin(object):
@@ -203,7 +204,8 @@ class Manifest(pulp_models.FileContentUnit, UnitMixin):
         manifest = json.loads(manifest_json)
         config_layer = None
         try:
-            fs_layers = [FSLayer(blob_sum=layer['digest']) for layer in manifest['layers']]
+            fs_layers = [FSLayer(blob_sum=layer['digest'],
+                         layer_type=layer['mediaType']) for layer in manifest['layers']]
             config_layer = manifest['config']['digest']
         except KeyError:
             fs_layers = [FSLayer(blob_sum=layer['blobSum']) for layer in manifest['fsLayers']]

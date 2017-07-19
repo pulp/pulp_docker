@@ -234,7 +234,11 @@ class DownloadManifestsStep(publish_step.PluginStep):
                 if content_type == man_list:
                     self._process_manifest_list(manifest, digest, available_blobs, tag)
                 else:
-                    self._process_manifest(manifest, digest, available_blobs, tag)
+                    has_foreign_layer = self._process_manifest(manifest, digest, available_blobs,
+                                                               tag)
+                    if has_foreign_layer:
+                        # we don't want to process schema1 manifest with foreign layers
+                        break
         # Update the available units with the Manifests and Blobs we learned about
         available_blobs = [models.Blob(digest=d) for d in available_blobs]
         self.parent.available_blobs.extend(available_blobs)
@@ -290,9 +294,8 @@ class DownloadManifestsStep(publish_step.PluginStep):
         :param available_blobs: set of current available blobs accumulated dusring sync
         :type available_blobs: set
 
-        :return: An initialized Manifest object
-        :rtype: pulp_docker.plugins.models.Manifest
-
+        :return: a boolean which indicates if the Manifest has foreign layers
+        :rtype: bool
         """
 
         # Save the manifest to the working directory
@@ -300,8 +303,12 @@ class DownloadManifestsStep(publish_step.PluginStep):
             manifest_file.write(manifest)
         manifest = models.Manifest.from_json(manifest, digest)
         self.parent.available_manifests.append(manifest)
+        has_foreign_layer = False
         for layer in manifest.fs_layers:
-            available_blobs.add(layer.blob_sum)
+            if layer.layer_type == constants.FOREIGN_LAYER:
+                has_foreign_layer = True
+            else:
+                available_blobs.add(layer.blob_sum)
         if manifest.config_layer:
             available_blobs.add(manifest.config_layer)
         self.progress_successes += 1
@@ -309,6 +316,7 @@ class DownloadManifestsStep(publish_step.PluginStep):
         if tag:
             self.parent.save_tags_step.tagged_manifests.append((tag, manifest,
                                                                 constants.MANIFEST_IMAGE_TYPE))
+        return has_foreign_layer
 
 
 class SaveUnitsStep(publish_step.SaveUnitsStep):
