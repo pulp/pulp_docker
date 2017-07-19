@@ -379,8 +379,7 @@ class V2Repository(object):
         # the manifest by digest
         if headers:
             # set the headers for first request
-            request_headers['Accept'] = schema2
-            request_headers['Accept'] = man_list
+            request_headers['Accept'] = ','.join((schema2, man_list))
         response_headers, manifest = self._get_path(path, headers=request_headers)
         # we need to disable here the digest check because of wrong digests registry returns
         # https://github.com/docker/distribution/pull/2310
