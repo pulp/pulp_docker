@@ -26,7 +26,7 @@ Provides a collection of platform plugins and admin client extensions to
 provide docker support
 
 %prep
-%setup -q -n pulp_docker-%{git_tag}
+%setup -q
 
 %build
 pushd common
