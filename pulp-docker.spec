@@ -2,7 +2,7 @@
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
 # The release number
-%global release_number 0.1.beta
+%global release_number 0.2.beta
 
 # Create tag for the Source0 and setup
 %global git_tag %{name}-%{version}-%{release_number}
