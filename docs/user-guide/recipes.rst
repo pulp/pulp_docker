@@ -363,6 +363,90 @@ both a JSON file for use with crane, and the static Image files to which crane
 will redirect requests. See the `Crane`_ documentation for how to use that
 tarball.
 
+Upload v2 schema 2 Images to Pulp
+---------------------------------
+
+.. note::
+
+    As of the time of this writing, ``skopeo copy`` can only output Docker v2
+    schema 2 content. Thus, only Docker v2 schema 2 content can be uploaded
+    to Pulp for now. In order to get your own Docker v2 schema 1 content into
+    Pulp, it is possible to run your own Docker registry and point Pulp's
+    feed URL at it and synchronize.
+
+To upload a Docker Image to Pulp, first you must save its repository with Skopeo.
+Note that the below command saves the image in the ``busybox``
+repository to a directory::
+
+    $ sudo docker pull busybox
+    $ sudo skopeo copy docker://busybox:latest dir:existingemptydirectory
+
+Before uploading the image to a Pulp repository, you need to create a tarball
+with the directory contents created by ``skopeo copy``::
+
+    $ cd directory-name && tar -cvf ../image-name.tar * && cd ..
+
+Then create a Pulp repository and run an upload command with ``pulp-admin``::
+
+    $ pulp-admin docker repo create --repo-id=skopeo
+    Repository [skopeo] successfully created
+
+    $ pulp-admin docker repo uploads upload --repo-id=skopeo -f skopeo.tar
+    +----------------------------------------------------------------------+
+                              Unit Upload
+    +----------------------------------------------------------------------+
+
+    Extracting necessary metadata for each request...
+    [==================================================] 100%
+    Analyzing: skopeo.tar
+    ... completed
+
+    Creating upload requests on the server...
+    [==================================================] 100%
+    Initializing: skopeo.tar
+    ... completed
+
+    Starting upload of selected units. If this process is stopped through ctrl+c,
+    the uploads will be paused and may be resumed later using the resume command or
+    canceled entirely using the cancel command.
+
+    Uploading: skopeo.tar
+    [==================================================] 100%
+    727040/727040 bytes
+    ... completed
+
+    Importing into the repository...
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [\]
+    Running...
+
+    Task Succeeded
+
+
+    Deleting the upload request...
+    ... completed
+
+
+The Blobs and Manifest are now in the Pulp repository::
+
+    +----------------------------------------------------------------------+
+                              Docker Repositories
+    +----------------------------------------------------------------------+
+
+    Id:                  skopeo
+    Display Name:        None
+    Description:         None
+    Content Unit Counts:
+        Docker Blob:     2
+        Docker Manifest: 1
+
+.. note::
+
+    ``skopeo copy`` looses all the tags in the repository, therefore the manifests
+    need to be tagged as a separate step after uploading it.
+
 Tagging a Manifest
 ------------------
 

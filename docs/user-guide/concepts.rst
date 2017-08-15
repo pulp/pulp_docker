@@ -35,9 +35,9 @@ Upload
 .. _distribution container: https://github.com/docker/distribution
 
 Unfortunately, Docker has not provided a ``docker save`` command that can
-output Docker v2 content. Due to this, Pulp does not support uploading Docker
-v2 content at this time. If you wish to add your own custom v2 content into
-Pulp, you will need to push it into Docker's `distribution container`_, and then
+output Docker v2 content. However, if you wish to upload a Docker v2 schema 2 image, then you could use ``skopeo
+copy`` command to create an on-disk representation of the image and later upload it after tarring it.
+Other option is to push it into Docker's `distribution container`_, and then
 synchronize a Pulp repository with the local registry.
 
 

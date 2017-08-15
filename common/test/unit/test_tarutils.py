@@ -7,6 +7,7 @@ from pulp_docker.common import tarutils
 
 
 busybox_tar_path = os.path.join(os.path.dirname(__file__), '../data/busyboxlight.tar')
+skopeo_tar_path = os.path.join(os.path.dirname(__file__), '../data/skopeo.tar')
 
 # these are in correct ancestry order
 busybox_ids = (
@@ -42,6 +43,20 @@ test_metadata_with_multiple_images_sharing_a_single_parent = {
     u'faab0acffc50714526b090fa60e0a55d79fc5b34fabbe6b964ca09cbb62f2026': {
         'parent': u'6c991eb934609424f761d3d0a7c79f4f72b76db286aa02e617659ac116aa7758',
         'size': 5609404}
+}
+
+# This is the image manifest returned by tarutils.get_image_manifest when used on skopeo.tar.
+test_image_manifest = {
+    u'config': {
+        u'digest': u'sha256:efe10ee6727fe52d2db2eb5045518fe98d8e31fdad1cbdd5e1f737018c349ebb',
+        u'mediaType': u'application/vnd.docker.container.image.v1+json',
+        u'size': 1506},
+    u'layers': [{
+        u'digest': u'sha256:9e87eff13613eed2f67b0188f8604d1bbdd3a7f5d6a4f565e8923817db65d6e5',
+        u'mediaType': u'application/vnd.docker.image.rootfs.diff.tar.gzip',
+        u'size': 715112}],
+    u'mediaType': u'application/vnd.docker.distribution.manifest.v2+json',
+    u'schemaVersion': 2
 }
 
 
@@ -105,3 +120,13 @@ class TestGetYoungestChildren(unittest.TestCase):
             '89aba41176b8f979bae09db1df5d6f3b58584318fce5d9e56b49c5a3e9700ab4',
             '8e36c99cfab52f0cf6f1aed7674cbdfe57e2ec8d29cdfdfac816b1d659d3ca9e']
         self.assertEqual(set(ret), set(expected_youngest_children))
+
+
+class TestGetImageManifest(unittest.TestCase):
+    def test_with_skopeo(self):
+        ret = tarutils.get_image_manifest(skopeo_tar_path)
+        self.assertEqual(ret, test_image_manifest)
+
+    def test_with_busybox(self):
+        ret = tarutils.get_image_manifest(busybox_tar_path)
+        self.assertEqual(ret, [])
