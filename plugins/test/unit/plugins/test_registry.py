@@ -580,7 +580,7 @@ class TestV2Repository(unittest.TestCase):
 
         self.assertEqual(assertion.exception.error_code, error_codes.DKR1007)
 
-    @mock.patch('pulp_docker.plugins.token_util.request_token')
+    @mock.patch('pulp_docker.plugins.auth_util.request_token')
     @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader.download_one')
     def test__get_path_failed(self, mock_download_one, mock_request_token):
         """
@@ -595,6 +595,7 @@ class TestV2Repository(unittest.TestCase):
         report = DownloadReport(registry_url + '/some/path', StringIO())
         report.error_report['response_code'] = httplib.UNAUTHORIZED
         report.state = DownloadReport.DOWNLOAD_FAILED
+        report.headers = {}
         mock_download_one.return_value = report
 
         # The request will fail because the requested path does not exist
