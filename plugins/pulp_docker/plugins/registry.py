@@ -1,5 +1,6 @@
 from cStringIO import StringIO
 from gettext import gettext as _
+import copy
 import errno
 import httplib
 import json
@@ -16,7 +17,7 @@ from pulp.server import exceptions as pulp_exceptions
 
 from pulp_docker.common import error_codes
 from pulp_docker.plugins import models
-from pulp_docker.plugins import token_util
+from pulp_docker.plugins import auth_util
 
 
 _logger = logging.getLogger(__name__)
@@ -87,8 +88,8 @@ class V1Repository(object):
         # endpoints require auth
         if self.endpoint:
             self.add_auth_header(request)
-        report = self.downloader.download_one(request)
 
+        report = self.downloader.download_one(request)
         if report.state == report.DOWNLOAD_FAILED:
             raise IOError(report.error_msg)
 
@@ -304,9 +305,10 @@ class V2Repository(object):
         self.download_config = download_config
         self.registry_url = registry_url
 
-        # Use basic auth information only for retrieving tokens from auth server.
-        self.token_downloader = HTTPThreadedDownloader(self.download_config,
-                                                       AggregatingEventListener())
+        # Use basic auth information for retrieving tokens from auth server and for downloading
+        # with basic auth
+        self.auth_downloader = HTTPThreadedDownloader(copy.deepcopy(self.download_config),
+                                                      AggregatingEventListener())
         self.download_config.basic_auth_username = None
         self.download_config.basic_auth_password = None
         self.downloader = HTTPThreadedDownloader(self.download_config, AggregatingEventListener())
@@ -448,7 +450,7 @@ class V2Repository(object):
                                                      repo=self.name,
                                                      registry=self.registry_url,
                                                      reason=str(e))
-        return json.loads(tags)['tags']
+        return json.loads(tags)['tags'] or []
 
     def _get_path(self, path, headers=None):
         """
@@ -470,18 +472,28 @@ class V2Repository(object):
         request.headers = headers
 
         if self.token:
-            request.headers = token_util.update_auth_header(request.headers, self.token)
+            request.headers = auth_util.update_token_auth_header(request.headers, self.token)
 
         report = self.downloader.download_one(request)
 
-        # If the download was unauthorized, attempt to get a token and try again
+        # If the download was unauthorized, check report header, if basic auth is expected
+        # retry with basic auth, otherwise attempt to get a token and try again
         if report.state == report.DOWNLOAD_FAILED:
             if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
-                _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
-                self.token = token_util.request_token(self.token_downloader, request,
-                                                      report.headers)
-                request.headers = token_util.update_auth_header(request.headers, self.token)
-                report = self.downloader.download_one(request)
+                auth_header = report.headers.get('www-authenticate')
+                if auth_header is None:
+                    raise IOError("401 responses are expected to "
+                                  "contain authentication information")
+                elif "Basic" in auth_header:
+                    _logger.debug(_('Download unauthorized, retrying with basic authentication'))
+                    report = self.auth_downloader.download_one(request)
+                else:
+                    _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
+                    self.token = auth_util.request_token(self.auth_downloader, request,
+                                                         auth_header)
+                    request.headers = auth_util.update_token_auth_header(request.headers,
+                                                                         self.token)
+                    report = self.downloader.download_one(request)
 
         if report.state == report.DOWNLOAD_FAILED:
             # this condition was added in case the registry would not allow to access v2 endpoint
