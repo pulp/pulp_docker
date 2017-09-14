@@ -377,7 +377,10 @@ class V2Repository(object):
         # set the headers for first request
         request_headers['Accept'] = schema2
         response_headers, manifest = self._get_path(path, headers=request_headers)
-        digest = self._digest_check(response_headers, manifest)
+        if response_headers.get(content_type_header) != schema2:
+            digest = self._digest_check(response_headers, manifest)
+        else:
+            digest = models.Manifest.calculate_digest(manifest)
 
         # add manifest and digest
         manifests.append((manifest, digest))
