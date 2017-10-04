@@ -17,7 +17,7 @@ from pulp.server.controllers import repository
 from pulp.server.exceptions import MissingValue, PulpCodedException
 
 from pulp_docker.common import constants, error_codes
-from pulp_docker.plugins import models, registry, token_util
+from pulp_docker.plugins import models, registry, auth_util
 from pulp_docker.plugins.importers import v1_sync
 
 
@@ -111,7 +111,7 @@ class SyncStep(publish_step.PluginStep):
         self.add_child(self.step_get_local_manifests)
         self.add_child(self.step_get_local_blobs)
         self.add_child(
-            TokenAuthDownloadStep(
+            AuthDownloadStep(
                 step_type=constants.SYNC_STEP_DOWNLOAD, downloads=self.generate_download_requests(),
                 repo=self.repo, config=self.config, description=_('Downloading remote files')))
         self.add_child(SaveUnitsStep())
@@ -381,11 +381,11 @@ class SaveTagsStep(publish_step.SaveUnitsStep):
                 self.progress_successes += 1
 
 
-class TokenAuthDownloadStep(publish_step.DownloadStep):
+class AuthDownloadStep(publish_step.DownloadStep):
     """
-    Download remote files. For v2, this may require a bearer token to be used. This step attempts
-    to download files, and if it fails due to a 401, it will retrieve the auth token and retry the
-    download.
+    Download remote files. For v2, this may require authentication. This step attempts
+    to download files, and if it fails due to a 401, it will retry with basic auth if the auth
+    scheme is Basic, or retrieve the auth token and retry the download if the scheme is Bearer.
     """
 
     def __init__(self, step_type, downloads=None, repo=None, conduit=None, config=None,
@@ -394,11 +394,13 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
         Initialize the step, setting its description.
         """
 
-        # Even if basic auth is enabled, it should only be used for the token requests which are
-        # handled by the parent's token_downloader.
-        config.repo_plugin_config.pop(importer_constants.KEY_BASIC_AUTH_USER, None)
-        config.repo_plugin_config.pop(importer_constants.KEY_BASIC_AUTH_PASS, None)
-        super(TokenAuthDownloadStep, self).__init__(
+        # If basic auth is enabled, it will be used if the scheme returned in the 401 response
+        # header is Basic or Bearer, this is handled by the parent's auth_downloader.
+        self.basic_auth_username = config.repo_plugin_config.pop(
+            importer_constants.KEY_BASIC_AUTH_USER, None)
+        self.basic_auth_password = config.repo_plugin_config.pop(
+            importer_constants.KEY_BASIC_AUTH_PASS, None)
+        super(AuthDownloadStep, self).__init__(
             step_type, downloads=downloads, repo=repo, conduit=conduit, config=config,
             working_dir=working_dir, plugin_type=plugin_type)
         self.description = _('Downloading remote files')
@@ -411,29 +413,40 @@ class TokenAuthDownloadStep(publish_step.DownloadStep):
         """
         for request in self.downloads:
             self._requests_map[request.url] = request
-        super(TokenAuthDownloadStep, self).process_main(item)
+        super(AuthDownloadStep, self).process_main(item)
 
     def download_failed(self, report):
         """
-        If the download is unauthorized, attempt to retreive a token and try again.
+        If the download is unauthorized, depending on the returned auth scheme, either try with
+        basic auth or attempt to retrieve a token and try again.
 
         :param report: download report
         :type  report: nectar.report.DownloadReport
         """
         if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
-            _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
             request = self._requests_map[report.url]
-            token = token_util.request_token(self.parent.index_repository.token_downloader,
-                                             request, report.headers)
-            self.downloader.session.headers = token_util.update_auth_header(
-                self.downloader.session.headers, token)
-            _logger.debug("Trying download again with new bearer token.")
+            auth_header = report.headers.get('www-authenticate')
+
+            if auth_header is None:
+                raise IOError("401 responses are expected to contain authentication information")
+            if "Basic" in auth_header:
+                self.downloader.session.headers = auth_util.update_basic_auth_header(
+                    self.downloader.session.headers,
+                    self.basic_auth_username, self.basic_auth_password)
+                _logger.debug(_('Download unauthorized, retrying with basic authentication'))
+            else:
+                token = auth_util.request_token(self.parent.index_repository.auth_downloader,
+                                                request, auth_header)
+                self.downloader.session.headers = auth_util.update_token_auth_header(
+                    self.downloader.session.headers, token)
+                _logger.debug("Download unauthorized, retrying with new bearer token.")
+
             # Events must be false or download_failed will recurse
             report = self.downloader.download_one(request, events=False)
         if report.state is report.DOWNLOAD_SUCCEEDED:
             self.download_succeeded(report)
         elif report.state is report.DOWNLOAD_FAILED:
-            super(TokenAuthDownloadStep, self).download_failed(report)
+            super(AuthDownloadStep, self).download_failed(report)
             # Docker blobs have ancestry relationships and need all blobs to function. Sync should
             # stop immediately to prevent publishing of an incomplete repository.
             os.kill(os.getpid(), signal.SIGKILL)
