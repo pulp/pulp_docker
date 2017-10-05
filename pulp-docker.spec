@@ -143,6 +143,10 @@ pulp-admin extensions for docker support
 
 
 %changelog
+* Thu Oct 05 2017 Patrick Creech <pcreech@redhat.com> 3.0.1-1
+- Bumping version to 3.0.1-1 (pcreech@redhat.com)
+- Add release notes for 3.0.1 (pcreech@redhat.com)
+
 * Thu Mar 03 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.7.beta
 - Bumping version to 2.0.0-0.7.beta (dkliban@redhat.com)
 
