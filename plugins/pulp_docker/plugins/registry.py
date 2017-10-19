@@ -377,10 +377,12 @@ class V2Repository(object):
         # set the headers for first request
         request_headers['Accept'] = schema2
         response_headers, manifest = self._get_path(path, headers=request_headers)
-        if response_headers.get(content_type_header) != schema2:
-            digest = self._digest_check(response_headers, manifest)
-        else:
-            digest = models.Manifest.calculate_digest(manifest)
+        # in the first request to the registry we need to disable the digest_check
+        # for all image manifests schema versions for now, due to a bug in the registry
+        # https://github.com/docker/distribution/pull/2310
+        # once all registries would upgrade to the version which contains the fix
+        # we can re-introduce back the digest_check
+        digest = models.Manifest.calculate_digest(manifest)
 
         # add manifest and digest
         manifests.append((manifest, digest))
@@ -392,6 +394,9 @@ class V2Repository(object):
         if response_headers.get(content_type_header) == schema2:
             request_headers['Accept'] = schema1
             response_headers, manifest = self._get_path(path, headers=request_headers)
+            # it is safe to leave here the digest_check because in this request
+            # registry will return proper digest in the response headers
+            # proof https://github.com/docker/distribution/blob/master/registry/handlers/manifests.go#L183
             digest = self._digest_check(response_headers, manifest)
 
             # add manifest and digest
