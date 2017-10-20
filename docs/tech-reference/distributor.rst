@@ -102,7 +102,7 @@ The file is JSON formatted with the following keys
 
 * **type** *(string)* - the type of file. This will always be "pulp-docker-redirect".
 * **version** *(int)* - version of the format for the file. For Docker v2, that supports manifest
-                        list, this will be 3.
+                        list, this will be 4.
 * **repository** *(string)* - the name of the repository this file is describing.
 * **repo-registry-id** *(string)* - the name that will be used for this repository in the Docker
   registry.
@@ -112,6 +112,7 @@ The file is JSON formatted with the following keys
 * **manifest_list_amd64_tags** *(object)* - dictionary of key-value pairs, where key is the tag of the manifest list,
                                             and value is an array of the digest and schema version of the corresponding
                                             image manifest for amd64 architecture and platform linux OS.
+                                            This is needed to support older docker clients.
 * **protected** *(bool)* - whether or not the repository should be protected by an entitlement
   certificate.
 
@@ -123,9 +124,33 @@ Example Redirect File Contents::
   "repository":"docker",
   "repo-registry-id":"redhat/docker",
   "url":"http://www.foo.com/docker",
-  "schema2_data":[],
-  "manifest_list_data":[],
-  "manifest_list_amd64_tags":{"latest": ["sha256:1234", 2]}
+  "schema2_data":[
+      "sha256:d1325730e5e614240cec692970d7e0a74812a459f8e243cdd77700be5f46a7ba",
+      "sha256:a8fe0549cac196f439de3bf2b57af14f7cd4e59915ccd524428f588628a4ef31",
+      "sha256:2605a2c4875ce5eb27a9f7403263190cd1af31e48a2044d400320548356251c4",
+      "sha256:a1d963a97357110bdbfc70767a495c8df6ddfa9bda4da3183165ca73c3b990d2",
+      "1.27.0-uclibc",
+      "1.25.1-uclibc",
+  ],
+  "manifest_list_data":[
+      "sha256:67a88947b604426bb64847fe8298e75f3425a9f90547622ffe3804faa1ec8598",
+      "1.27.2-glibc",
+      "sha256:03090180de84b192027dfc77517f32cdec2716d5c3ef4703b5cda09457e3cb7d",
+      "sha256:99ccecf3da28a93c063d5dddcdf69aeed44826d0db219aabc3d5178d47649dfa",
+      "1.27.2",
+      "musl",
+      "glibc"
+  ],
+  "manifest_list_amd64_tags": {
+        "latest": [
+            "sha256:030fcb92e1487b18c974784dcc110a93147c9fc402188370fbfd17efabffc6af",
+            1
+        ],
+        "1-glibc": [
+            "sha256:98f12e5b0243774d2767dee77ad15b7cc5a835061e408c3bae9038ccdfa9d955",
+            2
+        ]
+  },
   "protected": false
  }
 

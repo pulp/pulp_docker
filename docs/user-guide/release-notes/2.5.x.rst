@@ -1,8 +1,0 @@
-2.5 Release Notes
-=================
-
-2.5.0
------
-
-* New parameter for rsync distributor ``rsync_extra_args`` allows user to 
-  specify custom arguments for rsync call during publish operations.
