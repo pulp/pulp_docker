@@ -2,13 +2,13 @@
 %{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
 
 # The release number
-%global release_number 1
+%global release_number 0.1.beta
 
 # Create tag for the Source0 and setup
 %global git_tag %{name}-%{version}-%{release_number}
 
 Name: pulp-docker
-Version: 3.0.1
+Version: 3.0.2
 Release: %{release_number}%{?dist}
 Summary: Support for Docker layers in the Pulp platform
 Group: Development/Languages
@@ -143,10 +143,6 @@ pulp-admin extensions for docker support
 
 
 %changelog
-* Thu Oct 05 2017 Patrick Creech <pcreech@redhat.com> 3.0.1-1
-- Bumping version to 3.0.1-1 (pcreech@redhat.com)
-- Add release notes for 3.0.1 (pcreech@redhat.com)
-
 * Thu Mar 03 2016 Dennis Kliban <dkliban@redhat.com> 2.0.0-0.7.beta
 - Bumping version to 2.0.0-0.7.beta (dkliban@redhat.com)
 
