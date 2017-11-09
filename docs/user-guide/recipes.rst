@@ -7,7 +7,7 @@ Recipes
 
 Configuring Crane with pulp_docker
 ----------------------------------
-The `Crane`_ project can be used to make Docker repositories hosted by Pulp available
+The `Crane`_ project is meant to be used to make Docker repositories hosted by Pulp available
 to the Docker client. This allows a ``docker pull`` to be performed against data
 that is published by the Pulp server.
 
@@ -188,14 +188,7 @@ its Docker-registry-like read-only API.
 Upload v1 Images to Pulp
 ------------------------
 
-.. note::
-
-    As of the time of this writing, ``docker save`` can only output Docker v1
-    content. Thus, only Docker v1 content can be uploaded to Pulp for now. In
-    order to get your own Docker v2 content into Pulp, it is possible to run
-    your own Docker registry and point Pulp's feed URL at it and synchronize.
-
-To upload a Docker Image to Pulp, first you must save its repository with Docker.
+To upload a Docker v1 Image to Pulp, first you must save its repository with Docker.
 Note that the below command saves all of the Images and tags in the ``busybox``
 repository to a tarball::
 
@@ -489,3 +482,130 @@ command::
 We can also create a new tag and point it to the same manifest with::
 
     $ pulp-admin docker repo tag --repo-id busybox --tag-name 1.2 --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
+
+
+Copy
+----
+
+The ``docker repo copy`` command can be used to copy docker v1 and v2 content.
+In this recipe, we will go through the copy process of different docker content types ::
+
+    $ pulp-admin docker repo list
+
+    +----------------------------------------------------------------------+
+                              Docker Repositories
+    +----------------------------------------------------------------------+
+
+    Id:                  containers
+    Display Name:        None
+    Description:         None
+    Content Unit Counts: 
+      Docker Blob:          93
+      Docker Manifest:      115
+      Docker Manifest List: 4
+      Docker Tag:           128
+
+    Id:                  containers2
+    Display Name:        None
+    Description:         None
+    Content Unit Counts: 
+
+
+Let's copy all image manifests from repo `containers` to the destination repo `containers2` ::
+
+    $ pulp-admin docker repo copy manifest --from-repo-id containers --to-repo-id containers2
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [|]
+    Running...
+
+    Copied:
+      docker_blob: 93
+      docker_manifest: 115
+
+
+As you can see during the copy of image manifests, all referenced blobs were carried over as well.
+Note that tags are lost during the copy of the manifests.
+
+  ::
+    $ pulp-admin docker repo copy
+
+    Usage: pulp-admin [SUB_SECTION, ..] COMMAND
+    Description: content copy commands
+
+    Available Commands:
+      image         - copies images from one repository into another
+      manifest      - copies manifests from one repository into another
+      manifest-list - copies manifest lists from one repository into another
+      tag           - copies tags from one repository into another
+
+
+* If a manifest list is copied, all listed image manifests within the manifest list and blobs
+  will be carried over. Tags of image manifests will not be copied.
+* If a tag which references an image manifest is copied, image manifest and all its blobs will
+  be copied over.
+* If a tag which references a manifest list is copied, the manifest list, all listed image manifests
+  within the manifest list and blobs will be carried over. Tags of images manifests will not be copied.
+
+
+Remove
+------
+
+The ``docker repo remove`` command can be used to remove docker v1 and v2 content from the repository.
+In this recipe, we will go through the removal process of different docker content types.
+
+Let's remove a tag with the name `latest` ::
+
+    $ pulp-admin docker repo remove tag --repo-id containers --str-eq=name=latest
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [\]
+    Running...
+
+    Units Removed:
+      latest
+      latest
+
+There were removed two tags with the name `latest` because one tag was referencing an image manifest
+and the second tag was referencing a manifest list.
+
+In case it is desired to remove a specific tag which references, for example, manifest list, then `manifest type` should be specified ::
+
+    $ pulp-admin docker repo remove tag --repo-id containers --str-eq=name=glibc --str-eq='manifest_type=list'
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [\]
+    Running...
+
+    Units Removed:
+      glibc
+
+  ::
+
+    $ pulp-admin docker repo remove
+
+    Usage: pulp-admin [SUB_SECTION, ..] COMMAND
+    Description: content removal commands
+
+    Available Commands:
+      image         - remove images from a repository
+      manifest      - remove manifests from a repository
+      manifest-list - remove manifest lists from a repository
+      tag           - remove tags from a repository
+
+* If a tag is removed, just the tag itself will be removed from the repository.
+* If a manifest list is removed, all its image manifests which don't have tags and are not
+  referenced in any other manifest list will be removed from the repo. Orphaned blobs from removed
+  image manifests will be removed as well.
+* If an image manifest is removed, all its blobs, which are not referenced in any other image
+  manifests within the repo, will be removed as well.
+
+.. warning::
+    Please make sure that when you remove an image manifest, it is not referenced in any manifest
+    lists within the repo, otherwise you risk to corrupt a manifest list.

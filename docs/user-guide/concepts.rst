@@ -12,7 +12,7 @@ and Tags. Blobs are the layers that together make up a Docker image. The Image
 Manifest is the metadata that connects the Blobs together in the correct order,
 and it can also contain other metadata such as signatures. A Manifest List is
 a list of Image manifests for one or more platforms. An Image Manifest or
-Manifest Listcan be tagged in a repository, and the Tag object is how this is
+Manifest List can be tagged in a repository, and the Tag object is how this is
 accomplished in Pulp. So in short, a Tag references one Manifest(image or list)
 by digest same for a Image Manifest which references N Blobs (also by digest).
 
