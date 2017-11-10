@@ -33,6 +33,7 @@ from pulp.server.db import model as pulp_models
 from pulp_docker.common import constants, error_codes, tarutils
 from pulp_docker.plugins import models
 from pulp_docker.plugins.importers import v1_sync
+from pulp.plugins.util import verification
 from pulp.server.controllers import repository
 from pulp.server.exceptions import PulpCodedValidationException
 
@@ -390,7 +391,26 @@ class AddUnits(PluginStep):
         :return:     None
         """
         if isinstance(item, models.Blob):
-            blob_src_path = os.path.join(self.get_working_dir(), item.digest.split(':')[1] + '.tar')
+            checksum_type, _, checksum = item.digest.rpartition(':')
+            if not checksum_type:
+                # Never assume. But oh well
+                checksum_type = "sha256"
+            blob_src_path = os.path.join(self.get_working_dir(), checksum + '.tar')
+            try:
+                fobj = open(blob_src_path)
+            except IOError:
+                raise PulpCodedValidationException(
+                    error_code=error_codes.DKR1018,
+                    layer=os.path.basename(blob_src_path))
+            try:
+                verification.verify_checksum(fobj, checksum_type, checksum)
+            except verification.VerificationException:
+                raise PulpCodedValidationException(
+                    error_code=error_codes.DKR1017,
+                    checksum_type=checksum_type,
+                    checksum=checksum)
+            fobj.close()
+
             blob_dest_path = os.path.join(self.get_working_dir(), item.digest)
             os.rename(blob_src_path, blob_dest_path)
 
