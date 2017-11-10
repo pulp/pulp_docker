@@ -1,5 +1,6 @@
 from gettext import gettext as _
-
+import json
+import tarfile
 
 from pulp.client.commands.repo.upload import UploadCommand
 from pulp.client.extensions.extensions import PulpCliOption
@@ -10,7 +11,7 @@ from pulp_docker.common import constants, tarutils
 
 d = _('image id of an ancestor image that should not be added to the repository. '
       'The masked ancestor and any ancestors of that image will be skipped from importing into '
-      'the repository.')
+      'the repository. This option applies only to docker v1 uploads.')
 OPT_MASK_ANCESTOR_ID = PulpCliOption('--mask-id', d, aliases=['-m'], required=False)
 
 d = _('name of the tag to create  or update')
@@ -30,16 +31,33 @@ class UploadDockerImageCommand(UploadCommand):
 
     def determine_type_id(self, filename, **kwargs):
         """
-        Determine whether it is a V1 or V2 image
+        Determine type id of the upload file by file type.
+
+        json -> Manifest List
+        tarfile -> V1 Image or V2 Image Manifest
 
         :return: ID of the type of file being uploaded
         :rtype:  str
+        :raises: RuntimeError if file is not a valid tarfile or json file.
         """
-        image_manifest = tarutils.get_image_manifest(filename)
-        if isinstance(image_manifest, list):
-            return constants.IMAGE_TYPE_ID
+        try:
+            with open(filename) as upload:
+                json.loads(upload.read())
+            return constants.MANIFEST_LIST_TYPE_ID
+        except ValueError:
+            pass
+
+        try:
+            image_manifest = tarutils.get_image_manifest(filename)
+        except tarfile.ReadError:
+            raise RuntimeError(
+                _("Upload file could not be processed. Manifest Lists must be valid JSON, "
+                  "Images (V1 and V2) must be tarfiles."))
         else:
-            return constants.MANIFEST_TYPE_ID
+            if isinstance(image_manifest, list):
+                return constants.IMAGE_TYPE_ID
+            else:
+                return constants.MANIFEST_TYPE_ID
 
     def generate_unit_key_and_metadata(self, filename, **kwargs):
         """

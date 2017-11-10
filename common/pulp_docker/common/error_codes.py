@@ -28,3 +28,17 @@ DKR1009 = Error("DKR1009", _("Docker rsync distributor configuration requires a 
 DKR1010 = Error("DKR1010", _("Manifest with digest %(digest)s could not be "
                              "found in repository %(repo_id)s."),
                 ['digest', 'repo_id'])
+DKR1011 = Error("DKR1011", _("The uploaded file contains invalid JSON"), [])
+DKR1012 = Error("DKR1012", _("The mediaType: %(media_type)s is invalid for Manifest Lists"),
+                ['media_type'])
+DKR1013 = Error("DKR1013", _('Uploaded Manifest List cannot be added to repository because it '
+                             'references the following Image Manifests that are not in the '
+                             'repository: %(digests)s.'),
+                ['digests'])
+DKR1014 = Error("DKR1014", _('Manifest List contains Image Manifest with digest %(digest)s that has'
+                             ' an invalid mediaType.'),
+                ['digest'])
+DKR1015 = Error("DKR1015", _("Manifest List does not contain required field: %(field)s."),
+                ['field'])
+DKR1016 = Error("DKR1016", _("Image Manifest does not contain required field: %(field)s."),
+                ['field'])

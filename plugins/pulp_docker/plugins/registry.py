@@ -15,7 +15,7 @@ from nectar.listener import AggregatingEventListener
 from nectar.request import DownloadRequest
 from pulp.server import exceptions as pulp_exceptions
 
-from pulp_docker.common import error_codes
+from pulp_docker.common import constants, error_codes
 from pulp_docker.plugins import models
 from pulp_docker.plugins import auth_util
 
@@ -373,15 +373,13 @@ class V2Repository(object):
         manifests = []
         request_headers = {}
         content_type_header = 'content-type'
-        schema1 = 'application/vnd.docker.distribution.manifest.v1+json'
-        schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
-        man_list = 'application/vnd.docker.distribution.manifest.list.v2+json'
         path = self.MANIFEST_PATH.format(name=self.name, reference=reference)
         # we need to skip the check of returned mediatype in case we pull
         # the manifest by digest
         if headers:
             # set the headers for first request
-            request_headers['Accept'] = ','.join((schema2, man_list))
+            request_headers['Accept'] = ','.join((constants.MEDIATYPE_MANIFEST_S2,
+                                                  constants.MEDIATYPE_MANIFEST_LIST))
         response_headers, manifest = self._get_path(path, headers=request_headers)
         # we need to disable here the digest check because of wrong digests registry returns
         # https://github.com/docker/distribution/pull/2310
@@ -397,8 +395,8 @@ class V2Repository(object):
         # if it is manifest list, we do not need to make any other requests, the converted type
         # for older clients will be requested later during the manifest list process time
         # if it is schema2 we need to ask schema1 for older clients.
-        if headers and response_headers.get(content_type_header) == schema2:
-            request_headers['Accept'] = schema1
+        if headers and response_headers.get(content_type_header) == constants.MEDIATYPE_MANIFEST_S2:
+            request_headers['Accept'] = constants.MEDIATYPE_MANIFEST_S1
             response_headers, manifest = self._get_path(path, headers=request_headers)
             digest = self._digest_check(response_headers, manifest)
 
