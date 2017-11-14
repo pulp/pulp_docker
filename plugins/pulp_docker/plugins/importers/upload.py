@@ -339,14 +339,7 @@ class AddUnits(PluginStep):
         if isinstance(item, models.Blob):
             blob_src_path = os.path.join(self.get_working_dir(), item.digest.split(':')[1] + '.tar')
             blob_dest_path = os.path.join(self.get_working_dir(), item.digest)
-            with open(blob_src_path) as blob_src:
-                with contextlib.closing(gzip.open(blob_dest_path, 'w')) as blob_dest:
-                    # these can be big files, so we chunk them
-                    reader = functools.partial(blob_src.read, 4096)
-                    for chunk in iter(reader, ''):
-                        blob_dest.write(chunk)
-            # we don't need the tarfile anymore
-            os.remove(blob_src_path)
+            os.rename(blob_src_path, blob_dest_path)
 
         item.set_storage_path(item.digest)
         try:
