@@ -3,6 +3,9 @@
 
 3.1.0
 -----
+Manifest List upload is now supported. To upload a JSON Manifest List,
+all V2 Image Manifests referenced in the Manifest List must already be in Pulp
+and associated to the target repository.
 
 Docker image V2 schema version 2 upload is now supported. To accomplish this, you need to install
 skopeo binaries on your machine and then to create an on-disk representation of

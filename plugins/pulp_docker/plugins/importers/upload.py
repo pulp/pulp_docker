@@ -28,6 +28,7 @@ import tarfile
 from mongoengine import NotUniqueError
 
 from pulp.plugins.util.publish_step import PluginStep, GetLocalUnitsStep
+from pulp.server.db import model as pulp_models
 
 from pulp_docker.common import constants, error_codes, tarutils
 from pulp_docker.plugins import models
@@ -47,7 +48,7 @@ class UploadStep(PluginStep):
 
         :param repo:      repository to sync
         :type  repo:      pulp.plugins.model.Repository
-        :param file_path: The path to the tar file uploaded from a 'docker save'
+        :param file_path: The path to the file to upload
         :type  file_path: str
         :param config:    plugin configuration for the repository
         :type  config:    pulp.plugins.config.PluginCallConfiguration
@@ -77,6 +78,8 @@ class UploadStep(PluginStep):
             self._handle_tag(metadata)
         elif type_id == models.Manifest._content_type_id.default:
             self._handle_image_manifest()
+        elif type_id == models.ManifestList._content_type_id.default:
+            self._handle_manifest_list()
         else:
             raise NotImplementedError()
 
@@ -107,6 +110,12 @@ class UploadStep(PluginStep):
         self.v2_step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
         self.add_child(self.v2_step_get_local_units)
         self.add_child(AddUnits(step_type=constants.UPLOAD_STEP_SAVE))
+
+    def _handle_manifest_list(self):
+        """
+        Handles the upload of a docker manifest list
+        """
+        self.add_child(AddManifestList(constants.UPLOAD_STEP_MANIFEST_LIST))
 
 
 class ProcessMetadata(PluginStep):
@@ -167,6 +176,50 @@ class ProcessMetadata(PluginStep):
                 image_id = parent_id
 
         return images
+
+
+class AddManifestList(PluginStep):
+    """
+    Add an uploaded ManifestList to a repository.
+    """
+
+    def process_main(self):
+        """
+        Validate the uploaded manifest list json, then import content unit into repository.
+        """
+        with open(self.parent.file_path, 'r') as uploaded_file:
+            manifest_list = uploaded_file.read()
+        models.ManifestList.check_json(manifest_list)
+        digest = models.UnitMixin.calculate_digest(manifest_list)
+        manifest_list_instance = models.ManifestList.from_json(manifest_list, digest)
+        transfer_repo = self.get_repo()
+
+        #  Ensure that all referenced manifests are already in repository.
+        manifest_digests = set(manifest_list_instance.manifests)
+        qs = models.Manifest.objects.filter(
+            digest__in=sorted(manifest_digests)).only('id', 'digest')
+        known_manifests = dict((manifest['digest'], manifest['id']) for manifest in qs)
+        unit_qs = pulp_models.RepositoryContentUnit.objects.filter(
+            repo_id=transfer_repo.id,
+            unit_id__in=known_manifests.values()).values_list('unit_id')
+        unit_ids_in_repo = list(unit_qs)
+
+        missing_manifest_digests = []
+        for manifest_digest in manifest_digests:
+            unit_id = known_manifests.get(manifest_digest)
+            if not unit_id or unit_id not in unit_ids_in_repo:
+                missing_manifest_digests.append(manifest_digest)
+        if missing_manifest_digests:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1013,
+                                               digests=missing_manifest_digests)
+
+        manifest_list_instance.set_storage_path(digest)
+        try:
+            manifest_list_instance.save_and_import_content(self.parent.file_path)
+        except NotUniqueError:
+            manifest_list_instance = models.ManifestList.objects.get(
+                **manifest_list_instance.unit_key)
+        repository.associate_single_unit(transfer_repo.repo_obj, manifest_list_instance)
 
 
 class ProcessManifest(PluginStep):

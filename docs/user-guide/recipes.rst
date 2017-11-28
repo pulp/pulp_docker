@@ -43,7 +43,7 @@ version 0.2.1. As of version 2.0.0, it can synchronize with either Docker v1 or
 v2 registries.
 
 .. note::
-   
+
     ``registry-1.docker.io`` is a Docker V2 Registry API. For V1 API
     ``index.docker.io`` should be used, along with ``--enable-v1 true`` and
     ``--enable-v2 false``. Please note however that V1 content is deprecated
@@ -53,46 +53,46 @@ v2 registries.
 
     $ pulp-admin docker repo create --repo-id=synctest --feed=https://registry-1.docker.io --upstream-name=busybox
     Repository [synctest] successfully created
-    
+
     $ pulp-admin docker repo sync run --repo-id synctest
     +----------------------------------------------------------------------+
                       Synchronizing Repository [synctest]
     +----------------------------------------------------------------------+
-    
+
     This command may be exited via ctrl+c without affecting the request.
-    
-    
+
+
     Downloading manifests
     [\]
     ... completed
-    
+
     Copying units already in pulp
     [-]
     ... completed
-    
+
     Copying units already in pulp
     [-]
     ... completed
-    
+
     Downloading remote files
     [==================================================] 100%
     11 of 11 items
     ... completed
-    
+
     Saving Manifests and Blobs
     [-]
     ... completed
-    
+
     Saving Tags
     [-]
     ... completed
-    
-    
+
+
     Task Succeeded
-    
-    
-    
-    
+
+
+
+
     Task Succeeded
 
 
@@ -157,15 +157,15 @@ to ``pulpdemo/synctest``::
     [\]
     Running...
     Updating distributor: docker_web_distributor_name_cli
-    
+
     Task Succeeded
-    
-    
-    
+
+
+
     [\]
     Running...
     Updating distributor: docker_export_distributor_name_cli
-    
+
     Task Succeeded
 
 Then a publish operation can be executed::
@@ -174,11 +174,11 @@ Then a publish operation can be executed::
     +----------------------------------------------------------------------+
                         Publishing Repository [synctest]
     +----------------------------------------------------------------------+
-    
+
     This command may be exited via ctrl+c without affecting the request.
-    
-    
-    
+
+
+
     Task Succeeded
 
 `Crane`_ can now be run on the same machine serving the Docker repository through
@@ -440,6 +440,55 @@ The Blobs and Manifest are now in the Pulp repository::
     ``skopeo copy`` looses all the tags in the repository, therefore the manifests
     need to be tagged as a separate step after uploading it.
 
+Uploading a Manifest List
+-------------------------
+
+Manifests referenced by the Manifest List must already be associated to
+the target repository. For this example, start with a synced busybox
+repository.::
+
+   $ pulp-admin docker repo sync run --repo-id busybox
+
+To upload your Manifest List, use the ``upload`` command::
+
+   $ pulp-admin docker repo uploads upload --repo-id=busybox --manifest-list -f your_manifest_list.json
+   +----------------------------------------------------------------------+
+                                 Unit Upload
+   +----------------------------------------------------------------------+
+
+   Extracting necessary metadata for each request...
+   [==================================================] 100%
+   Analyzing: your_manifest_list.json
+   ... completed
+
+   Creating upload requests on the server...
+   [==================================================] 100%
+   Initializing: your_manifest_list.json
+   ... completed
+
+   Starting upload of selected units. If this process is stopped through ctrl+c,
+   the uploads will be paused and may be resumed later using the resume command or
+   canceled entirely using the cancel command.
+
+   Uploading: your_manifest_list.json
+   [==================================================] 100%
+   1358/1358 bytes
+   ... completed
+
+   Importing into the repository...
+   This command may be exited via ctrl+c without affecting the request.
+
+
+   [\]
+   Running...
+
+   Task Succeeded
+
+
+   Deleting the upload request...
+   ... completed
+
+
 Tagging a Manifest
 ------------------
 
@@ -460,12 +509,12 @@ For instance, suppose we have the following image manifest that is tagged ::
     pulp-admin docker repo search tag --repo-id man-list --str-eq='name=uclibc'
 
     Created:      2017-07-12T11:43:29Z
-    Metadata:     
+    Metadata:
       Manifest Digest:    sha256:26b0ddb0504097612cd7ed2265eade43f2490cd111a7cfcf7d1
                           51dba83b20a5e
       Manifest Type:      image
       Name:               uclibc
-      Pulp User Metadata: 
+      Pulp User Metadata:
       Repo Id:            man-list
       Schema Version:     1
     Repo Id:      man-list
@@ -477,11 +526,11 @@ If we have a tag named uclibc and it points to the manifest with digest
 sha256:26b0ddb0..., we can point it to the new manifest with the following
 command::
 
-    $ pulp-admin docker repo tag --repo-id busybox --tag-name latest --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
+    $ pulp-admin docker repo tag --repo-id busybox --tag-name latest --digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
 
 We can also create a new tag and point it to the same manifest with::
 
-    $ pulp-admin docker repo tag --repo-id busybox --tag-name 1.2 --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
+    $ pulp-admin docker repo tag --repo-id busybox --tag-name 1.2 --digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
 
 
 Copy
@@ -499,7 +548,7 @@ In this recipe, we will go through the copy process of different docker content 
     Id:                  containers
     Display Name:        None
     Description:         None
-    Content Unit Counts: 
+    Content Unit Counts:
       Docker Blob:          93
       Docker Manifest:      115
       Docker Manifest List: 4
@@ -508,7 +557,7 @@ In this recipe, we will go through the copy process of different docker content 
     Id:                  containers2
     Display Name:        None
     Description:         None
-    Content Unit Counts: 
+    Content Unit Counts:
 
 
 Let's copy all image manifests from repo `containers` to the destination repo `containers2` ::

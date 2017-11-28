@@ -11,7 +11,13 @@ import mongoengine
 import os
 from pulp.server.db import model as pulp_models, querysets
 
-from pulp_docker.common import constants
+from pulp_docker.common import constants, error_codes
+from pulp.server.exceptions import PulpCodedValidationException
+
+
+MANIFEST_LIST_REQUIRED_FIELDS = ['manifests', 'mediaType', 'schemaVersion']
+IMAGE_MANIFEST_REQUIRED_FIELDS = ['mediaType', 'digest', 'platform']
+IMAGE_MANIFEST_REQUIRED_PLATFORM_SUBFIELDS = ['os', 'architecture']
 
 
 class Blob(pulp_models.FileContentUnit):
@@ -189,7 +195,7 @@ class Manifest(pulp_models.FileContentUnit, UnitMixin):
     @classmethod
     def from_json(cls, manifest_json, digest):
         """
-        Construct and return a DockerManifest from the given JSON document.
+        Construct and return a Docker Manifest from the given JSON document.
 
         :param manifest_json: A JSON document describing a DockerManifest object as defined by the
                               Docker v2, Schema 1 Image Manifest documentation.
@@ -198,8 +204,8 @@ class Manifest(pulp_models.FileContentUnit, UnitMixin):
                               https://docs.docker.com/registry/spec/api/#content-digests
         :type  digest:        basestring
 
-        :return:              An initialized DockerManifest object
-        :rtype:               pulp_docker.common.models.DockerManifest
+        :return:              An initialized Docker Manifest object
+        :rtype:               pulp_docker.plugins.models.Manifest
         """
         manifest = json.loads(manifest_json)
         config_layer = None
@@ -246,28 +252,26 @@ class ManifestList(pulp_models.FileContentUnit, UnitMixin):
             'allow_inheritance': False}
 
     @classmethod
-    def from_json(cls, manifest_json, digest):
+    def from_json(cls, manifest_list_json, digest):
         """
-        Construct and return a DockerManifestList from the given JSON document.
+        Construct and return a Docker ManifestList from the given JSON document.
 
-        :param manifest_json: A JSON document describing a DockerManifest object as defined by the
-                              Docker v2, Schema 2 Manifest List documentation.
-        :type  manifest_json: basestring
-        :param digest:        The content digest of the manifest, as described at
-                              https://docs.docker.com/registry/spec/api/#content-digests
-        :type  digest:        basestring
+        :param manifest_list_json: A JSON document describing a ManifestList object as defined by
+                                   the Docker v2, Schema 2 Manifest List documentation.
+        :type  manifest_list_json: basestring
+        :param digest:             The content digest of the manifest, as described at
+                                   https://docs.docker.com/registry/spec/api/#content-digests
+        :type  digest:             basestring
 
-        :return:              An initialized DockerManifestList object
-        :rtype:               pulp_docker.common.models.DockerManifest
+        :return:                   An initialized ManifestList object
+        :rtype:                    pulp_docker.plugins.models.ManifestList
         """
-
-        mediatype = 'application/vnd.docker.distribution.manifest.v2+json'
-        manifest = json.loads(manifest_json)
+        manifest_list = json.loads(manifest_list_json)
         # we will store here the digests of image manifests that manifest list contains
         manifests = []
         amd64_digest = None
         amd64_schema_version = None
-        for image_man in manifest['manifests']:
+        for image_man in manifest_list['manifests']:
             manifests.append(image_man['digest'])
             # we need to store separately the digest for the amd64 linux image manifest for later
             # conversion. There can be several image manifests that would match the ^ criteria but
@@ -275,14 +279,66 @@ class ManifestList(pulp_models.FileContentUnit, UnitMixin):
             if image_man['platform']['architecture'] == 'amd64' and \
                     image_man['platform']['os'] == 'linux' and not amd64_digest:
                 amd64_digest = image_man['digest']
-                if image_man['mediaType'] == mediatype:
+                if image_man['mediaType'] == constants.MEDIATYPE_MANIFEST_S2:
                     amd64_schema_version = 2
                 else:
                     amd64_schema_version = 1
 
-        return cls(digest=digest, schema_version=manifest['schemaVersion'], manifests=manifests,
-                   amd64_digest=amd64_digest,
+        return cls(digest=digest, schema_version=manifest_list['schemaVersion'],
+                   manifests=manifests, amd64_digest=amd64_digest,
                    amd64_schema_version=amd64_schema_version)
+
+    @staticmethod
+    def check_json(manifest_list_json):
+        """
+        Check the structure of a manifest list json file.
+
+        This function is a sanity check to make sure the JSON contains the
+        correct structure. It does not validate with the database.
+
+        :param manifest_list_json: A JSON document describing a ManifestList object as defined by
+                                   the Docker v2, Schema 2 Manifest List documentation.
+        :type  manifest_list_json: basestring
+
+        :raises PulpCodedValidationException: DKR1011 if manifest_list_json is invalid JSON
+        :raises PulpCodedValidationException: DKR1012 if Manifest List has an invalid mediaType
+        :raises PulpCodedValidationException: DKR1014 if any of the listed Manifests contain invalid
+                                              mediaType
+        :raises PulpCodedValidationException: DKR1015 if Manifest List does not have all required
+                                              fields.
+        :raises PulpCodedValidationException: DKR1016 if any Image Manifest in the list does not
+                                              have all required fields.
+        """
+        try:
+            manifest_list = json.loads(manifest_list_json)
+        except ValueError:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1011)
+
+        for field in MANIFEST_LIST_REQUIRED_FIELDS:
+            if field not in manifest_list:
+                raise PulpCodedValidationException(error_code=error_codes.DKR1015,
+                                                   field=field)
+
+        if manifest_list['mediaType'] != constants.MEDIATYPE_MANIFEST_LIST:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1012,
+                                               media_type=manifest_list['mediaType'])
+
+        for image_manifest_dict in manifest_list['manifests']:
+            for field in IMAGE_MANIFEST_REQUIRED_FIELDS:
+                if field not in image_manifest_dict:
+                    raise PulpCodedValidationException(error_code=error_codes.DKR1016,
+                                                       field=field)
+            for field in IMAGE_MANIFEST_REQUIRED_PLATFORM_SUBFIELDS:
+                if field not in image_manifest_dict['platform']:
+                    subfield = "platform.{field}".format(field=field)
+                    raise PulpCodedValidationException(error_code=error_codes.DKR1016,
+                                                       field=subfield)
+
+            if image_manifest_dict['mediaType'] not in [constants.MEDIATYPE_MANIFEST_S2,
+                                                        constants.MEDIATYPE_MANIFEST_S1,
+                                                        constants.MEDIATYPE_SIGNED_MANIFEST_S1]:
+                raise PulpCodedValidationException(error_code=error_codes.DKR1014,
+                                                   digest=image_manifest_dict['digest'])
 
     def get_symlink_name(self):
         """

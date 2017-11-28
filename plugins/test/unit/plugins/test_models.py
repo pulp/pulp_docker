@@ -6,6 +6,8 @@ import unittest
 
 from pulp_docker.plugins import models
 
+from pulp.server.exceptions import PulpCodedValidationException
+
 
 class TestImage(unittest.TestCase):
     def test_init_info(self):
@@ -175,6 +177,87 @@ class TestManifestList(unittest.TestCase):
         self.assertEqual(m.amd64_digest, amd64_digest)
         self.assertEqual(m.amd64_schema_version, 2)
         self.assertEqual(len(m.manifests), 2)
+
+    def test_check_json_invalid_json(self):
+        """
+        Assert validation exception is raised if json is invalid.
+        """
+        invalid_json = "{'invalid':'json"
+        with self.assertRaises(PulpCodedValidationException) as e:
+            models.ManifestList.check_json(invalid_json)
+        self.assertEqual(e.exception.error_code.code, 'DKR1011')
+
+    def test_check_json_invalid_mediatype(self):
+        """
+        Assert validation exception is raised mediaType is not a Manifest List.
+        """
+        valid_json = """{
+            "mediaType": "invalid_media_type",
+            "digest": "required",
+            "schemaVersion": 2,
+            "manifests": "won't get this far"
+        }"""
+        with self.assertRaises(PulpCodedValidationException) as e:
+            models.ManifestList.check_json(valid_json)
+        self.assertEqual(e.exception.error_code.code, 'DKR1012')
+
+    def test_check_json_invalid_manifest_mediatype(self):
+        """
+        Assert validation exception is raised if referenced manifests have invalid mediaType.
+        """
+        valid_json = """
+            {
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+                "manifests": [
+                    {
+                       "mediaType": "manifest.with.invalid.mediaType",
+                       "size": 527,
+                       "digest": "sha256:314fe5a71adb69a444ceb5a34223f63c68adc6b9bac589f6385810ffa462fd02",
+                       "platform": {
+                          "architecture": "amd64",
+                          "os": "linux"
+                       }
+                    }
+                ]
+            }
+        """  # noqa
+        with self.assertRaises(PulpCodedValidationException) as e:
+            models.ManifestList.check_json(valid_json)
+        self.assertEqual(e.exception.error_code.code, 'DKR1014')
+
+    def test_check_json_as_expected(self):
+        """
+        Assert no exceptions are raised for a valid ManifestList.
+        """
+        valid_json = """
+            {
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.docker.distribution.manifest.list.v2+json",
+                "manifests": [
+                    {
+                       "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                       "size": 527,
+                       "digest": "sha256:314fe5a71adb69a444ceb5a34223f63c68adc6b9bac589f6385810ffa462fd02",
+                       "platform": {
+                          "architecture": "amd64",
+                          "os": "linux"
+                       }
+                    },
+                    {
+                       "mediaType": "application/vnd.docker.distribution.manifest.v1+json",
+                       "size": 527,
+                       "digest": "sha256:314fe5a71adb69a444ceb5a34223f63c68adc6b9bac589f6385810ffa462fd02",
+                       "platform": {
+                          "architecture": "amd64",
+                          "os": "linux"
+                       }
+                    }
+
+                ]
+            }
+        """  # noqa
+        models.ManifestList.check_json(valid_json)
 
     def test_unit_key(self):
         """

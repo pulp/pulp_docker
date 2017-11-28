@@ -49,6 +49,7 @@ UPLOAD_STEP_METADATA = 'upload_step_metadata'
 UPLOAD_STEP_SAVE = 'upload_step_save'
 UPLOAD_TAG_STEP = 'upload_tags_step'
 UPLOAD_STEP_IMAGE_MANIFEST = 'upload_step_image_manifest'
+UPLOAD_STEP_MANIFEST_LIST = 'upload_step_manifest_list'
 
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'
@@ -67,3 +68,8 @@ PUBLISH_STEP_TAR = 'save_tar'
 # on the repo scratchpad
 IMAGE_TAG_KEY = 'tag'
 IMAGE_ID_KEY = 'image_id'
+
+MEDIATYPE_MANIFEST_LIST = 'application/vnd.docker.distribution.manifest.list.v2+json'
+MEDIATYPE_MANIFEST_S1 = 'application/vnd.docker.distribution.manifest.v1+json'
+MEDIATYPE_MANIFEST_S2 = 'application/vnd.docker.distribution.manifest.v2+json'
+MEDIATYPE_SIGNED_MANIFEST_S1 = 'application/vnd.docker.distribution.manifest.v1+prettyjws'
