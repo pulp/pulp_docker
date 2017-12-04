@@ -361,12 +361,17 @@ class V2Repository(object):
         req = DownloadRequest(url, os.path.join(self.working_dir, digest))
         return req
 
-    def get_manifest(self, reference, headers=True):
+    def get_manifest(self, reference, headers=True, tag=True):
         """
         Get the manifest and its digest for the given reference.
 
         :param reference: The reference (tag or digest) of the Manifest you wish to retrieve.
         :type  reference: basestring
+        :param headers: True if headers with accepted media type should be sent in the request
+        :type  headers: bool
+        :param tag: True if the manifest should be retrieved by tag
+        :type  tag: bool
+
         :return:          A 2-tuple of the digest and the manifest, both basestrings
         :rtype:           tuple
         """
@@ -395,7 +400,7 @@ class V2Repository(object):
         # if it is manifest list, we do not need to make any other requests, the converted type
         # for older clients will be requested later during the manifest list process time
         # if it is schema2 we need to ask schema1 for older clients.
-        if headers and response_headers.get(content_type_header) == constants.MEDIATYPE_MANIFEST_S2:
+        if tag and response_headers.get(content_type_header) == constants.MEDIATYPE_MANIFEST_S2:
             request_headers['Accept'] = constants.MEDIATYPE_MANIFEST_S1
             response_headers, manifest = self._get_path(path, headers=request_headers)
             digest = self._digest_check(response_headers, manifest)

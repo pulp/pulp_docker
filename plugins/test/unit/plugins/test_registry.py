@@ -533,7 +533,7 @@ class TestV2Repository(unittest.TestCase):
             manifest = manifest_file.read()
 
         schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
-        m = r.get_manifest('best_version_ever', None)
+        m = r.get_manifest('best_version_ever', None, None)
 
         self.assertEqual([(manifest, digest, schema2)], m)
 
