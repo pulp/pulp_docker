@@ -268,12 +268,13 @@ class DownloadManifestsStep(publish_step.PluginStep):
         manifest_list = models.ManifestList.from_json(manifest_list, digest)
         self.parent.available_manifests.append(manifest_list)
         for image_man in manifest_list.manifests:
-            manifests = self.parent.index_repository.get_manifest(image_man, headers=False)
+            manifests = self.parent.index_repository.get_manifest(image_man, headers=True,
+                                                                  tag=False)
             manifest, digest, _ = manifests[0]
             self._process_manifest(manifest, digest, available_blobs, tag=None)
         if manifest_list.amd64_digest and manifest_list.amd64_schema_version == 2:
             # we set the headers to False in order to get the conversion to schema1
-            manifests = self.parent.index_repository.get_manifest(tag, headers=False)
+            manifests = self.parent.index_repository.get_manifest(tag, headers=False, tag=True)
             manifest, digest, _ = manifests[0]
             self._process_manifest(manifest, digest, available_blobs, tag=tag)
         # Remember this tag for the SaveTagsStep.
