@@ -324,7 +324,9 @@ def _is_valid_repo_registry_id(repo_registry_id):
     :return:                 True if valid, False if invalid
     :rtype:                  boolean
     """
-
-    component_re = re.compile('^[a-z0-9]+(?:[._-][a-z0-9]+)*$')
+    # https://github.com/docker/distribution/blob/master/reference/regexp.go#L18
+    # the Go playground was used https://play.golang.org/p/wQ4w431jvS which lead
+    # to the following output:
+    component_re = re.compile(r'^[a-z0-9]+(?:(?:(?:[._]|__|[-]*)[a-z0-9]+)+)?$')
     return len(repo_registry_id) < 256 and \
         all(re.match(component_re, piece) for piece in repo_registry_id.split('/'))
