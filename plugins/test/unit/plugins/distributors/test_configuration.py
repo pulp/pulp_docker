@@ -142,7 +142,11 @@ class TestValidateConfig(unittest.TestCase):
             'repo-registry-id',
             'part/anotherpart',
             'part/another/andanother',
-            'a' * 255
+            'a' * 255,
+            'foo--foo',
+            'foo---foo',
+            'foo__foo',
+            'foo__foo--foo-foo_foo'
         ]
         should_not_be_valid = [
             'things with spaces',
@@ -158,7 +162,8 @@ class TestValidateConfig(unittest.TestCase):
             'cannot//double',
             '/cannot/start',
             'cannot/end/',
-            'a' * 256
+            'a' * 256,
+            'foo___foo'
         ]
         for candidate in should_be_valid:
             valid = configuration._is_valid_repo_registry_id(candidate)
