@@ -13,3 +13,8 @@ your docker image you can use ``skopeo copy`` command. See https://github.com/pr
 for more details. Before uploading, you need to tar the contents of the directory created by ``skopeo copy``.
 
 Support for image manifest V1 and V2 schema version 1 did not change.
+
+3.1.1
+-----
+The unit key for an uploaded unit is now present in the ``details`` field of
+the task's body, and is queriable via the REST API.
