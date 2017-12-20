@@ -158,6 +158,7 @@ class SaveImages(SaveUnitsStep):
                 item.safe_import_content(path, location=os.path.basename(path))
 
         repo_controller.associate_single_unit(self.get_repo().repo_obj, item)
+        return item
 
     def finalize(self):
         """
