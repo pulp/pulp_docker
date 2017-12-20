@@ -70,6 +70,7 @@ class UploadStep(PluginStep):
 
         # Units that were part of the uploaded tar file, populated by ProcessMetadata
         self.available_units = []
+        self.uploaded_unit = None
 
         # populated by ProcessMetadata
         self.v1_tags = {}
@@ -221,6 +222,7 @@ class AddManifestList(PluginStep):
             manifest_list_instance = models.ManifestList.objects.get(
                 **manifest_list_instance.unit_key)
         repository.associate_single_unit(transfer_repo.repo_obj, manifest_list_instance)
+        self.parent.uploaded_unit = manifest_list_instance
 
 
 class ProcessManifest(PluginStep):
@@ -312,7 +314,8 @@ class AddImages(v1_sync.SaveImages):
         # we don't need layer.tar anymore
         os.remove(layer_src_path)
 
-        super(AddImages, self).process_main(item=item)
+        item = super(AddImages, self).process_main(item=item)
+        self.parent.uploaded_unit = item
 
 
 class AddTags(PluginStep):
@@ -358,6 +361,7 @@ class AddTags(PluginStep):
 
         if new_tag:
             repository.associate_single_unit(self.parent.repo.repo_obj, new_tag)
+        self.parent.uploaded_unit = new_tag
 
 
 class AddUnits(PluginStep):
@@ -420,3 +424,16 @@ class AddUnits(PluginStep):
         except NotUniqueError:
             item = item.__class__.objects.get(**item.unit_key)
         repository.associate_single_unit(self.get_repo().repo_obj, item)
+        if isinstance(item, models.Manifest):
+            self.parent.uploaded_unit = item
+
+    def finalize(self):
+        # If the manifest was already present, process_main() won't be
+        # invoked
+        if self.parent.uploaded_unit:
+            return
+        # Unit was already present
+        for item in self.parent.available_units:
+            if isinstance(item, models.Manifest):
+                item = item.__class__.objects.get(**item.unit_key)
+                self.parent.uploaded_unit = item

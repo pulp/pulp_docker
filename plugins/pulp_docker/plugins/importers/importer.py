@@ -134,7 +134,22 @@ class DockerImporter(Importer):
             raise
         except Exception as e:
             return {'success_flag': False, 'summary': e.message, 'details': {}}
-        return {'success_flag': True, 'summary': '', 'details': {}}
+        details = {}
+        if upload_step.uploaded_unit:
+            unit = upload_step.uploaded_unit
+            details.update(unit=dict(type_id=unit.type_id,
+                                     unit_key=unit.unit_key,
+                                     metadata=self._get_unit_metadata(unit)))
+        return {'success_flag': True, 'summary': '', 'details': details}
+
+    @classmethod
+    def _get_unit_metadata(cls, unit):
+        ret = dict()
+        for k in unit.__class__._fields:
+            if k.startswith('_'):
+                continue
+            ret[k] = getattr(unit, k)
+        return ret
 
     def import_units(self, source_repo, dest_repo, import_conduit, config, units=None):
         """

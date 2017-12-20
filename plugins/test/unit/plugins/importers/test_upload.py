@@ -41,8 +41,7 @@ class UploadTest(unittest.TestCase):
         units.extend(models.Blob(digest="sha256:%s" % x['digest'])
                      for x in layers)
 
-        parent = mock.MagicMock()
-        parent.configure_mock(file_path=img, parent=None)
+        parent = mock.MagicMock(file_path=img, parent=None, uploaded_unit=None)
         parent.v2_step_get_local_units.units_to_download = units
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
@@ -69,6 +68,42 @@ class UploadTest(unittest.TestCase):
         self.assertEquals(
             [mock.call(repo_obj, x) for x in units],
             _repo_controller.associate_single_unit.call_args_list)
+        self.assertEquals(
+            units[0],
+            parent.uploaded_unit)
+
+    @mock.patch("pulp_docker.plugins.models.Manifest.objects")
+    def test_AddUnits__mf_exists(self, _Manifest_objects, _repo_controller,
+                                 _Manifest_save, _Blob_save):
+        # This is where we will untar the image
+        step_work_dir = os.path.join(self.work_dir, "working_dir")
+        os.makedirs(step_work_dir)
+
+        img, layers = self._create_image()
+        manifest_data = dict(layers=[dict(digest=x['digest'],
+                                          mediaType="ignored")
+                                     for x in layers],
+                             config=dict(digest="abc"),
+                             schemaVersion=2)
+        units = [
+            models.Manifest.from_json(json.dumps(manifest_data), digest="012"),
+        ]
+        units.extend(models.Blob(digest="sha256:%s" % x['digest'])
+                     for x in layers)
+
+        parent = mock.MagicMock(file_path=img, uploaded_unit=None)
+        parent.v2_step_get_local_units.units_to_download = []
+        parent.available_units = units
+        step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
+                               working_dir=step_work_dir)
+        step.parent = parent
+        step.process_lifecycle()
+
+        # Make sure a manifest was looked up and added in the parent's
+        # uploaded_unit
+        self.assertEquals(
+            _Manifest_objects.get.return_value,
+            parent.uploaded_unit)
 
     def test_AddUnits_error_bad_checksum(self, _repo_controller, _Manifest_save, _Blob_save):
         # This is where we will untar the image
