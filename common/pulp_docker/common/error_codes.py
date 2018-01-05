@@ -46,3 +46,5 @@ DKR1017 = Error("DKR1017", _("Checksum %(checksum)s (%(checksum_type)s) does not
                 ['checksum_type', 'checksum'])
 DKR1018 = Error("DKR1018", _("Layer %(layer)s is not present in the image"),
                 ['layer'])
+DKR1019 = Error("DKR1019", _("Tag does not contain required field: %(field)s."),
+                ['field'])
