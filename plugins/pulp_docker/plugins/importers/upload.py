@@ -328,8 +328,16 @@ class AddTags(PluginStep):
         :type  item: None
         """
 
-        tag = self.parent.metadata['name']
-        digest = self.parent.metadata['digest']
+        md = self.parent.metadata
+        tag = md.get('name')
+        if tag is None:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1019,
+                                               field='name')
+        # https://pulp.plan.io/issues/3250 - use manifest_digest if available
+        digest = md.get('manifest_digest', md.get('digest'))
+        if digest is None:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1019,
+                                               field='manifest_digest')
         repo_id = self.parent.repo.id
         manifest_type_id = models.Manifest._content_type_id.default
         repo_manifest_ids = repository.get_associated_unit_ids(repo_id, manifest_type_id)

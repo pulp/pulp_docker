@@ -10,6 +10,7 @@ import shutil
 import tarfile
 import tempfile
 import unittest
+from pulp.server.exceptions import PulpCodedValidationException
 from pulp_docker.common import constants
 from pulp_docker.plugins import models
 from pulp_docker.plugins.importers import upload
@@ -130,6 +131,36 @@ class UploadTest(unittest.TestCase):
         self.assertEquals("DKR1018", ctx.exception.error_code.code)
         self.assertEquals(
             "Layer this-is-missing.tar is not present in the image",
+            str(ctx.exception))
+
+    def test_AddTags__error_no_name(self, _repo_controller, _Manifest_save, _Blob_save):
+        # This is where we will untar the image
+        step_work_dir = os.path.join(self.work_dir, "working_dir")
+        os.makedirs(step_work_dir)
+
+        parent = mock.MagicMock(metadata=dict(), parent=None)
+        step = upload.AddTags(step_type=constants.UPLOAD_STEP_SAVE,
+                              working_dir=step_work_dir)
+        step.parent = parent
+        with self.assertRaises(PulpCodedValidationException) as ctx:
+            step.process_main()
+        self.assertEquals(
+            "Tag does not contain required field: name.",
+            str(ctx.exception))
+
+    def test_AddTags__error_no_manifest_digest(self, _repo_controller, _Manifest_save, _Blob_save):
+        # This is where we will untar the image
+        step_work_dir = os.path.join(self.work_dir, "working_dir")
+        os.makedirs(step_work_dir)
+
+        parent = mock.MagicMock(metadata=dict(name="aaa"), parent=None)
+        step = upload.AddTags(step_type=constants.UPLOAD_STEP_SAVE,
+                              working_dir=step_work_dir)
+        step.parent = parent
+        with self.assertRaises(PulpCodedValidationException) as ctx:
+            step.process_main()
+        self.assertEquals(
+            "Tag does not contain required field: manifest_digest.",
             str(ctx.exception))
 
     def _create_layer(self, content):
