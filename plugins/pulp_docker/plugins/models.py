@@ -353,7 +353,8 @@ class TagQuerySet(querysets.QuerySetPreventCache):
     """
     This is a custom QuerySet for the Tag model that allows it to have some custom behavior.
     """
-    def tag_manifest(self, repo_id, tag_name, manifest_digest, schema_version, manifest_type):
+    def tag_manifest(self, repo_id, tag_name, manifest_digest, schema_version, manifest_type,
+                     pulp_user_metadata=None):
         """
         Tag a Manifest in a repository by trying to create a Tag object with the given tag_name and
         repo_id referencing the given Manifest digest. Tag objects have a uniqueness constraint on
@@ -375,18 +376,26 @@ class TagQuerySet(querysets.QuerySetPreventCache):
         :return:                If a new Tag is created it is returned. Otherwise None is returned.
         :rtype:                 Either a pulp_docker.plugins.models.Tag or None
         """
+        unit_keys = dict(
+            name=tag_name, repo_id=repo_id,
+            schema_version=schema_version, manifest_type=manifest_type)
+        unit_md = dict(manifest_digest=manifest_digest)
+        if pulp_user_metadata is not None:
+            # Syncing should not overwrite existing pulp_user_metadata
+            unit_md.update(pulp_user_metadata=pulp_user_metadata)
         try:
-            tag = Tag(name=tag_name, manifest_digest=manifest_digest, repo_id=repo_id,
-                      schema_version=schema_version, manifest_type=manifest_type)
+            tag = Tag(**dict(unit_keys, **unit_md))
             tag.save()
         except mongoengine.NotUniqueError:
-            # There is already a Tag with the given name and repo_id, so let's just make sure it's
-            # digest is updated. No biggie.
-            # Let's check if the manifest_digest changed
-            tag = Tag.objects.get(name=tag_name, repo_id=repo_id, schema_version=schema_version,
-                                  manifest_type=manifest_type)
-            if tag.manifest_digest != manifest_digest:
-                tag.manifest_digest = manifest_digest
+            # There is already a Tag with the given unique keys, so let's just make sure its
+            # other fields are updated
+            tag = Tag.objects.get(**unit_keys)
+            changed = False
+            for k, v in unit_md.items():
+                if getattr(tag, k) != v:
+                    changed = True
+                    setattr(tag, k, v)
+            if changed:
                 # we don't need to set _last_updated field because it is done with pre_save signal
                 tag.save()
         return tag
