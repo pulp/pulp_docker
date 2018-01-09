@@ -168,6 +168,29 @@ class UploadTest(unittest.TestCase):
             "Layer this-is-missing.tar is not present in the image",
             str(ctx.exception))
 
+    @mock.patch("pulp_docker.plugins.importers.upload.models.Manifest.objects")
+    @mock.patch("pulp_docker.plugins.importers.upload.models.Tag.objects")
+    def test_AddTags(self, _Tag_objects, _Manifest_objects, _repos,
+                     _Manifest_save, _Blob_save):
+        _Manifest_objects.filter.return_value.count.return_value = 1
+        _Manifest_objects.filter.return_value.__getitem__.return_value.schema_version = 42
+
+        step_work_dir = os.path.join(self.work_dir, "working_dir")
+
+        parent = mock.MagicMock(
+            metadata=dict(name="a",
+                          manifest_digest="sha256:123"),
+            parent=None)
+        step = upload.AddTags(step_type=constants.UPLOAD_STEP_SAVE,
+                              working_dir=step_work_dir)
+        step.parent = parent
+        step.process_main()
+
+        _Tag_objects.tag_manifest.assert_called_once_with(
+            tag_name="a", repo_id=parent.repo.id, manifest_type="image",
+            schema_version=42, manifest_digest='sha256:123',
+            pulp_user_metadata=None)
+
     def test_AddTags__error_no_name(self, _repo_controller, _Manifest_save, _Blob_save):
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
