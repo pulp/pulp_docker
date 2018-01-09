@@ -341,6 +341,7 @@ class AddTags(PluginStep):
         if digest is None:
             raise PulpCodedValidationException(error_code=error_codes.DKR1019,
                                                field='manifest_digest')
+        pulp_user_metadata = md.get('pulp_user_metadata')
         repo_id = self.parent.repo.id
         manifest_type_id = models.Manifest._content_type_id.default
         repo_manifest_ids = repository.get_associated_unit_ids(repo_id, manifest_type_id)
@@ -365,7 +366,8 @@ class AddTags(PluginStep):
         new_tag = models.Tag.objects.tag_manifest(repo_id=self.parent.repo.id, tag_name=tag,
                                                   manifest_digest=digest,
                                                   schema_version=manifests[0].schema_version,
-                                                  manifest_type=manifest_type)
+                                                  manifest_type=manifest_type,
+                                                  pulp_user_metadata=pulp_user_metadata)
 
         if new_tag:
             repository.associate_single_unit(self.parent.repo.repo_obj, new_tag)
