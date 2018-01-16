@@ -128,16 +128,14 @@ class V2WebPublisher(publish_step.PublishStep):
         atomic_publish_step.description = _('Making v2 files available via web.')
         self.add_child(PublishBlobsStep(repo_content_unit_q=repo_content_unit_q))
         self.publish_manifests_step = PublishManifestsStep(
-            self.redirect_data,
             repo_content_unit_q=repo_content_unit_q)
         self.add_child(self.publish_manifests_step)
         self.publish_manifest_lists_step = PublishManifestListsStep(
-            self.redirect_data,
             repo_content_unit_q=repo_content_unit_q)
         self.add_child(self.publish_manifest_lists_step)
-        self.add_child(PublishTagsStep(self.redirect_data))
+        self.add_child(PublishTagsStep())
         self.add_child(atomic_publish_step)
-        self.add_child(RedirectFileStep(app_publish_location, self.redirect_data))
+        self.add_child(RedirectFileStep(app_publish_location))
 
 
 class PublishBlobsStep(publish_step.UnitModelPluginStep):
@@ -184,14 +182,11 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
     Publish Manifests.
     """
 
-    def __init__(self, redirect_data, repo_content_unit_q=None):
+    def __init__(self, repo_content_unit_q=None):
         """
         Initialize the PublishManifestsStep, setting its description and calling the super class's
         __init__().
 
-        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
-                              and manifest lists reference
-        :type  redirect_data: dict
         :param repo_content_unit_q: optional Q object that will be applied to the queries performed
                                     against RepoContentUnit model
         :type  repo_content_unit_q: mongoengine.Q
@@ -201,7 +196,6 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
                                                    model_classes=[models.Manifest],
                                                    repo_content_unit_q=repo_content_unit_q)
         self.description = _('Publishing Manifests.')
-        self.redirect_data = redirect_data
 
     def process_main(self, item):
         """
@@ -213,7 +207,7 @@ class PublishManifestsStep(publish_step.UnitModelPluginStep):
         misc.create_symlink(item._storage_path,
                             os.path.join(self.get_manifests_directory(), str(item.schema_version),
                                          item.unit_key['digest']))
-        self.redirect_data[item.schema_version].add(item.unit_key['digest'])
+        self.parent.redirect_data[item.schema_version].add(item.unit_key['digest'])
 
     def get_manifests_directory(self):
         """
@@ -230,14 +224,11 @@ class PublishManifestListsStep(publish_step.UnitModelPluginStep):
     Publish ManifestLists.
     """
 
-    def __init__(self, redirect_data, repo_content_unit_q=None):
+    def __init__(self, repo_content_unit_q=None):
         """
         Initialize the PublishManifestListsStep, setting its description and calling the super
         class's __init__().
 
-        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
-                              and manifest lists reference
-        :type  redirect_data: dict
         :param repo_content_unit_q: optional Q object that will be applied to the queries performed
                                     against RepoContentUnit model
         :type  repo_content_unit_q: mongoengine.Q
@@ -248,7 +239,6 @@ class PublishManifestListsStep(publish_step.UnitModelPluginStep):
             model_classes=[models.ManifestList],
             repo_content_unit_q=repo_content_unit_q)
         self.description = _('Publishing Manifest Lists.')
-        self.redirect_data = redirect_data
 
     def process_main(self, item):
         """
@@ -260,7 +250,8 @@ class PublishManifestListsStep(publish_step.UnitModelPluginStep):
         misc.create_symlink(item._storage_path,
                             os.path.join(self.get_manifests_directory(),
                                          constants.MANIFEST_LIST_TYPE, item.unit_key['digest']))
-        self.redirect_data[constants.MANIFEST_LIST_TYPE].add(item.unit_key['digest'])
+        redirect_data = self.parent.redirect_data
+        redirect_data[constants.MANIFEST_LIST_TYPE].add(item.unit_key['digest'])
         if item.amd64_digest:
             # we query the tag collection because the manifest list model does not contain
             # the tag field anymore
@@ -268,8 +259,8 @@ class PublishManifestListsStep(publish_step.UnitModelPluginStep):
             tags = models.Tag.objects.filter(manifest_digest=item.digest,
                                              repo_id=self.get_repo().id)
             for tag in tags:
-                self.redirect_data['amd64'][tag.name] = (item.amd64_digest,
-                                                         item.amd64_schema_version)
+                redirect_data['amd64'][tag.name] = (item.amd64_digest,
+                                                    item.amd64_schema_version)
 
     def get_manifests_directory(self):
         """
@@ -286,19 +277,14 @@ class PublishTagsStep(publish_step.UnitModelPluginStep):
     Publish Tags.
     """
 
-    def __init__(self, redirect_data):
+    def __init__(self):
         """
         Initialize the PublishTagsStep, setting its description and calling the super class's
         __init__().
-
-        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
-                              and manifest lists reference
-        :type redirect_data: dict
         """
         super(PublishTagsStep, self).__init__(step_type=constants.PUBLISH_STEP_TAGS,
                                               model_classes=[models.Tag])
         self.description = _('Publishing Tags.')
-        self.redirect_data = redirect_data
         # Collect the tag names we've seen so we can write them out during the finalize() method.
         self._tag_names = set()
 
@@ -320,7 +306,7 @@ class PublishTagsStep(publish_step.UnitModelPluginStep):
             os.path.join(self.parent.publish_manifests_step.get_manifests_directory(),
                          str(schema_version), item.name))
         self._tag_names.add(item.name)
-        self.redirect_data[schema_version].add(item.name)
+        self.parent.redirect_data[schema_version].add(item.name)
 
     def finalize(self):
         """
@@ -341,22 +327,16 @@ class RedirectFileStep(publish_step.PublishStep):
     """
     This step creates the JSON file that describes the published repository for Crane to use.
     """
-    def __init__(self, app_publish_location, redirect_data):
+    def __init__(self, app_publish_location):
         """
         Initialize the step.
 
         :param app_publish_location: The full path to the location of the JSON file that this step
                                      will generate.
         :type  app_publish_location: basestring
-
-        :param redirect_data: Dictionary of tags and digests that image manifests schema version 2
-                              and manifest lists reference
-        :type redirect_data:  dict
-
         """
         super(RedirectFileStep, self).__init__(step_type=constants.PUBLISH_STEP_REDIRECT_FILE)
         self.app_publish_location = app_publish_location
-        self.redirect_data = redirect_data
 
     def process_main(self):
         """
@@ -364,11 +344,12 @@ class RedirectFileStep(publish_step.PublishStep):
         """
         registry = configuration.get_repo_registry_id(self.get_repo(), self.get_config())
         redirect_url = configuration.get_redirect_url(self.get_config(), self.get_repo(), 'v2')
-        schema2_data = self.redirect_data[2]
-        manifest_list_data = self.redirect_data['list']
-        manifest_list_amd64 = self.redirect_data['amd64']
+        redirect_data = self.parent.redirect_data
+        schema2_data = redirect_data[2]
+        manifest_list_data = redirect_data['list']
+        manifest_list_amd64 = redirect_data['amd64']
 
-        redirect_data = {
+        rdata = {
             'type': 'pulp-docker-redirect', 'version': 4, 'repository': self.get_repo().id,
             'repo-registry-id': registry, 'url': redirect_url,
             'protected': self.get_config().get('protected', False),
@@ -378,7 +359,7 @@ class RedirectFileStep(publish_step.PublishStep):
 
         misc.mkdir(os.path.dirname(self.app_publish_location))
         with open(self.app_publish_location, 'w') as app_file:
-            app_file.write(json.dumps(redirect_data))
+            app_file.write(json.dumps(rdata))
 
 
 class PublishTagsForRsyncStep(RSyncFastForwardUnitPublishStep):
