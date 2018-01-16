@@ -73,3 +73,5 @@ MEDIATYPE_MANIFEST_LIST = 'application/vnd.docker.distribution.manifest.list.v2+
 MEDIATYPE_MANIFEST_S1 = 'application/vnd.docker.distribution.manifest.v1+json'
 MEDIATYPE_MANIFEST_S2 = 'application/vnd.docker.distribution.manifest.v2+json'
 MEDIATYPE_SIGNED_MANIFEST_S1 = 'application/vnd.docker.distribution.manifest.v1+prettyjws'
+
+SUPPORTED_TYPES = (IMAGE_TYPE_ID, BLOB_TYPE_ID, MANIFEST_TYPE_ID, TAG_TYPE_ID)

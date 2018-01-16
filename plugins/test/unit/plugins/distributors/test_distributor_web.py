@@ -40,7 +40,7 @@ class TestBasics(unittest.TestCase):
         metadata = DockerWebDistributor.metadata()
 
         self.assertEqual(metadata['id'], constants.DISTRIBUTOR_WEB_TYPE_ID)
-        self.assertEqual(metadata['types'], [constants.IMAGE_TYPE_ID])
+        self.assertEqual(metadata['types'], constants.SUPPORTED_TYPES)
         self.assertTrue(len(metadata['display_name']) > 0)
 
     @patch('pulp_docker.plugins.distributors.distributor_web.configuration.validate_config')

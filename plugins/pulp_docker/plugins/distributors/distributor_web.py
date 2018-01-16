@@ -51,7 +51,7 @@ class DockerWebDistributor(Distributor):
         return {
             'id': constants.DISTRIBUTOR_WEB_TYPE_ID,
             'display_name': _('Docker Web Distributor'),
-            'types': [constants.IMAGE_TYPE_ID]
+            'types': constants.SUPPORTED_TYPES,
         }
 
     def __init__(self):
