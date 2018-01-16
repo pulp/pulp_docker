@@ -42,3 +42,7 @@ DKR1015 = Error("DKR1015", _("Manifest List does not contain required field: %(f
                 ['field'])
 DKR1016 = Error("DKR1016", _("Image Manifest does not contain required field: %(field)s."),
                 ['field'])
+DKR1017 = Error("DKR1017", _("Checksum %(checksum)s (%(checksum_type)s) does not validate"),
+                ['checksum_type', 'checksum'])
+DKR1018 = Error("DKR1018", _("Layer %(layer)s is not present in the image"),
+                ['layer'])
