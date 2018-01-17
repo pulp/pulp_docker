@@ -1,6 +1,7 @@
 """
 This modules contains tests for pulp_docker.common.models.
 """
+import mock
 import os
 import unittest
 
@@ -319,3 +320,110 @@ class TestTag(unittest.TestCase):
         self.assertEqual(unit_key, {'name': name, 'repo_id': repo_id,
                                     'schema_version': schema_version,
                                     'manifest_type': manifest_type})
+
+    @mock.patch("pulp_docker.plugins.models.Tag.save")
+    @mock.patch("pulp_docker.plugins.models.Tag._get_db")
+    def test_tag_manifest(self, _get_db, _Tag_save):
+        fields = dict(
+            tag_name="aaa",
+            repo_id="fedora",
+            schema_version=42,
+            manifest_type="blip",
+            manifest_digest="sha256:123",
+        )
+        m = models.Tag.objects.tag_manifest(**fields)
+        # tag_name corresponds to name
+        fields['name'] = fields.pop('tag_name')
+        for fname, fval in fields.items():
+            self.assertEquals(fval, getattr(m, fname))
+        self.assertEquals({}, m.pulp_user_metadata)
+
+    @mock.patch("pulp_docker.plugins.models.Tag.save")
+    @mock.patch("pulp_docker.plugins.models.Tag._get_db")
+    def test_tag_manifest__with_pulp_user_metadata(self, _get_db, _Tag_save):
+        fields = dict(
+            tag_name="aaa",
+            repo_id="fedora",
+            schema_version=42,
+            manifest_type="blip",
+            manifest_digest="sha256:123",
+            pulp_user_metadata={'branch': 'master'},
+        )
+        m = models.Tag.objects.tag_manifest(**fields)
+        # tag_name corresponds to name
+        fields['name'] = fields.pop('tag_name')
+        for fname, fval in fields.items():
+            self.assertEquals(fval, getattr(m, fname))
+
+    @mock.patch("pulp_docker.plugins.models.Tag.objects")
+    @mock.patch("pulp_docker.plugins.models.Tag.save")
+    @mock.patch("pulp_docker.plugins.models.Tag._get_db")
+    def test_tag_manifest__update(self, _get_db, _Tag_save, _Tag_objects):
+        # Raise exception first, then succeed
+        _Tag_save.side_effect = [models.mongoengine.NotUniqueError(), None]
+        fields = dict(
+            tag_name="aaa",
+            repo_id="fedora",
+            schema_version=42,
+            manifest_type="blip",
+            manifest_digest="sha256:123",
+            pulp_user_metadata={'branch': 'master'},
+        )
+        fields_old = dict(fields)
+        # Change digest and pulp_user_metadata, they should be overwritten
+        fields_old['manifest_digest'] = "sha13:1"
+        fields_old['pulp_user_metadata'] = {}
+        fields_old['name'] = fields_old.pop('tag_name')
+        existing_tag = models.Tag(**fields_old)
+
+        qs = models.TagQuerySet(existing_tag, None)
+        _Tag_objects.get.return_value = existing_tag
+
+        m = qs.tag_manifest(**fields)
+        self.assertEquals(id(existing_tag), id(m))
+
+        # tag_name corresponds to name
+        fields['name'] = fields.pop('tag_name')
+
+        unit_keys = dict((x, fields[x]) for x in existing_tag.unit_key_fields)
+        _Tag_objects.get.assert_called_once_with(**unit_keys)
+
+        for fname, fval in fields.items():
+            self.assertEquals(fval, getattr(m, fname))
+
+    @mock.patch("pulp_docker.plugins.models.Tag.objects")
+    @mock.patch("pulp_docker.plugins.models.Tag.save")
+    @mock.patch("pulp_docker.plugins.models.Tag._get_db")
+    def test_tag_manifest__update_ignore_pulp_user_metadata(self, _get_db, _Tag_save, _Tag_objects):
+        # Raise exception first, then succeed
+        _Tag_save.side_effect = [models.mongoengine.NotUniqueError(), None]
+        fields = dict(
+            tag_name="aaa",
+            repo_id="fedora",
+            schema_version=42,
+            manifest_type="blip",
+            manifest_digest="sha256:123",
+        )
+        fields_old = dict(fields)
+        # Change digest and pulp_user_metadata, they should be overwritten
+        fields_old['manifest_digest'] = "sha13:1"
+        fields_old['pulp_user_metadata'] = {'branch': 'master'}
+        fields_old['name'] = fields_old.pop('tag_name')
+        existing_tag = models.Tag(**fields_old)
+
+        qs = models.TagQuerySet(existing_tag, None)
+        _Tag_objects.get.return_value = existing_tag
+
+        m = qs.tag_manifest(**fields)
+        self.assertEquals(id(existing_tag), id(m))
+
+        # tag_name corresponds to name
+        fields['name'] = fields.pop('tag_name')
+
+        unit_keys = dict((x, fields[x]) for x in existing_tag.unit_key_fields)
+        _Tag_objects.get.assert_called_once_with(**unit_keys)
+
+        # We should have preserved the old pulp_user_metadata
+        fields['pulp_user_metadata'] = fields_old['pulp_user_metadata']
+        for fname, fval in fields.items():
+            self.assertEquals(fval, getattr(m, fname))

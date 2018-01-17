@@ -285,7 +285,8 @@ class DockerImporter(Importer):
         tag = models.Tag.objects.tag_manifest(repo_id=dest_repo.repo_id, tag_name=unit.name,
                                               manifest_digest=unit.manifest_digest,
                                               schema_version=unit.schema_version,
-                                              manifest_type=unit.manifest_type)
+                                              manifest_type=unit.manifest_type,
+                                              pulp_user_metadata=unit.pulp_user_metadata)
         units_added.add(tag)
         conduit.associate_unit(tag)
         manifest_digests_to_import.add(unit.manifest_digest)
