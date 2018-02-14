@@ -402,11 +402,17 @@ class V2Repository(object):
         # if it is schema2 we need to ask schema1 for older clients.
         if tag and response_headers.get(content_type_header) == constants.MEDIATYPE_MANIFEST_S2:
             request_headers['Accept'] = constants.MEDIATYPE_MANIFEST_S1
-            response_headers, manifest = self._get_path(path, headers=request_headers)
-            digest = self._digest_check(response_headers, manifest)
+            try:
+                # for compatibility with older clients, try to fetch schema1 in case it is available
+                response_headers, manifest = self._get_path(path, headers=request_headers)
+                digest = self._digest_check(response_headers, manifest)
 
-            # add manifest and digest
-            manifests.append((manifest, digest, response_headers.get(content_type_header)))
+                # add manifest and digest
+                manifests.append((manifest, digest, response_headers.get(content_type_header)))
+            except IOError as e:
+                if str(e) != 'Not Found':
+                    raise
+                pass
 
         # returned list will be whether:
         # [(S2, digest, content_type), (S1, digest, content_type)]
