@@ -273,10 +273,16 @@ class DownloadManifestsStep(publish_step.PluginStep):
             manifest, digest, _ = manifests[0]
             self._process_manifest(manifest, digest, available_blobs, tag=None)
         if manifest_list.amd64_digest and manifest_list.amd64_schema_version == 2:
-            # we set the headers to False in order to get the conversion to schema1
-            manifests = self.parent.index_repository.get_manifest(tag, headers=False, tag=True)
-            manifest, digest, _ = manifests[0]
-            self._process_manifest(manifest, digest, available_blobs, tag=tag)
+            try:
+                # for compatibility with older clients, try to fetch schema1 in case it is available
+                # we set the headers to False in order to get the conversion to schema1
+                manifests = self.parent.index_repository.get_manifest(tag, headers=False, tag=True)
+                manifest, digest, _ = manifests[0]
+                self._process_manifest(manifest, digest, available_blobs, tag=tag)
+            except IOError as e:
+                if str(e) != 'Not Found':
+                    raise
+                pass
         # Remember this tag for the SaveTagsStep.
         self.parent.save_tags_step.tagged_manifests.append((tag, manifest_list,
                                                             constants.MANIFEST_LIST_TYPE))
