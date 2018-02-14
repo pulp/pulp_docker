@@ -356,56 +356,56 @@ both a JSON file for use with crane, and the static Image files to which crane
 will redirect requests. See the `Crane`_ documentation for how to use that
 tarball.
 
-Upload v2 schema 2 Images to Pulp
----------------------------------
 
-.. note::
+Upload v2 schema 2 and schema 1 Images to Pulp
+----------------------------------------------
 
-    As of the time of this writing, ``skopeo copy`` can only output Docker v2
-    schema 2 content. Thus, only Docker v2 schema 2 content can be uploaded
-    to Pulp for now. In order to get your own Docker v2 schema 1 content into
-    Pulp, it is possible to run your own Docker registry and point Pulp's
-    feed URL at it and synchronize.
+.. _Skopeo: https://github.com/projectatomic/skopeo
 
-To upload a Docker Image to Pulp, first you must save its repository with Skopeo.
+To upload a Docker Image to Pulp, first you must save its repository with `Skopeo`_.
 Note that the below command saves the image in the ``busybox``
 repository to a directory::
 
-    $ sudo docker pull busybox
-    $ sudo skopeo copy docker://busybox:latest dir:existingemptydirectory
+    $ skopeo copy --format v2s2 docker://busybox:latest dir:existingemptydirectory
+
+.. note::
+
+    With ``skopeo copy --format`` schema version ``v2s1`` or ``v2s2`` can be specified.
+    If no format is specified manifest type of source will be saved.
 
 Before uploading the image to a Pulp repository, you need to create a tarball
 with the directory contents created by ``skopeo copy``::
 
-    $ cd directory-name && tar -cvf ../image-name.tar * && cd ..
+    $ cd existingemptydirectory/ && tar -cvf ../image-name.tar * && cd ..
 
 Then create a Pulp repository and run an upload command with ``pulp-admin``::
 
-    $ pulp-admin docker repo create --repo-id=skopeo
-    Repository [skopeo] successfully created
+    $ pulp-admin docker repo create --repo-id=schema2
+    Repository [schema2] successfully created
 
-    $ pulp-admin docker repo uploads upload --repo-id=skopeo -f skopeo.tar
+    $ pulp-admin docker repo uploads upload --repo-id schema2 -f image-name.tar
+
     +----------------------------------------------------------------------+
                               Unit Upload
     +----------------------------------------------------------------------+
 
     Extracting necessary metadata for each request...
     [==================================================] 100%
-    Analyzing: skopeo.tar
+    Analyzing: image-name.tar
     ... completed
 
     Creating upload requests on the server...
     [==================================================] 100%
-    Initializing: skopeo.tar
+    Initializing: image-name.tar
     ... completed
 
     Starting upload of selected units. If this process is stopped through ctrl+c,
     the uploads will be paused and may be resumed later using the resume command or
     canceled entirely using the cancel command.
 
-    Uploading: skopeo.tar
+    Uploading: image-name.tar
     [==================================================] 100%
-    727040/727040 bytes
+    737280/737280 bytes
     ... completed
 
     Importing into the repository...
@@ -428,7 +428,7 @@ The Blobs and Manifest are now in the Pulp repository::
                               Docker Repositories
     +----------------------------------------------------------------------+
 
-    Id:                  skopeo
+    Id:                  schema2
     Display Name:        None
     Description:         None
     Content Unit Counts:
@@ -439,6 +439,35 @@ The Blobs and Manifest are now in the Pulp repository::
 
     ``skopeo copy`` looses all the tags in the repository, therefore the manifests
     need to be tagged as a separate step after uploading it.
+
+::
+
+    $ pulp-admin docker repo search manifest --repo-id schema2
+
+    Created:      2018-02-14T16:06:12Z
+    Metadata:
+      Config Layer:       sha256:5b0d59026729b68570d99bc4f3f7c31a2e4f2a5736435641565
+                          d93e7c25bd2c3
+      Digest:             sha256:d5483f2ed144c808d4b077f5ec6821d2b3c378ca6cd5a3a5ef9
+                          927b99ac28f99
+      Downloaded:         True
+      Fs Layers:
+        Blob Sum:   sha256:57310166fe88e0dc63a80ca5c219283a932db0f3969712e2f8a86ada1
+                    43bf566
+        Layer Type: application/vnd.docker.image.rootfs.diff.tar.gzip
+      Pulp User Metadata:
+      Schema Version:     2
+    Repo Id:      schema2
+    Unit Id:      db9071ed-36f0-44dc-b759-fdf58f065bef
+    Unit Type Id: docker_manifest
+    Updated:      2018-02-14T16:06:12Z
+
+
+.. tip::
+
+    To upload v2 schema 1 image manifest repeat steps mentioned aboved, just specify the format
+    ``skopeo copy --format v2s1``
+
 
 Uploading a Manifest List
 -------------------------
