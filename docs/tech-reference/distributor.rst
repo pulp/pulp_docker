@@ -274,10 +274,10 @@ Configuration
 =============
 Pulp's SELinux policy includes a ``pulp_manage_rsync`` boolean. When enabled, the
 ``pulp_manage_rsync`` boolean allows Pulp to use rsync and make ssh connections. The boolean is
-disabled by default. The RPM Rsync distributor will fail to publish with SELinux Enforcing unless
-the boolean is enabled. To enable it, you can do this::
+disabled by default. The Docker Rsync distributor will fail to publish with SELinux Enforcing
+unless the boolean is enabled. To enable it, you can do this::
 
-    $ sudo semanage boolean --modify --on pulp_manage_rsync
+    $ sudo setsebool -P pulp_manage_rsync on
 
 Here is an example docker_rsync_distributor configuration::
 
