@@ -134,8 +134,8 @@ class V2WebPublisher(publish_step.PublishStep):
             repo_content_unit_q=repo_content_unit_q)
         self.add_child(self.publish_manifest_lists_step)
         self.add_child(PublishTagsStep())
+        self.add_child(RedirectFileStep(os.path.join(self.get_working_dir(), app_file)))
         self.add_child(atomic_publish_step)
-        self.add_child(RedirectFileStep(app_publish_location))
 
 
 class PublishBlobsStep(publish_step.UnitModelPluginStep):
