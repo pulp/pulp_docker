@@ -1,6 +1,11 @@
 3.1 Release Notes
 =================
 
+3.1.2
+-----
+
+See the :fixedbugs_pulp_docker:`3.1.2`.
+
 3.1.1
 -----
 
