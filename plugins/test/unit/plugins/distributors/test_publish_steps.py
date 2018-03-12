@@ -62,9 +62,10 @@ class TestV2WebPublisher(unittest.TestCase):
         self.mock_no_units(publisher)
         return publisher
 
+    @patch('selinux.restorecon')
     @patch('pulp_docker.plugins.distributors.publish_steps.V2WebPublisher.'
            'get_working_dir')
-    def test_publish_empty(self, get_working_dir):
+    def test_publish_empty(self, get_working_dir, restorecon):
         """Publishing an empty repository generates tag list and redirect file at expected paths"""
         get_working_dir.return_value = self.working_temp
         publisher = self.make_empty_publisher()
@@ -81,9 +82,10 @@ class TestV2WebPublisher(unittest.TestCase):
         self.assertTrue(os.path.exists(self.app_file))
         self.assertTrue(os.path.exists(self.tags_file))
 
+    @patch('selinux.restorecon')
     @patch('pulp_docker.plugins.distributors.publish_steps.V2WebPublisher.'
            'get_working_dir')
-    def test_publish_is_atomic(self, get_working_dir):
+    def test_publish_is_atomic(self, get_working_dir, restorecon):
         """During republish, old tag list and redirect file is reachable"""
         get_working_dir.return_value = self.working_temp
 
@@ -100,7 +102,7 @@ class TestV2WebPublisher(unittest.TestCase):
         old_tags_file = os.path.realpath(self.tags_file)
 
         # Ensure next publish gets a different timestamp
-        time.sleep(0.02)
+        time.sleep(0.05)
 
         invariant_checks = []
 
