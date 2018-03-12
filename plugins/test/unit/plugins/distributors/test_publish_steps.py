@@ -11,6 +11,10 @@ from pulp.plugins.util import publish_step
 from pulp_docker.common import constants
 from pulp_docker.plugins.distributors import publish_steps
 
+import logging
+
+LOG = logging.getLogger('test_publish_steps')
+
 
 class StepAdapter(object):
     """Adapter allowing use of arbitrary callable as a publish step."""
@@ -18,6 +22,7 @@ class StepAdapter(object):
         self._callable = callable
 
     def process(self):
+        LOG.debug("Child of step: %s", type(self.parent))
         self._callable()
 
     def get_progress_report(self):
@@ -58,13 +63,15 @@ class TestV2WebPublisher(unittest.TestCase):
         mock_config = {
             constants.CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY: self.publish_dir
         }
+        LOG.debug("publish_steps comes from %s", publish_steps.__file__)
         publisher = publish_steps.V2WebPublisher(self.repo, mock_conduit, mock_config)
         self.mock_no_units(publisher)
         return publisher
 
+    @patch('selinux.restorecon')
     @patch('pulp_docker.plugins.distributors.publish_steps.V2WebPublisher.'
            'get_working_dir')
-    def test_publish_empty(self, get_working_dir):
+    def test_publish_empty(self, get_working_dir, restorecon):
         """Publishing an empty repository generates tag list and redirect file at expected paths"""
         get_working_dir.return_value = self.working_temp
         publisher = self.make_empty_publisher()
@@ -81,9 +88,10 @@ class TestV2WebPublisher(unittest.TestCase):
         self.assertTrue(os.path.exists(self.app_file))
         self.assertTrue(os.path.exists(self.tags_file))
 
+    @patch('selinux.restorecon')
     @patch('pulp_docker.plugins.distributors.publish_steps.V2WebPublisher.'
            'get_working_dir')
-    def test_publish_is_atomic(self, get_working_dir):
+    def test_publish_is_atomic(self, get_working_dir, restorecon):
         """During republish, old tag list and redirect file is reachable"""
         get_working_dir.return_value = self.working_temp
 
@@ -100,13 +108,15 @@ class TestV2WebPublisher(unittest.TestCase):
         old_tags_file = os.path.realpath(self.tags_file)
 
         # Ensure next publish gets a different timestamp
-        time.sleep(0.02)
+        time.sleep(0.05)
 
         invariant_checks = []
 
         def invariant():
             # This invariant must hold at each step during the publish:
             # app/tags files should still point at the old files
+            realpath = os.path.realpath(self.app_file)
+            LOG.debug("Invariant check: %s => %s", self.app_file, realpath)
             self.assertEqual(old_app_file, os.path.realpath(self.app_file))
             self.assertEqual(old_tags_file, os.path.realpath(self.tags_file))
             invariant_checks.append(True)
@@ -131,3 +141,6 @@ class TestV2WebPublisher(unittest.TestCase):
 
         self.assertNotEqual(old_app_file, new_app_file)
         self.assertNotEqual(old_tags_file, new_tags_file)
+
+        # Fail so logs will be output even if test passed up to here
+        assert False, 'intentional fail for test purpose'
