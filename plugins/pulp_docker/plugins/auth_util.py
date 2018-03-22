@@ -46,7 +46,7 @@ def update_basic_auth_header(headers, username, password):
     return headers
 
 
-def request_token(downloader, request, auth_header):
+def request_token(downloader, request, auth_header, repo_name):
     """
     Attempts to retrieve the correct token based on the 401 response header.
 
@@ -65,6 +65,8 @@ def request_token(downloader, request, auth_header):
     :type  request: nectar.request.DownloadRequest
     :param auth_header: www-authenticate header returned in a 401 response
     :type  auth_header: basestring
+    :param repo_name: upstream repo name
+    :type repo_name: basestring
     :return: Bearer token for requested resource
     :rtype:  str
     """
@@ -73,6 +75,10 @@ def request_token(downloader, request, auth_header):
         token_url = auth_info.pop('realm')
     except KeyError:
         raise IOError("No realm specified for token auth challenge.")
+
+    # self defense strategy in cases when registry does not provide the scope
+    if 'scope' not in auth_info:
+        auth_info['scope'] = 'repository:%s:pull' % repo_name
 
     parse_result = urlparse.urlparse(token_url)
     query_dict = urlparse.parse_qs(parse_result.query)
