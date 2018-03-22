@@ -56,9 +56,10 @@ class TestRequestToken(unittest.TestCase):
         m_downloader = mock.MagicMock()
         m_req = mock.MagicMock()
         m_headers = mock.MagicMock()
+        m_name = mock.MagicMock()
         resp_headers = {'missing': 'realm'}
         mock_parse.return_value = resp_headers
-        self.assertRaises(IOError, auth_util.request_token, m_downloader, m_req, m_headers)
+        self.assertRaises(IOError, auth_util.request_token, m_downloader, m_req, m_headers, m_name)
         mock_parse.assert_called_once_with(m_headers)
 
     @mock.patch('pulp_docker.plugins.auth_util.StringIO')
@@ -72,12 +73,16 @@ class TestRequestToken(unittest.TestCase):
         m_downloader = mock.MagicMock()
         m_req = mock.MagicMock()
         m_headers = mock.MagicMock()
+        m_name = mock.MagicMock()
+        m_name.return_value = 'library/busybox'
         m_string_io.return_value.getvalue.return_value = '{"token": "Hey, its a token!"}'
-        mock_parse.return_value = {'realm': 'url', 'other_info': 'stuff'}
+        mock_parse.return_value = {'realm': 'url', 'other_info': 'stuff',
+                                   'scope': 'repository:library/busybox:pull'}
         mock_encode.return_value = 'other_info=stuff'
-        auth_util.request_token(m_downloader, m_req, m_headers)
+        auth_util.request_token(m_downloader, m_req, m_headers, m_name)
 
-        mock_encode.assert_called_once_with({'other_info': 'stuff'})
+        mock_encode.assert_called_once_with({'scope': "repository:library/busybox:pull",
+                                             'other_info': 'stuff'})
         m_dl_req.assert_called_once_with('url?other_info=stuff', m_string_io.return_value)
         mock_parse.assert_called_once_with(m_headers)
         m_downloader.download_one.assert_called_once_with(m_dl_req.return_value)
