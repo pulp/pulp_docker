@@ -451,7 +451,8 @@ class AuthDownloadStep(publish_step.DownloadStep):
                 _logger.debug(_('Download unauthorized, retrying with basic authentication'))
             else:
                 token = auth_util.request_token(self.parent.index_repository.auth_downloader,
-                                                request, auth_header)
+                                                request, auth_header,
+                                                self.parent.index_repository.name)
                 self.downloader.session.headers = auth_util.update_token_auth_header(
                     self.downloader.session.headers, token)
                 _logger.debug("Download unauthorized, retrying with new bearer token.")

@@ -384,7 +384,9 @@ class V2Repository(object):
         if headers:
             # set the headers for first request
             request_headers['Accept'] = ','.join((constants.MEDIATYPE_MANIFEST_S2,
-                                                  constants.MEDIATYPE_MANIFEST_LIST))
+                                                  constants.MEDIATYPE_MANIFEST_LIST,
+                                                  constants.MEDIATYPE_MANIFEST_S1,
+                                                  constants.MEDIATYPE_SIGNED_MANIFEST_S1))
         response_headers, manifest = self._get_path(path, headers=request_headers)
         # we need to disable here the digest check because of wrong digests registry returns
         # https://github.com/docker/distribution/pull/2310
@@ -401,7 +403,8 @@ class V2Repository(object):
         # for older clients will be requested later during the manifest list process time
         # if it is schema2 we need to ask schema1 for older clients.
         if tag and response_headers.get(content_type_header) == constants.MEDIATYPE_MANIFEST_S2:
-            request_headers['Accept'] = constants.MEDIATYPE_MANIFEST_S1
+            request_headers['Accept'] = ','.join((constants.MEDIATYPE_MANIFEST_S1,
+                                                  constants.MEDIATYPE_SIGNED_MANIFEST_S1))
             try:
                 # for compatibility with older clients, try to fetch schema1 in case it is available
                 response_headers, manifest = self._get_path(path, headers=request_headers)
@@ -499,7 +502,7 @@ class V2Repository(object):
                 else:
                     _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
                     self.token = auth_util.request_token(self.auth_downloader, request,
-                                                         auth_header)
+                                                         auth_header, self.name)
                     request.headers = auth_util.update_token_auth_header(request.headers,
                                                                          self.token)
                     report = self.downloader.download_one(request)
