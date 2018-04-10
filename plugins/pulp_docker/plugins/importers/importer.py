@@ -420,7 +420,8 @@ class DockerImporter(Importer):
         unit_removers = {
             models.Image: DockerImporter._remove_image,
             models.Manifest: DockerImporter._remove_manifest,
-            models.ManifestList: DockerImporter._remove_manifest_list
+            models.ManifestList: DockerImporter._remove_manifest_list,
+            models.Tag: DockerImporter._remove_tag
         }
 
         map((lambda u: type(u) in unit_removers and unit_removers[type(u)](
@@ -469,6 +470,18 @@ class DockerImporter(Importer):
         """
         cls._purge_unlinked_tags(repo, manifest_list)
         cls._purge_unlinked_manifests(repo, manifest_list)
+
+    @classmethod
+    def _remove_tag(cls, repo, tag):
+        """
+        Tags are repository-specific, so when they are removed, they should also be deleted.
+
+        :param repo: unused
+        :type  repo: pulp.server.db.model.Repository
+        :param tag: Tag to be deleted
+        :type  tag: pulp_docker.plugins.models.Tag
+        """
+        tag.delete()
 
     @staticmethod
     def _purge_unlinked_manifests(repo, manifest_list):
