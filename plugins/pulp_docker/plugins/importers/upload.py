@@ -31,6 +31,7 @@ from pulp.plugins.util.publish_step import PluginStep, GetLocalUnitsStep
 from pulp.server.db import model as pulp_models
 
 from pulp_docker.common import constants, error_codes, tarutils
+from pulp_docker.common import dir_transport as transport
 from pulp_docker.plugins import models
 from pulp_docker.plugins.importers import v1_sync
 from pulp.plugins.util import verification
@@ -409,7 +410,14 @@ class AddUnits(PluginStep):
             if not checksum_type:
                 # Never assume. But oh well
                 checksum_type = "sha256"
-            blob_src_path = os.path.join(self.get_working_dir(), checksum + '.tar')
+
+            blob_src_path = os.path.join(self.get_working_dir(), checksum)
+            version_file_path = os.path.join(self.get_working_dir(), 'version')
+            transport_version = transport.Version.from_file(version_file_path)
+            if transport_version < transport.Version('1.1'):
+                # Directory Transport Version 1.0 expects each file to end in .tar
+                blob_src_path = "{path}.tar".format(path=blob_src_path)
+
             try:
                 fobj = open(blob_src_path)
             except IOError:

@@ -25,7 +25,9 @@ class UploadTest(unittest.TestCase):
         self.work_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.work_dir, ignore_errors=True)
 
-    def test_AddUnits(self, _repo_controller, _Manifest_save, _Blob_save):
+    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    def test_AddUnits(self, mock_v, _repo_controller, _Manifest_save, _Blob_save):
+        mock_v.return_value = upload.transport.Version('1.0')
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
         os.makedirs(step_work_dir)
@@ -55,6 +57,58 @@ class UploadTest(unittest.TestCase):
         for i, layer in enumerate(layers):
             dst = os.path.join(step_work_dir, "sha256:%s" % layer['digest'])
             self.assertEquals(layer['content'], open(dst).read())
+            dst_blobs.append(dst)
+
+        # Make sure we called save_and_import_content
+        self.assertEquals(
+            [mock.call(x) for x in dst_blobs],
+            _Blob_save.call_args_list)
+        _Manifest_save.assert_called_once_with(
+            os.path.join(step_work_dir, "012"))
+
+        # Make sure associate_single_unit got called
+        repo_obj = parent.get_repo.return_value.repo_obj
+        self.assertEquals(
+            [mock.call(repo_obj, x) for x in units],
+            _repo_controller.associate_single_unit.call_args_list)
+        self.assertEquals(
+            units[0],
+            parent.uploaded_unit)
+
+    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    def test_AddUnits_skopeo11(self, mock_v, _repo_controller, _Manifest_save, _Blob_save):
+        mock_v.return_value = upload.transport.Version('1.1')
+
+        # This is where we will untar the image
+        step_work_dir = os.path.join(self.work_dir, "working_dir")
+        os.makedirs(step_work_dir)
+
+        img, layers = self._create_image(transport_version="1.1")
+        manifest_data = dict(layers=[dict(digest=x['digest'],
+                                          mediaType="ignored")
+                                     for x in layers],
+                             config=dict(digest="abc"),
+                             schemaVersion=2)
+        units = [
+            models.Manifest.from_json(json.dumps(manifest_data), digest="012"),
+        ]
+        units.extend(models.Blob(digest="sha256:%s" % x['digest'])
+                     for x in layers)
+
+        parent = mock.MagicMock(file_path=img, parent=None, uploaded_unit=None)
+        parent.v2_step_get_local_units.units_to_download = units
+        step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
+                               working_dir=step_work_dir)
+        step.parent = parent
+        step.process_lifecycle()
+
+        dst_blobs = []
+
+        # Make sure the blobs were created, and not compressed
+        for i, layer in enumerate(layers):
+            dst = os.path.join(step_work_dir, "sha256:%s" % layer['digest'])
+            with open(dst) as content:
+                self.assertEquals(layer['content'], content.read())
             dst_blobs.append(dst)
 
         # Make sure we called save_and_import_content
@@ -106,7 +160,10 @@ class UploadTest(unittest.TestCase):
             _Manifest_objects.get.return_value,
             parent.uploaded_unit)
 
-    def test_AddUnits_error_bad_checksum(self, _repo_controller, _Manifest_save, _Blob_save):
+    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    def test_AddUnits_error_bad_checksum(self, mock_v, _repo_controller, _Manifest_save,
+                                         _Blob_save):
+        mock_v.return_value = upload.transport.Version('1.0')
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
         os.makedirs(step_work_dir)
@@ -136,7 +193,12 @@ class UploadTest(unittest.TestCase):
             "Checksum bad-digest (sha256) does not validate",
             str(ctx.exception))
 
-    def test_AddUnits_error_missing_layer(self, _repo_controller, _Manifest_save, _Blob_save):
+    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    def test_AddUnits_error_missing_layer(self, mock_v, _repo_controller, _Manifest_save,
+                                          _Blob_save):
+        _repo_controller.find_repo_content_units.return_value = ()
+        mock_v.return_value = upload.transport.Version('1.0')
+
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
         os.makedirs(step_work_dir)
@@ -168,10 +230,12 @@ class UploadTest(unittest.TestCase):
             "Layer this-is-missing.tar is not present in the image",
             str(ctx.exception))
 
+    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
     @mock.patch("pulp_docker.plugins.importers.upload.models.Manifest.objects")
     @mock.patch("pulp_docker.plugins.importers.upload.models.Tag.objects")
-    def test_AddTags(self, _Tag_objects, _Manifest_objects, _repos,
-                     _Manifest_save, _Blob_save):
+    def test_AddTags(self, _Tag_objects, _Manifest_objects, mock_v, _repos, _Manifest_save,
+                     _Blob_save):
+        mock_v.return_value = upload.transport.Version('1.0')
         _Manifest_objects.filter.return_value.count.return_value = 1
         _Manifest_objects.filter.return_value.__getitem__.return_value.schema_version = 42
 
@@ -191,7 +255,8 @@ class UploadTest(unittest.TestCase):
             schema_version=42, manifest_digest='sha256:123',
             pulp_user_metadata=None)
 
-    def test_AddTags__error_no_name(self, _repo_controller, _Manifest_save, _Blob_save):
+    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    def test_AddTags__error_no_name(self, mock_v, _repo_controller, _Manifest_save, _Blob_save):
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
         os.makedirs(step_work_dir)
@@ -229,7 +294,7 @@ class UploadTest(unittest.TestCase):
         fobj.seek(0)
         return fobj, sha.hexdigest()
 
-    def _create_image(self, with_bad_checksum=False):
+    def _create_image(self, with_bad_checksum=False, transport_version="1.0"):
         fname = os.path.join(self.work_dir, "image.tar")
         tobj = tarfile.TarFile(fname, mode="w")
         layers = []
@@ -238,7 +303,10 @@ class UploadTest(unittest.TestCase):
             fobj, digest = self._create_layer(content=content)
             if with_bad_checksum and i == 1:
                 digest = "bad-digest"
-            tinfo = tobj.gettarinfo(arcname="%s.tar" % digest, fileobj=fobj)
+            if transport_version == "1.0":
+                tinfo = tobj.gettarinfo(arcname="%s.tar" % digest, fileobj=fobj)
+            else:
+                tinfo = tobj.gettarinfo(arcname=digest, fileobj=fobj)
             tinfo.uid = tinfo.gid = 0
             tinfo.uname = tinfo.gname = "root"
             tobj.addfile(tinfo, fileobj=fobj)
