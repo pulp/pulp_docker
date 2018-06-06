@@ -378,6 +378,13 @@ with the directory contents created by ``skopeo copy``::
 
     $ cd existingemptydirectory/ && tar -cvf ../image-name.tar * && cd ..
 
+
+.. note::
+
+    The tarball is only required to contain blob files for layers referenced in the manifest if they
+    are not already contained in the specified repository. Blob files included in the tarball that are
+    already contained in the repository will be ignored.
+
 Then create a Pulp repository and run an upload command with ``pulp-admin``::
 
     $ pulp-admin docker repo create --repo-id=schema2
