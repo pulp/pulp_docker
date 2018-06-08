@@ -12,6 +12,7 @@ import urlparse
 
 from nectar.downloaders.threaded import HTTPThreadedDownloader
 from nectar.listener import AggregatingEventListener
+from nectar.report import DownloadReport
 from nectar.request import DownloadRequest
 from pulp.server import exceptions as pulp_exceptions
 
@@ -503,10 +504,10 @@ class V2Repository(object):
                     _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
                     self.token = auth_util.request_token(self.auth_downloader, request,
                                                          auth_header, self.name)
-                    request.headers = auth_util.update_token_auth_header(request.headers,
-                                                                         self.token)
-                    report = self.downloader.download_one(request)
-
+                    if not isinstance(self.token, DownloadReport):
+                        request.headers = auth_util.update_token_auth_header(request.headers,
+                                                                             self.token)
+                        report = self.downloader.download_one(request)
         if report.state == report.DOWNLOAD_FAILED:
             # this condition was added in case the registry would not allow to access v2 endpoint
             # but still token would be valid for other endpoints.
