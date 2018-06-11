@@ -40,24 +40,25 @@ class UploadDockerImageCommand(UploadCommand):
         :rtype:  str
         :raises: RuntimeError if file is not a valid tarfile or json file.
         """
-        try:
-            with open(filename) as upload:
-                json.loads(upload.read())
-            return constants.MANIFEST_LIST_TYPE_ID
-        except ValueError:
-            pass
 
         try:
             image_manifest = tarutils.get_image_manifest(filename)
         except tarfile.ReadError:
-            raise RuntimeError(
-                _("Upload file could not be processed. Manifest Lists must be valid JSON, "
-                  "Images (V1 and V2) must be tarfiles."))
+            pass
         else:
             if isinstance(image_manifest, list):
                 return constants.IMAGE_TYPE_ID
             else:
                 return constants.MANIFEST_TYPE_ID
+
+        try:
+            with open(filename) as upload:
+                json.load(upload)
+            return constants.MANIFEST_LIST_TYPE_ID
+        except ValueError:
+            raise RuntimeError(
+                _("Upload file could not be processed. Manifest Lists must be valid JSON, "
+                  "Images (V1 and V2) must be tarfiles."))
 
     def generate_unit_key_and_metadata(self, filename, **kwargs):
         """
