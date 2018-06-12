@@ -7,3 +7,6 @@
 Blob files for layers referenced in the manifest of an uploaded tarball no longer need to be
 included in the tarball if they are already contained in the specified repository. Blob files
 included in the tarball that are already contained in the repository will be ignored.
+
+Support for whitelisting tags for v2 content during sync added. If --tags argument is passed,
+only tags in the whitelist are synced, otherwise all tags are synced.

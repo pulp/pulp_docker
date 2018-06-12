@@ -176,7 +176,7 @@ class TestDownloadManifestsStep(unittest.TestCase):
         """
         repo = mock.MagicMock()
         conduit = mock.MagicMock()
-        config = mock.MagicMock()
+        config = {}
 
         step = sync.DownloadManifestsStep(repo, conduit, config)
         step.parent = mock.MagicMock()
@@ -208,7 +208,7 @@ class TestDownloadManifestsStep(unittest.TestCase):
         """
         repo = mock.MagicMock()
         conduit = mock.MagicMock()
-        config = mock.MagicMock()
+        config = {}
 
         step = sync.DownloadManifestsStep(repo, conduit, config)
         step.parent = mock.MagicMock()
@@ -304,6 +304,36 @@ class TestDownloadManifestsStep(unittest.TestCase):
         fs_layer_blob_sums = [
             layer.blob_sum for layer in step.parent.available_manifests[0].fs_layers]
         self.assertEqual(fs_layer_blob_sums, expected_blob_sums)
+
+    @mock.patch('pulp_docker.plugins.importers.sync.DownloadManifestsStep._process_manifest')
+    @mock.patch('pulp_docker.plugins.importers.sync.models.Manifest.from_json',
+                side_effect=models.Manifest.from_json)
+    @mock.patch('pulp_docker.plugins.importers.sync.publish_step.PluginStep.process_main')
+    def test_sync_with_whitelist(self, super_process_main, from_json,
+                                 mock_manifest):
+        """
+        Test process_main() when there is only one layer.
+        """
+        repo = mock.MagicMock()
+        conduit = mock.MagicMock()
+        config = {'tags': '1'}
+
+        step = sync.DownloadManifestsStep(repo, conduit, config)
+        step.parent = mock.MagicMock()
+        step.parent.index_repository.get_tags.return_value = ['latest', '1']
+
+        with open(os.path.join(TEST_DATA_PATH, 'manifest_schema2_one_layer.json')) as manifest_file:
+            manifest = manifest_file.read()
+        digest = 'sha256:817a12c32a39bbe394944ba49de563e085f1d3c5266eb8e9723256bc4448680e'
+        manifest = models.Manifest.from_json(manifest, digest)
+        step.parent.index_repository.get_manifest.return_value = [(digest, manifest, 'image')]
+        step.parent.available_blobs = []
+
+        step.process_main()
+
+        super_process_main.assert_called_once_with()
+        step.parent.index_repository.get_tags.assert_called_once_with()
+        step.parent.index_repository.get_manifest.assert_called_once_with('1')
 
 
 class TestSaveUnitsStep(unittest.TestCase):

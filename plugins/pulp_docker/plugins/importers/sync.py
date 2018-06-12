@@ -220,7 +220,10 @@ class DownloadManifestsStep(publish_step.PluginStep):
         super(DownloadManifestsStep, self).process_main()
         _logger.debug(self.description)
 
+        whitelist_tags = self.config.get(constants.CONFIG_KEY_WHITELIST_TAGS, {})
         available_tags = self.parent.index_repository.get_tags()
+        if whitelist_tags:
+            available_tags = list(set(available_tags) & set(whitelist_tags))
 
         # This will be a set of Blob digests. The set is used because they can be repeated and we
         # only want to download each layer once.

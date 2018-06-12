@@ -16,6 +16,15 @@ The following options are available to the docker importer configuration.
  Boolean to control whether to attempt using registry API v2 during
  synchronization. Default is True.
 
+``tags``
+ CSV whitelist of tags to include on sync. If not provided, sync will download
+ all available tags. This feature is only available for v2 content.
+
+.. note::
+    Tags is only considered at sync time. If the list of tags is changed after,
+    and a tag is not wanted anymore, a manual removal of that tag should occur.
+
+
 ``feed``
  The URL for the docker repository to import images from.
 
