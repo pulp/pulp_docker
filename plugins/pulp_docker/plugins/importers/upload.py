@@ -25,7 +25,7 @@ import os
 import stat
 import tarfile
 
-from mongoengine import NotUniqueError
+from mongoengine import NotUniqueError, Q
 
 from pulp.plugins.util.publish_step import PluginStep, GetLocalUnitsStep
 from pulp.server.db import model as pulp_models
@@ -411,23 +411,26 @@ class AddUnits(PluginStep):
                 checksum_type = "sha256"
             blob_src_path = os.path.join(self.get_working_dir(), checksum + '.tar')
             try:
-                fobj = open(blob_src_path)
+                with open(blob_src_path) as fobj:
+                    try:
+                        verification.verify_checksum(fobj, checksum_type, checksum)
+                    except verification.VerificationException:
+                        raise PulpCodedValidationException(
+                            error_code=error_codes.DKR1017,
+                            checksum_type=checksum_type,
+                            checksum=checksum)
             except IOError:
+                blobs = repository.find_repo_content_units(
+                    self.get_repo().repo_obj,
+                    units_q=Q(digest=item.digest),
+                    limit=1)
+                if tuple(blobs):
+                    return
                 raise PulpCodedValidationException(
                     error_code=error_codes.DKR1018,
                     layer=os.path.basename(blob_src_path))
-            try:
-                verification.verify_checksum(fobj, checksum_type, checksum)
-            except verification.VerificationException:
-                raise PulpCodedValidationException(
-                    error_code=error_codes.DKR1017,
-                    checksum_type=checksum_type,
-                    checksum=checksum)
-            fobj.close()
-
             blob_dest_path = os.path.join(self.get_working_dir(), item.digest)
             os.rename(blob_src_path, blob_dest_path)
-
         item.set_storage_path(item.digest)
         try:
             item.save_and_import_content(os.path.join(self.get_working_dir(), item.digest))
