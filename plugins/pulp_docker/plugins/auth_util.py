@@ -67,8 +67,8 @@ def request_token(downloader, request, auth_header, repo_name):
     :type  auth_header: basestring
     :param repo_name: upstream repo name
     :type repo_name: basestring
-    :return: Bearer token for requested resource
-    :rtype:  str
+    :return: Bearer token for requested resource or report instance in case of failed download
+    :rtype:  str or nectar.report.DownloadReport
     """
     auth_info = parse_401_token_response_headers(auth_header)
     try:
@@ -93,7 +93,7 @@ def request_token(downloader, request, auth_header, repo_name):
     downloader.session.headers.pop('Authorization', None)
     report = downloader.download_one(token_request)
     if report.state == report.DOWNLOAD_FAILED:
-        raise IOError(report.error_msg)
+        return report
 
     return json.loads(token_data.getvalue())['token']
 
