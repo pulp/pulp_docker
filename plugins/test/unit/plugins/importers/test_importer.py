@@ -36,7 +36,7 @@ class TestBasics(unittest.TestCase):
         self.assertEqual(
             set(metadata['types']),
             set([constants.BLOB_TYPE_ID, constants.IMAGE_TYPE_ID, constants.MANIFEST_TYPE_ID,
-                 constants.TAG_TYPE_ID]))
+                 constants.MANIFEST_LIST_TYPE_ID, constants.TAG_TYPE_ID]))
         self.assertTrue(len(metadata['display_name']) > 0)
 
 
@@ -104,6 +104,12 @@ class TestUploadUnit(unittest.TestCase):
         Assert that upload_unit() builds the UploadStep correctly and calls its process_lifecycle()
         method.
         """
+        digest = 'sha42:abc'
+        mf = mock.MagicMock(unit_key=dict(digest=digest),
+                            type_id='blorg',
+                            digest=digest)
+        UploadStep.return_value.configure_mock(uploaded_unit=mf)
+        mf.__class__._fields = ["digest"]
         report = DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key, {},
                                               data.busybox_tar_path, self.conduit, self.config)
         UploadStep.assert_called_once_with(repo=self.repo, file_path=data.busybox_tar_path,
@@ -121,6 +127,39 @@ class TestUploadUnit(unittest.TestCase):
                                               data.busybox_tar_path, self.conduit, self.config)
         self.assertFalse(report['success_flag'])
         self.assertEqual(report['summary'], expected_msg)
+
+    @mock.patch('pulp_docker.plugins.importers.importer.upload.UploadStep')
+    def test_upload_result_details(self, UploadStep):
+        """
+        Make sure the details field contains a "unit" data structure
+        """
+        digest = 'sha42:abc'
+        mf = mock.MagicMock(unit_key=dict(digest=digest),
+                            type_id='blorg',
+                            digest=digest,
+                            config_layer="def")
+        # _ignored should not appear in the unit's metadata
+        mf.__class__._fields = ["digest", "config_layer", "_ignored"]
+        UploadStep.return_value.configure_mock(uploaded_unit=mf)
+        report = DockerImporter().upload_unit(self.repo, constants.IMAGE_TYPE_ID, self.unit_key, {},
+                                              data.busybox_tar_path, self.conduit, self.config)
+        UploadStep.assert_called_once_with(repo=self.repo, file_path=data.busybox_tar_path,
+                                           config=self.config, metadata={},
+                                           type_id=constants.IMAGE_TYPE_ID)
+        UploadStep.return_value.process_lifecycle.assert_called_once_with()
+        self.assertTrue(report['success_flag'])
+        self.assertEquals(
+            {
+                'unit': {
+                    'type_id': 'blorg',
+                    'unit_key': {'digest': 'sha42:abc'},
+                    'metadata': {
+                        'digest': 'sha42:abc',
+                        'config_layer': 'def',
+                    },
+                },
+            },
+            report['details'])
 
 
 class TestImportUnits(unittest.TestCase):

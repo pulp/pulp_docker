@@ -1,0 +1,9 @@
+3.2 Release Notes
+=================
+
+3.2.0
+-----
+
+Blob files for layers referenced in the manifest of an uploaded tarball no longer need to be
+included in the tarball if they are already contained in the specified repository. Blob files
+included in the tarball that are already contained in the repository will be ignored.

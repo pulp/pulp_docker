@@ -33,6 +33,12 @@ class TestGetFormatterForType(unittest.TestCase):
         unit = dict(digest=digest)
         self.assertEqual(formatter(unit), digest)
 
+    def test_call_with_manifest_list(self):
+        digest = '1234'
+        formatter = content.get_formatter_for_type(constants.MANIFEST_LIST_TYPE_ID)
+        unit = dict(digest=digest)
+        self.assertEqual(formatter(unit), digest)
+
     def test_call_with_blob(self):
         digest = '1234'
         formatter = content.get_formatter_for_type(constants.BLOB_TYPE_ID)
@@ -110,6 +116,35 @@ class TestManifestSearchCommand(unittest.TestCase):
             context.server.repo_unit.search.return_value.response_body)
 
 
+class TestManifestListSearchCommand(unittest.TestCase):
+
+    def test_init(self):
+        context = mock.Mock()
+        command = content.ManifestListSearchCommand(context)
+        self.assertEqual(command.context, context)
+        self.assertEqual(command.name, 'manifest-list')
+        self.assertEqual(command.prompt, context.prompt)
+        self.assertFalse(command.description is None)
+        self.assertEqual(command.method, command.run)
+
+    def test_run(self):
+        repo_id = '1234'
+        context = mock.Mock()
+        kwargs = {
+            content.options.OPTION_REPO_ID.keyword: repo_id
+        }
+        command = content.ManifestListSearchCommand(context)
+
+        # test
+        command.run(**kwargs)
+
+        # validation
+        context.server.repo_unit.search.assert_called_once_with(
+            repo_id, type_ids=[constants.MANIFEST_LIST_TYPE_ID])
+        context.prompt.render_document_list(
+            context.server.repo_unit.search.return_value.response_body)
+
+
 class TestManifestCopyCommand(unittest.TestCase):
 
     def test_init(self):
@@ -128,6 +163,24 @@ class TestManifestCopyCommand(unittest.TestCase):
         self.assertEqual(formatter, get_formatter.return_value)
 
 
+class TestManifestListCopyCommand(unittest.TestCase):
+
+    def test_init(self):
+        context = mock.Mock(config={'output': {'poll_frequency_in_seconds': 10}})
+        command = content.ManifestListCopyCommand(context)
+        self.assertEqual(command.name, 'manifest-list')
+        self.assertFalse(command.description is None)
+        self.assertEqual(command.context, context)
+        self.assertEqual(command.method, command.run)
+
+    @mock.patch(MODULE + '.get_formatter_for_type')
+    def test_get_formatter_for_type(self, get_formatter):
+        context = mock.Mock(config={'output': {'poll_frequency_in_seconds': 10}})
+        command = content.ManifestListCopyCommand(context)
+        formatter = command.get_formatter_for_type(constants.MANIFEST_LIST_TYPE_ID)
+        self.assertEqual(formatter, get_formatter.return_value)
+
+
 class TestManifestRemoveCommand(unittest.TestCase):
 
     def test_init(self):
@@ -143,4 +196,22 @@ class TestManifestRemoveCommand(unittest.TestCase):
         context = mock.Mock(config={'output': {'poll_frequency_in_seconds': 10}})
         command = content.ManifestRemoveCommand(context)
         formatter = command.get_formatter_for_type(constants.MANIFEST_TYPE_ID)
+        self.assertEqual(formatter, get_formatter.return_value)
+
+
+class TestManifestListRemoveCommand(unittest.TestCase):
+
+    def test_init(self):
+        context = mock.Mock(config={'output': {'poll_frequency_in_seconds': 10}})
+        command = content.ManifestListRemoveCommand(context)
+        self.assertEqual(command.name, 'manifest-list')
+        self.assertFalse(command.description is None)
+        self.assertEqual(command.context, context)
+        self.assertEqual(command.method, command.run)
+
+    @mock.patch(MODULE + '.get_formatter_for_type')
+    def test_get_formatter_for_type(self, get_formatter):
+        context = mock.Mock(config={'output': {'poll_frequency_in_seconds': 10}})
+        command = content.ManifestListRemoveCommand(context)
+        formatter = command.get_formatter_for_type(constants.MANIFEST_LIST_TYPE_ID)
         self.assertEqual(formatter, get_formatter.return_value)

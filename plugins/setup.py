@@ -8,9 +8,9 @@ requirements = [
 ]
 
 setup(
-    name='pulp-docker',
-    version='3.0.0a1.dev0',
-    packages=find_packages(exclude=['test']),
+    name='pulp_docker_plugins',
+    version='3.2a1',
+    packages=find_packages(exclude=['test', 'test.*']),
     url='http://www.pulpproject.org',
     install_requires=requirements,
     license='GPLv2+',
@@ -33,6 +33,7 @@ setup(
             'docker_blob=pulp_docker.plugins.models:Blob',
             'docker_image=pulp_docker.plugins.models:Image',
             'docker_manifest=pulp_docker.plugins.models:Manifest',
+            'docker_manifest_list=pulp_docker.plugins.models:ManifestList',
             'docker_tag=pulp_docker.plugins.models:Tag'
         ]
     }

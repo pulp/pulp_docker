@@ -14,3 +14,11 @@ schema versions. Now each manifest schema version has its own directory `manifes
 the new publish action.
 
 A new `redirect file` format has been introduced to enable Crane to serve both schema versions.
+
+
+2.4.1
+-----
+
+New parameter for rsync distributor ``rsync_extra_args`` allows user to specify custom arguments
+for rsync call during publish operations.
+

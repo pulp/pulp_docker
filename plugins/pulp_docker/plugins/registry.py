@@ -1,5 +1,6 @@
 from cStringIO import StringIO
 from gettext import gettext as _
+import copy
 import errno
 import httplib
 import json
@@ -11,12 +12,13 @@ import urlparse
 
 from nectar.downloaders.threaded import HTTPThreadedDownloader
 from nectar.listener import AggregatingEventListener
+from nectar.report import DownloadReport
 from nectar.request import DownloadRequest
 from pulp.server import exceptions as pulp_exceptions
 
-from pulp_docker.common import error_codes
+from pulp_docker.common import constants, error_codes
 from pulp_docker.plugins import models
-from pulp_docker.plugins import token_util
+from pulp_docker.plugins import auth_util
 
 
 _logger = logging.getLogger(__name__)
@@ -87,8 +89,8 @@ class V1Repository(object):
         # endpoints require auth
         if self.endpoint:
             self.add_auth_header(request)
-        report = self.downloader.download_one(request)
 
+        report = self.downloader.download_one(request)
         if report.state == report.DOWNLOAD_FAILED:
             raise IOError(report.error_msg)
 
@@ -304,9 +306,10 @@ class V2Repository(object):
         self.download_config = download_config
         self.registry_url = registry_url
 
-        # Use basic auth information only for retrieving tokens from auth server.
-        self.token_downloader = HTTPThreadedDownloader(self.download_config,
-                                                       AggregatingEventListener())
+        # Use basic auth information for retrieving tokens from auth server and for downloading
+        # with basic auth
+        self.auth_downloader = HTTPThreadedDownloader(copy.deepcopy(self.download_config),
+                                                      AggregatingEventListener())
         self.download_config.basic_auth_username = None
         self.download_config.basic_auth_password = None
         self.downloader = HTTPThreadedDownloader(self.download_config, AggregatingEventListener())
@@ -359,45 +362,71 @@ class V2Repository(object):
         req = DownloadRequest(url, os.path.join(self.working_dir, digest))
         return req
 
-    def get_manifest(self, reference):
+    def get_manifest(self, reference, headers=True, tag=True):
         """
         Get the manifest and its digest for the given reference.
 
         :param reference: The reference (tag or digest) of the Manifest you wish to retrieve.
         :type  reference: basestring
+        :param headers: True if headers with accepted media type should be sent in the request
+        :type  headers: bool
+        :param tag: True if the manifest should be retrieved by tag
+        :type  tag: bool
+
         :return:          A 2-tuple of the digest and the manifest, both basestrings
         :rtype:           tuple
         """
         manifests = []
         request_headers = {}
         content_type_header = 'content-type'
-        schema1 = 'application/vnd.docker.distribution.manifest.v1+json'
-        schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
         path = self.MANIFEST_PATH.format(name=self.name, reference=reference)
-        # set the headers for first request
-        request_headers['Accept'] = schema2
+        # we need to skip the check of returned mediatype in case we pull
+        # the manifest by digest
+        if headers:
+            # set the headers for first request
+            request_headers['Accept'] = ','.join((constants.MEDIATYPE_MANIFEST_S2,
+                                                  constants.MEDIATYPE_MANIFEST_LIST,
+                                                  constants.MEDIATYPE_MANIFEST_S1,
+                                                  constants.MEDIATYPE_SIGNED_MANIFEST_S1))
         response_headers, manifest = self._get_path(path, headers=request_headers)
-        digest = self._digest_check(response_headers, manifest)
-
+        # we need to disable here the digest check because of wrong digests registry returns
+        # https://github.com/docker/distribution/pull/2310
+        # we will just calculate it without camparing it to the value that registry has in the
+        # docker-content-digest response header
+        digest = models.UnitMixin.calculate_digest(manifest)
         # add manifest and digest
-        manifests.append((manifest, digest))
+        manifests.append((manifest, digest, response_headers.get(content_type_header)))
 
-        # we intentionally first asked schema version 2, because it might happen that
-        # registry will have just schema version 1 and even if in request headers we
-        # set schema version 2, registry will anyway return schema version 1
-        # this way we will not make unecessary separate second request for schema version 1
-        if response_headers.get(content_type_header) == schema2:
-            request_headers['Accept'] = schema1
-            response_headers, manifest = self._get_path(path, headers=request_headers)
-            digest = self._digest_check(response_headers, manifest)
+        # since in accept headers we have man_list and schema2 mediatype, registry would return
+        # whether man list, schema2 or schema1.
+        # if it is schema1 we do not need to make any other requests
+        # if it is manifest list, we do not need to make any other requests, the converted type
+        # for older clients will be requested later during the manifest list process time
+        # if it is schema2 we need to ask schema1 for older clients.
+        if tag and response_headers.get(content_type_header) == constants.MEDIATYPE_MANIFEST_S2:
+            request_headers['Accept'] = ','.join((constants.MEDIATYPE_MANIFEST_S1,
+                                                  constants.MEDIATYPE_SIGNED_MANIFEST_S1))
+            try:
+                # for compatibility with older clients, try to fetch schema1 in case it is available
+                response_headers, manifest = self._get_path(path, headers=request_headers)
+                digest = self._digest_check(response_headers, manifest)
 
-            # add manifest and digest
-            manifests.append((manifest, digest))
+                # add manifest and digest
+                manifests.append((manifest, digest, response_headers.get(content_type_header)))
+            except IOError as e:
+                if str(e) != 'Not Found':
+                    raise
+                pass
 
         # returned list will be whether:
-        # [(S2, digest), (S1, digest)]
+        # [(S2, digest, content_type), (S1, digest, content_type)]
         # or
-        # [(S1, digest)]
+        # [(list, digest, content_type)]
+        # or
+        # [(S1, digest, content_type)]
+        # [(S2, digest, content_type)]
+        # note the tuple has a new entry content_type which we need later to process
+        # returned manifest mediatypes
         return manifests
 
     def _digest_check(self, headers, manifest):
@@ -434,7 +463,7 @@ class V2Repository(object):
                                                      repo=self.name,
                                                      registry=self.registry_url,
                                                      reason=str(e))
-        return json.loads(tags)['tags']
+        return json.loads(tags)['tags'] or []
 
     def _get_path(self, path, headers=None):
         """
@@ -456,21 +485,37 @@ class V2Repository(object):
         request.headers = headers
 
         if self.token:
-            request.headers = token_util.update_auth_header(request.headers, self.token)
+            request.headers = auth_util.update_token_auth_header(request.headers, self.token)
 
         report = self.downloader.download_one(request)
 
-        # If the download was unauthorized, attempt to get a token and try again
+        # If the download was unauthorized, check report header, if basic auth is expected
+        # retry with basic auth, otherwise attempt to get a token and try again
         if report.state == report.DOWNLOAD_FAILED:
             if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
-                _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
-                self.token = token_util.request_token(self.token_downloader, request,
-                                                      report.headers)
-                request.headers = token_util.update_auth_header(request.headers, self.token)
-                report = self.downloader.download_one(request)
-
+                auth_header = report.headers.get('www-authenticate')
+                if auth_header is None:
+                    raise IOError("401 responses are expected to "
+                                  "contain authentication information")
+                elif "Basic" in auth_header:
+                    _logger.debug(_('Download unauthorized, retrying with basic authentication'))
+                    report = self.auth_downloader.download_one(request)
+                else:
+                    _logger.debug(_('Download unauthorized, attempting to retrieve a token.'))
+                    self.token = auth_util.request_token(self.auth_downloader, request,
+                                                         auth_header, self.name)
+                    if not isinstance(self.token, DownloadReport):
+                        request.headers = auth_util.update_token_auth_header(request.headers,
+                                                                             self.token)
+                        report = self.downloader.download_one(request)
         if report.state == report.DOWNLOAD_FAILED:
-            self._raise_path_error(report)
+            # this condition was added in case the registry would not allow to access v2 endpoint
+            # but still token would be valid for other endpoints.
+            # see https://pulp.plan.io/issues/2643
+            if path == '/v2/' and report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+                pass
+            else:
+                self._raise_path_error(report)
 
         return report.headers, report.destination.getvalue()
 

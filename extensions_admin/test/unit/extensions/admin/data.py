@@ -2,6 +2,7 @@ import os
 
 
 busybox_tar_path = os.path.join(os.path.dirname(__file__), '../../../data/busyboxlight.tar')
+skopeo_tar_path = os.path.join(os.path.dirname(__file__), '../../../data/skopeo.tar')
 
 # these are in correct ancestry order
 busybox_ids = (

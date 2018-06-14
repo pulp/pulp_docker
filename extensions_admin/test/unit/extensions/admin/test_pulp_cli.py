@@ -55,11 +55,20 @@ class TestInitialize(unittest.TestCase):
         section = repo_section.subsections['search']
         self.assertTrue(isinstance(section.commands['image'], images.ImageSearchCommand))
         self.assertTrue(isinstance(section.commands['manifest'], content.ManifestSearchCommand))
+        self.assertTrue(isinstance(section.commands['manifest-list'],
+                        content.ManifestListSearchCommand))
+        self.assertTrue(isinstance(section.commands['tag'], content.TagSearchCommand))
 
         section = repo_section.subsections['copy']
         self.assertTrue(isinstance(section.commands['image'], images.ImageCopyCommand))
         self.assertTrue(isinstance(section.commands['manifest'], content.ManifestCopyCommand))
+        self.assertTrue(isinstance(section.commands['manifest-list'],
+                        content.ManifestListCopyCommand))
+        self.assertTrue(isinstance(section.commands['tag'], content.TagCopyCommand))
 
         section = repo_section.subsections['remove']
         self.assertTrue(isinstance(section.commands['image'], images.ImageRemoveCommand))
         self.assertTrue(isinstance(section.commands['manifest'], content.ManifestRemoveCommand))
+        self.assertTrue(isinstance(section.commands['manifest-list'],
+                        content.ManifestListRemoveCommand))
+        self.assertTrue(isinstance(section.commands['tag'], content.TagRemoveCommand))

@@ -1,0 +1,20 @@
+3.1 Release Notes
+=================
+
+3.1.0
+-----
+Manifest List upload is now supported. To upload a JSON Manifest List,
+all V2 Image Manifests referenced in the Manifest List must already be in Pulp
+and associated to the target repository.
+
+Docker image V2 schema version 2 upload is now supported. To accomplish this, you need to install
+skopeo binaries on your machine and then to create an on-disk representation of
+your docker image you can use ``skopeo copy`` command. See https://github.com/projectatomic/skopeo#copying-images
+for more details. Before uploading, you need to tar the contents of the directory created by ``skopeo copy``.
+
+Support for image manifest V1 and V2 schema version 1 did not change.
+
+3.1.1
+-----
+The unit key for an uploaded unit is now present in the ``details`` field of
+the task's body, and is queriable via the REST API.

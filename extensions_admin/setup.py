@@ -7,8 +7,8 @@ requirements = [
 ]
 
 setup(
-    name='pulp-docker-cli',
-    version='3.0.0a1.dev0',
+    name='pulp_docker_extensions_admin',
+    version='3.2a1',
     packages=find_packages(exclude=['test']),
     url='http://www.pulpproject.org',
     install_requires=requirements,

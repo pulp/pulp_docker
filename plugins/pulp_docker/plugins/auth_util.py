@@ -1,6 +1,8 @@
 from cStringIO import StringIO
+import base64
 import json
 import logging
+import re
 import urllib
 import urlparse
 
@@ -10,7 +12,7 @@ from nectar.request import DownloadRequest
 _logger = logging.getLogger(__name__)
 
 
-def update_auth_header(headers, token):
+def update_token_auth_header(headers, token):
     """
     Adds the token into the request's headers as specified in the Docker v2 API documentation.
 
@@ -26,7 +28,25 @@ def update_auth_header(headers, token):
     return headers
 
 
-def request_token(downloader, request, response_headers):
+def update_basic_auth_header(headers, username, password):
+    """
+    Adds basic auth into the request's headers
+
+    :param headers: headers for a request or session
+    :type  headers: dict or None
+    :param username: username inserted into the Authorization header
+    :type  token: basestring
+    :param password: password inserted into the Authorization header
+    :type  token: basestring
+    :return: header with updated authorization information
+    :rtype:  header: dict
+    """
+    headers = headers or {}
+    headers['Authorization'] = 'Basic {}'.format(base64.b64encode(username + ':' + password))
+    return headers
+
+
+def request_token(downloader, request, auth_header, repo_name):
     """
     Attempts to retrieve the correct token based on the 401 response header.
 
@@ -43,16 +63,22 @@ def request_token(downloader, request, response_headers):
     :type  downloader: nectar.downloaders.threaded.HTTPThreadedDownloader
     :param request: a download request
     :type  request: nectar.request.DownloadRequest
-    :param response_headers: headers from the 401 response
-    :type  response_headers: basestring
-    :return: Bearer token for requested resource
-    :rtype:  str
+    :param auth_header: www-authenticate header returned in a 401 response
+    :type  auth_header: basestring
+    :param repo_name: upstream repo name
+    :type repo_name: basestring
+    :return: Bearer token for requested resource or report instance in case of failed download
+    :rtype:  str or nectar.report.DownloadReport
     """
-    auth_info = parse_401_response_headers(response_headers)
+    auth_info = parse_401_token_response_headers(auth_header)
     try:
         token_url = auth_info.pop('realm')
     except KeyError:
         raise IOError("No realm specified for token auth challenge.")
+
+    # self defense strategy in cases when registry does not provide the scope
+    if 'scope' not in auth_info:
+        auth_info['scope'] = 'repository:%s:pull' % repo_name
 
     parse_result = urlparse.urlparse(token_url)
     query_dict = urlparse.parse_qs(parse_result.query)
@@ -67,27 +93,25 @@ def request_token(downloader, request, response_headers):
     downloader.session.headers.pop('Authorization', None)
     report = downloader.download_one(token_request)
     if report.state == report.DOWNLOAD_FAILED:
-        raise IOError(report.error_msg)
+        return report
 
     return json.loads(token_data.getvalue())['token']
 
 
-def parse_401_response_headers(response_headers):
+def parse_401_token_response_headers(auth_header):
     """
-    Parse the headers from a 401 response into a dictionary that contains the information
-    necessary to retrieve a token.
+    Parse the www-authenticate header from a 401 response into a dictionary that contains
+    the information necessary to retrieve a token.
 
-    :param response_headers: headers returned in a 401 response
-    :type  response_headers: requests.structures.CaseInsensitiveDict
+    :param auth_header: www-authenticate header returned in a 401 response
+    :type  auth_header: basestring
     """
-    auth_header = response_headers.get('www-authenticate')
-    if auth_header is None:
-        raise IOError("401 responses are expected to conatin authentication information")
     auth_header = auth_header[len("Bearer "):]
+    auth_header = re.split(',(?=[^=,]+=)', auth_header)
 
     # The remaining string consists of comma seperated key=value pairs
     auth_dict = {}
-    for key, value in (item.split('=') for item in auth_header.split(',')):
+    for key, value in (item.split('=') for item in auth_header):
         # The value is a string within a string, ex: '"value"'
         auth_dict[key] = json.loads(value)
     return auth_dict

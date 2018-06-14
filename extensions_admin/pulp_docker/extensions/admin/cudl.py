@@ -45,7 +45,7 @@ OPTION_REMOVE_TAG = PulpCliOption('--remove-tag', d, required=False, allow_multi
 d = _('name of the upstream repository')
 OPT_UPSTREAM_NAME = PulpCliOption('--upstream-name', d, required=False)
 
-d = _('Enable sync of v1 API. defaults to "true"')
+d = _('Enable sync of v1 API. defaults to "false"')
 OPT_ENABLE_V1 = PulpCliOption('--enable-v1', d, required=False,
                               parse_func=okaara_parsers.parse_boolean)
 

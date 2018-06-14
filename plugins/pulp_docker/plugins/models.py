@@ -11,7 +11,13 @@ import mongoengine
 import os
 from pulp.server.db import model as pulp_models, querysets
 
-from pulp_docker.common import constants
+from pulp_docker.common import constants, error_codes
+from pulp.server.exceptions import PulpCodedValidationException
+
+
+MANIFEST_LIST_REQUIRED_FIELDS = ['manifests', 'mediaType', 'schemaVersion']
+IMAGE_MANIFEST_REQUIRED_FIELDS = ['mediaType', 'digest', 'platform']
+IMAGE_MANIFEST_REQUIRED_PLATFORM_SUBFIELDS = ['os', 'architecture']
 
 
 class Blob(pulp_models.FileContentUnit):
@@ -82,32 +88,14 @@ class FSLayer(mongoengine.EmbeddedDocument):
     """
     # This will be the digest of a Blob document.
     blob_sum = mongoengine.StringField(required=True)
+    layer_type = mongoengine.StringField()
 
 
-class Manifest(pulp_models.FileContentUnit):
-    """
-    This model represents a Docker v2, Schema 1 Image Manifest, as described here:
+class UnitMixin(object):
 
-    https://github.com/docker/distribution/blob/release/2.0/docs/spec/manifest-v2-1.md
-    """
-    digest = mongoengine.StringField(required=True)
-    name = mongoengine.StringField(required=True)
-    tag = mongoengine.StringField()
-    schema_version = mongoengine.IntField(required=True)
-    fs_layers = mongoengine.ListField(field=mongoengine.EmbeddedDocumentField(FSLayer),
-                                      required=True)
-    config_layer = mongoengine.StringField()
-
-    # For backward compatibility
-    _ns = mongoengine.StringField(
-        default='units_{type_id}'.format(type_id=constants.MANIFEST_TYPE_ID))
-    _content_type_id = mongoengine.StringField(required=True, default=constants.MANIFEST_TYPE_ID)
-
-    unit_key_fields = ('digest',)
-
-    meta = {'collection': 'units_{type_id}'.format(type_id=constants.MANIFEST_TYPE_ID),
-            'indexes': ['name', 'tag'],
-            'allow_inheritance': False}
+    meta = {
+        'abstract': True,
+    }
 
     @staticmethod
     def calculate_digest(manifest, algorithm='sha256'):
@@ -135,7 +123,7 @@ class Manifest(pulp_models.FileContentUnit):
             # digest.
             protected = decoded_manifest['signatures'][0]['protected']
             # Add back the missing padding to the protected block so that it is valid base64.
-            protected = Manifest._pad_unpadded_b64(protected)
+            protected = UnitMixin._pad_unpadded_b64(protected)
             # Now let's decode the base64 and load it as a dictionary so we can get the length
             protected = base64.b64decode(protected)
             protected = json.loads(protected)
@@ -147,7 +135,7 @@ class Manifest(pulp_models.FileContentUnit):
             # trimmed Manifest to get the correct digest. We'll do this as a one liner since it is
             # a very similar process to what we've just done above to get the protected block
             # decoded.
-            signed_tail = base64.b64decode(Manifest._pad_unpadded_b64(protected['formatTail']))
+            signed_tail = base64.b64decode(UnitMixin._pad_unpadded_b64(protected['formatTail']))
             # Now we can reconstruct the original Manifest that the digest should be based on.
             manifest = manifest[:signed_length] + signed_tail
         hasher = getattr(hashlib, algorithm)
@@ -180,10 +168,34 @@ class Manifest(pulp_models.FileContentUnit):
         paddings = {0: '', 2: '==', 3: '='}
         return unpadded_b64 + paddings[len(unpadded_b64) % 4]
 
+
+class Manifest(pulp_models.FileContentUnit, UnitMixin):
+    """
+    This model represents a Docker v2, Schema 1 Image Manifest and Schema 2 Image Manifest.
+
+    https://github.com/docker/distribution/blob/release/2.0/docs/spec/manifest-v2-1.md
+    https://github.com/docker/distribution/blob/release/2.3/docs/spec/manifest-v2-2.md#image-manifest
+    """
+    digest = mongoengine.StringField(required=True)
+    schema_version = mongoengine.IntField(required=True)
+    fs_layers = mongoengine.ListField(field=mongoengine.EmbeddedDocumentField(FSLayer),
+                                      required=True)
+    config_layer = mongoengine.StringField()
+
+    # For backward compatibility
+    _ns = mongoengine.StringField(
+        default='units_{type_id}'.format(type_id=constants.MANIFEST_TYPE_ID))
+    _content_type_id = mongoengine.StringField(required=True, default=constants.MANIFEST_TYPE_ID)
+
+    unit_key_fields = ('digest',)
+    meta = {'collection': 'units_{type_id}'.format(type_id=constants.MANIFEST_TYPE_ID),
+            'indexes': [],
+            'allow_inheritance': False}
+
     @classmethod
-    def from_json(cls, manifest_json, digest, tag, upstream_name):
+    def from_json(cls, manifest_json, digest):
         """
-        Construct and return a DockerManifest from the given JSON document.
+        Construct and return a Docker Manifest from the given JSON document.
 
         :param manifest_json: A JSON document describing a DockerManifest object as defined by the
                               Docker v2, Schema 1 Image Manifest documentation.
@@ -191,26 +203,19 @@ class Manifest(pulp_models.FileContentUnit):
         :param digest:        The content digest of the manifest, as described at
                               https://docs.docker.com/registry/spec/api/#content-digests
         :type  digest:        basestring
-        :param tag:           Tag of the image repository
-        :type  tag:           basestring
-        :param upstream_name: Name of the upstream repository
-        :type  upstream_name: basestring
 
-        :return:              An initialized DockerManifest object
-        :rtype:               pulp_docker.common.models.DockerManifest
+        :return:              An initialized Docker Manifest object
+        :rtype:               pulp_docker.plugins.models.Manifest
         """
-        # manifest schema version 2 does not contain tag and name information
-        # we need to retrieve them from other sources, that's why there were added 2 more
-        # parameters in this method
         manifest = json.loads(manifest_json)
         config_layer = None
         try:
-            fs_layers = [FSLayer(blob_sum=layer['digest']) for layer in manifest['layers']]
+            fs_layers = [FSLayer(blob_sum=layer['digest'],
+                         layer_type=layer['mediaType']) for layer in manifest['layers']]
             config_layer = manifest['config']['digest']
         except KeyError:
             fs_layers = [FSLayer(blob_sum=layer['blobSum']) for layer in manifest['fsLayers']]
-        return cls(digest=digest, name=upstream_name, tag=tag,
-                   schema_version=manifest['schemaVersion'], fs_layers=fs_layers,
+        return cls(digest=digest, schema_version=manifest['schemaVersion'], fs_layers=fs_layers,
                    config_layer=config_layer)
 
     def get_symlink_name(self):
@@ -222,11 +227,134 @@ class Manifest(pulp_models.FileContentUnit):
         return '/'.join(('manifests', str(self.schema_version), self.digest))
 
 
+class ManifestList(pulp_models.FileContentUnit, UnitMixin):
+    """
+    This model represents a Docker v2, Schema 2 Manifest list, as described here:
+
+    https://github.com/docker/distribution/blob/release/2.3/docs/spec/manifest-v2-2.md#manifest-list
+    """
+    digest = mongoengine.StringField(required=True)
+    schema_version = mongoengine.IntField(required=True)
+    manifests = mongoengine.ListField(mongoengine.StringField(), required=True)
+    amd64_digest = mongoengine.StringField()
+    amd64_schema_version = mongoengine.IntField()
+
+    # For backward compatibility
+    _ns = mongoengine.StringField(
+        default='units_{type_id}'.format(type_id=constants.MANIFEST_LIST_TYPE_ID))
+    _content_type_id = mongoengine.StringField(required=True,
+                                               default=constants.MANIFEST_LIST_TYPE_ID)
+
+    unit_key_fields = ('digest',)
+
+    meta = {'collection': 'units_{type_id}'.format(type_id=constants.MANIFEST_LIST_TYPE_ID),
+            'indexes': [],
+            'allow_inheritance': False}
+
+    @classmethod
+    def from_json(cls, manifest_list_json, digest):
+        """
+        Construct and return a Docker ManifestList from the given JSON document.
+
+        :param manifest_list_json: A JSON document describing a ManifestList object as defined by
+                                   the Docker v2, Schema 2 Manifest List documentation.
+        :type  manifest_list_json: basestring
+        :param digest:             The content digest of the manifest, as described at
+                                   https://docs.docker.com/registry/spec/api/#content-digests
+        :type  digest:             basestring
+
+        :return:                   An initialized ManifestList object
+        :rtype:                    pulp_docker.plugins.models.ManifestList
+        """
+        manifest_list = json.loads(manifest_list_json)
+        # we will store here the digests of image manifests that manifest list contains
+        manifests = []
+        amd64_digest = None
+        amd64_schema_version = None
+        for image_man in manifest_list['manifests']:
+            manifests.append(image_man['digest'])
+            # we need to store separately the digest for the amd64 linux image manifest for later
+            # conversion. There can be several image manifests that would match the ^ criteria but
+            # we would keep just the first occurence.
+            if image_man['platform']['architecture'] == 'amd64' and \
+                    image_man['platform']['os'] == 'linux' and not amd64_digest:
+                amd64_digest = image_man['digest']
+                if image_man['mediaType'] == constants.MEDIATYPE_MANIFEST_S2:
+                    amd64_schema_version = 2
+                else:
+                    amd64_schema_version = 1
+
+        return cls(digest=digest, schema_version=manifest_list['schemaVersion'],
+                   manifests=manifests, amd64_digest=amd64_digest,
+                   amd64_schema_version=amd64_schema_version)
+
+    @staticmethod
+    def check_json(manifest_list_json):
+        """
+        Check the structure of a manifest list json file.
+
+        This function is a sanity check to make sure the JSON contains the
+        correct structure. It does not validate with the database.
+
+        :param manifest_list_json: A JSON document describing a ManifestList object as defined by
+                                   the Docker v2, Schema 2 Manifest List documentation.
+        :type  manifest_list_json: basestring
+
+        :raises PulpCodedValidationException: DKR1011 if manifest_list_json is invalid JSON
+        :raises PulpCodedValidationException: DKR1012 if Manifest List has an invalid mediaType
+        :raises PulpCodedValidationException: DKR1014 if any of the listed Manifests contain invalid
+                                              mediaType
+        :raises PulpCodedValidationException: DKR1015 if Manifest List does not have all required
+                                              fields.
+        :raises PulpCodedValidationException: DKR1016 if any Image Manifest in the list does not
+                                              have all required fields.
+        """
+        try:
+            manifest_list = json.loads(manifest_list_json)
+        except ValueError:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1011)
+
+        for field in MANIFEST_LIST_REQUIRED_FIELDS:
+            if field not in manifest_list:
+                raise PulpCodedValidationException(error_code=error_codes.DKR1015,
+                                                   field=field)
+
+        if manifest_list['mediaType'] != constants.MEDIATYPE_MANIFEST_LIST:
+            raise PulpCodedValidationException(error_code=error_codes.DKR1012,
+                                               media_type=manifest_list['mediaType'])
+
+        for image_manifest_dict in manifest_list['manifests']:
+            for field in IMAGE_MANIFEST_REQUIRED_FIELDS:
+                if field not in image_manifest_dict:
+                    raise PulpCodedValidationException(error_code=error_codes.DKR1016,
+                                                       field=field)
+            for field in IMAGE_MANIFEST_REQUIRED_PLATFORM_SUBFIELDS:
+                if field not in image_manifest_dict['platform']:
+                    subfield = "platform.{field}".format(field=field)
+                    raise PulpCodedValidationException(error_code=error_codes.DKR1016,
+                                                       field=subfield)
+
+            if image_manifest_dict['mediaType'] not in [constants.MEDIATYPE_MANIFEST_S2,
+                                                        constants.MEDIATYPE_MANIFEST_S1,
+                                                        constants.MEDIATYPE_SIGNED_MANIFEST_S1]:
+                raise PulpCodedValidationException(error_code=error_codes.DKR1014,
+                                                   digest=image_manifest_dict['digest'])
+
+    def get_symlink_name(self):
+        """
+        Provides the name that should be used when creating a symlink.
+        :return: file name as it appears in a published repository
+        :rtype: str
+        """
+        return '/'.join(('manifests', 'list', self.digest))
+
+
 class TagQuerySet(querysets.QuerySetPreventCache):
     """
     This is a custom QuerySet for the Tag model that allows it to have some custom behavior.
     """
-    def tag_manifest(self, repo_id, tag_name, manifest_digest, schema_version):
+    def tag_manifest(self, repo_id, tag_name, manifest_digest, schema_version, manifest_type,
+                     pulp_user_metadata=None):
         """
         Tag a Manifest in a repository by trying to create a Tag object with the given tag_name and
         repo_id referencing the given Manifest digest. Tag objects have a uniqueness constraint on
@@ -243,20 +371,31 @@ class TagQuerySet(querysets.QuerySetPreventCache):
         :type  manifest_digest: basestring
         :param schema_version:  The schema version  of the Manifest that is being tagged
         :type  schema_version:  int
+        :param manifest_type:  image manifest or manifest list type
+        :type  manifest_type:  basestring
         :return:                If a new Tag is created it is returned. Otherwise None is returned.
         :rtype:                 Either a pulp_docker.plugins.models.Tag or None
         """
+        unit_keys = dict(
+            name=tag_name, repo_id=repo_id,
+            schema_version=schema_version, manifest_type=manifest_type)
+        unit_md = dict(manifest_digest=manifest_digest)
+        if pulp_user_metadata is not None:
+            # Syncing should not overwrite existing pulp_user_metadata
+            unit_md.update(pulp_user_metadata=pulp_user_metadata)
         try:
-            tag = Tag(name=tag_name, manifest_digest=manifest_digest, repo_id=repo_id,
-                      schema_version=schema_version)
+            tag = Tag(**dict(unit_keys, **unit_md))
             tag.save()
         except mongoengine.NotUniqueError:
-            # There is already a Tag with the given name and repo_id, so let's just make sure it's
-            # digest is updated. No biggie.
-            # Let's check if the manifest_digest changed
-            tag = Tag.objects.get(name=tag_name, repo_id=repo_id, schema_version=schema_version)
-            if tag.manifest_digest != manifest_digest:
-                tag.manifest_digest = manifest_digest
+            # There is already a Tag with the given unique keys, so let's just make sure its
+            # other fields are updated
+            tag = Tag.objects.get(**unit_keys)
+            changed = False
+            for k, v in unit_md.items():
+                if getattr(tag, k) != v:
+                    changed = True
+                    setattr(tag, k, v)
+            if changed:
                 # we don't need to set _last_updated field because it is done with pre_save signal
                 tag.save()
         return tag
@@ -281,12 +420,13 @@ class Tag(pulp_models.ContentUnit):
     # repository.
     repo_id = mongoengine.StringField(required=True)
     schema_version = mongoengine.IntField(required=True)
+    manifest_type = mongoengine.StringField(required=True)
 
     # For backward compatibility
     _ns = mongoengine.StringField(default='units_{type_id}'.format(type_id=constants.TAG_TYPE_ID))
     _content_type_id = mongoengine.StringField(required=True, default=constants.TAG_TYPE_ID)
 
-    unit_key_fields = ('name', 'repo_id', 'schema_version')
+    unit_key_fields = ('name', 'repo_id', 'schema_version', 'manifest_type')
 
     # Pulp has a bug where it does not install a uniqueness constraint for us based on the
     # unit_key_fields we defined above: https://pulp.plan.io/issues/1477

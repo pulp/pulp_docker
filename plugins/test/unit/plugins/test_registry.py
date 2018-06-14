@@ -515,9 +515,10 @@ class TestV2Repository(unittest.TestCase):
             self.assertEqual(type(request.destination), type(StringIO()))
             report = DownloadReport(request.url, request.destination)
             report.download_succeeded()
+            schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
             report.headers = {'Docker-Distribution-API-Version': 'registry/2.0',
                               'docker-content-digest': digest,
-                              'Content-Type': 'not schema2 type'}
+                              'content-type': schema2}
             report.destination.write(manifest)
             return report
 
@@ -531,9 +532,10 @@ class TestV2Repository(unittest.TestCase):
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
             manifest = manifest_file.read()
 
-        m = r.get_manifest('best_version_ever')
+        schema2 = 'application/vnd.docker.distribution.manifest.v2+json'
+        m = r.get_manifest('best_version_ever', None, None)
 
-        self.assertEqual([(manifest, digest)], m)
+        self.assertEqual([(manifest, digest, schema2)], m)
 
     def test_get_tags(self):
         """
@@ -578,7 +580,7 @@ class TestV2Repository(unittest.TestCase):
 
         self.assertEqual(assertion.exception.error_code, error_codes.DKR1007)
 
-    @mock.patch('pulp_docker.plugins.token_util.request_token')
+    @mock.patch('pulp_docker.plugins.auth_util.request_token')
     @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader.download_one')
     def test__get_path_failed(self, mock_download_one, mock_request_token):
         """
@@ -593,6 +595,7 @@ class TestV2Repository(unittest.TestCase):
         report = DownloadReport(registry_url + '/some/path', StringIO())
         report.error_report['response_code'] = httplib.UNAUTHORIZED
         report.state = DownloadReport.DOWNLOAD_FAILED
+        report.headers = {}
         mock_download_one.return_value = report
 
         # The request will fail because the requested path does not exist

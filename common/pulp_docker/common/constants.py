@@ -1,6 +1,9 @@
 BLOB_TYPE_ID = 'docker_blob'
 IMAGE_TYPE_ID = 'docker_image'
 MANIFEST_TYPE_ID = 'docker_manifest'
+MANIFEST_LIST_TYPE_ID = 'docker_manifest_list'
+MANIFEST_LIST_TYPE = 'list'
+MANIFEST_IMAGE_TYPE = 'image'
 TAG_TYPE_ID = 'docker_tag'
 IMPORTER_TYPE_ID = 'docker_importer'
 IMPORTER_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_importer.json'
@@ -10,6 +13,7 @@ CLI_WEB_DISTRIBUTOR_ID = 'docker_web_distributor_name_cli'
 CLI_EXPORT_DISTRIBUTOR_ID = 'docker_export_distributor_name_cli'
 DISTRIBUTOR_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_distributor.json'
 DISTRIBUTOR_EXPORT_CONFIG_FILE_NAME = 'server/plugins.conf.d/docker_distributor_export.json'
+FOREIGN_LAYER = 'application/vnd.docker.image.rootfs.foreign.diff.tar.gzip'
 
 REPO_NOTE_DOCKER = 'docker-repo'
 
@@ -44,6 +48,8 @@ UPLOAD_STEP = 'upload_units_step'
 UPLOAD_STEP_METADATA = 'upload_step_metadata'
 UPLOAD_STEP_SAVE = 'upload_step_save'
 UPLOAD_TAG_STEP = 'upload_tags_step'
+UPLOAD_STEP_IMAGE_MANIFEST = 'upload_step_image_manifest'
+UPLOAD_STEP_MANIFEST_LIST = 'upload_step_manifest_list'
 
 # Keys that are specified on the repo config
 PUBLISH_STEP_WEB_PUBLISHER = 'publish_to_web'
@@ -51,6 +57,7 @@ PUBLISH_STEP_EXPORT_PUBLISHER = 'export_to_tar'
 PUBLISH_STEP_BLOBS = 'publish_blobs'
 PUBLISH_STEP_IMAGES = 'publish_images'
 PUBLISH_STEP_MANIFESTS = 'publish_manifests'
+PUBLISH_STEP_MANIFEST_LISTS = 'publish_manifest_lists'
 PUBLISH_STEP_REDIRECT_FILE = 'publish_redirect_file'
 PUBLISH_STEP_TAGS = 'publish_tags'
 PUBLISH_STEP_OVER_HTTP = 'publish_images_over_http'
@@ -61,3 +68,10 @@ PUBLISH_STEP_TAR = 'save_tar'
 # on the repo scratchpad
 IMAGE_TAG_KEY = 'tag'
 IMAGE_ID_KEY = 'image_id'
+
+MEDIATYPE_MANIFEST_LIST = 'application/vnd.docker.distribution.manifest.list.v2+json'
+MEDIATYPE_MANIFEST_S1 = 'application/vnd.docker.distribution.manifest.v1+json'
+MEDIATYPE_MANIFEST_S2 = 'application/vnd.docker.distribution.manifest.v2+json'
+MEDIATYPE_SIGNED_MANIFEST_S1 = 'application/vnd.docker.distribution.manifest.v1+prettyjws'
+
+SUPPORTED_TYPES = (IMAGE_TYPE_ID, BLOB_TYPE_ID, MANIFEST_TYPE_ID, TAG_TYPE_ID)

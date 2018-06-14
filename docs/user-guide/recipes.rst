@@ -7,7 +7,7 @@ Recipes
 
 Configuring Crane with pulp_docker
 ----------------------------------
-The `Crane`_ project can be used to make Docker repositories hosted by Pulp available
+The `Crane`_ project is meant to be used to make Docker repositories hosted by Pulp available
 to the Docker client. This allows a ``docker pull`` to be performed against data
 that is published by the Pulp server.
 
@@ -24,6 +24,14 @@ appropriate path. If you plan to serve both, Crane can scan the whole
 ``/var/lib/pulp/published/docker`` path, filtering for ``*.json`` files. Crane
 will check the ``data_dir`` for updates periodically.
 
+.. note::
+
+   As mentioned above, Crane is able to serve both content version V1 and V2, though it is
+   required to have installed proper docker client version which will be capable to fetch the content.
+   Bear in mind that in newer docker client versions, interaction with V1 registries is deprecated, and
+   since version 1.13 support for the V1 protocol is removed.
+   For more info check `docker docs <https://docs.docker.com/engine/deprecated/#interacting-with-v1-registries>`_
+
 Full documentation for /etc/crane.conf can be found in the Crane `README`_.
 
 
@@ -35,7 +43,7 @@ version 0.2.1. As of version 2.0.0, it can synchronize with either Docker v1 or
 v2 registries.
 
 .. note::
-   
+
     ``registry-1.docker.io`` is a Docker V2 Registry API. For V1 API
     ``index.docker.io`` should be used, along with ``--enable-v1 true`` and
     ``--enable-v2 false``. Please note however that V1 content is deprecated
@@ -45,46 +53,46 @@ v2 registries.
 
     $ pulp-admin docker repo create --repo-id=synctest --feed=https://registry-1.docker.io --upstream-name=busybox
     Repository [synctest] successfully created
-    
+
     $ pulp-admin docker repo sync run --repo-id synctest
     +----------------------------------------------------------------------+
                       Synchronizing Repository [synctest]
     +----------------------------------------------------------------------+
-    
+
     This command may be exited via ctrl+c without affecting the request.
-    
-    
+
+
     Downloading manifests
     [\]
     ... completed
-    
+
     Copying units already in pulp
     [-]
     ... completed
-    
+
     Copying units already in pulp
     [-]
     ... completed
-    
+
     Downloading remote files
     [==================================================] 100%
     11 of 11 items
     ... completed
-    
+
     Saving Manifests and Blobs
     [-]
     ... completed
-    
+
     Saving Tags
     [-]
     ... completed
-    
-    
+
+
     Task Succeeded
-    
-    
-    
-    
+
+
+
+
     Task Succeeded
 
 
@@ -149,15 +157,15 @@ to ``pulpdemo/synctest``::
     [\]
     Running...
     Updating distributor: docker_web_distributor_name_cli
-    
+
     Task Succeeded
-    
-    
-    
+
+
+
     [\]
     Running...
     Updating distributor: docker_export_distributor_name_cli
-    
+
     Task Succeeded
 
 Then a publish operation can be executed::
@@ -166,11 +174,11 @@ Then a publish operation can be executed::
     +----------------------------------------------------------------------+
                         Publishing Repository [synctest]
     +----------------------------------------------------------------------+
-    
+
     This command may be exited via ctrl+c without affecting the request.
-    
-    
-    
+
+
+
     Task Succeeded
 
 `Crane`_ can now be run on the same machine serving the Docker repository through
@@ -180,14 +188,7 @@ its Docker-registry-like read-only API.
 Upload v1 Images to Pulp
 ------------------------
 
-.. note::
-
-    As of the time of this writing, ``docker save`` can only output Docker v1
-    content. Thus, only Docker v1 content can be uploaded to Pulp for now. In
-    order to get your own Docker v2 content into Pulp, it is possible to run
-    your own Docker registry and point Pulp's feed URL at it and synchronize.
-
-To upload a Docker Image to Pulp, first you must save its repository with Docker.
+To upload a Docker v1 Image to Pulp, first you must save its repository with Docker.
 Note that the below command saves all of the Images and tags in the ``busybox``
 repository to a tarball::
 
@@ -355,6 +356,175 @@ both a JSON file for use with crane, and the static Image files to which crane
 will redirect requests. See the `Crane`_ documentation for how to use that
 tarball.
 
+
+Upload v2 schema 2 and schema 1 Images to Pulp
+----------------------------------------------
+
+.. _Skopeo: https://github.com/projectatomic/skopeo
+
+To upload a Docker Image to Pulp, first you must save its repository with `Skopeo`_.
+Note that the below command saves the image in the ``busybox``
+repository to a directory::
+
+    $ skopeo copy --format v2s2 docker://busybox:latest dir:existingemptydirectory
+
+.. note::
+
+    With ``skopeo copy --format`` schema version ``v2s1`` or ``v2s2`` can be specified.
+    If no format is specified manifest type of source will be saved.
+
+Before uploading the image to a Pulp repository, you need to create a tarball
+with the directory contents created by ``skopeo copy``::
+
+    $ cd existingemptydirectory/ && tar -cvf ../image-name.tar * && cd ..
+
+
+.. note::
+
+    The tarball is only required to contain blob files for layers referenced in the manifest if they
+    are not already contained in the specified repository. Blob files included in the tarball that are
+    already contained in the repository will be ignored.
+
+Then create a Pulp repository and run an upload command with ``pulp-admin``::
+
+    $ pulp-admin docker repo create --repo-id=schema2
+    Repository [schema2] successfully created
+
+    $ pulp-admin docker repo uploads upload --repo-id schema2 -f image-name.tar
+
+    +----------------------------------------------------------------------+
+                              Unit Upload
+    +----------------------------------------------------------------------+
+
+    Extracting necessary metadata for each request...
+    [==================================================] 100%
+    Analyzing: image-name.tar
+    ... completed
+
+    Creating upload requests on the server...
+    [==================================================] 100%
+    Initializing: image-name.tar
+    ... completed
+
+    Starting upload of selected units. If this process is stopped through ctrl+c,
+    the uploads will be paused and may be resumed later using the resume command or
+    canceled entirely using the cancel command.
+
+    Uploading: image-name.tar
+    [==================================================] 100%
+    737280/737280 bytes
+    ... completed
+
+    Importing into the repository...
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [\]
+    Running...
+
+    Task Succeeded
+
+
+    Deleting the upload request...
+    ... completed
+
+
+The Blobs and Manifest are now in the Pulp repository::
+
+    +----------------------------------------------------------------------+
+                              Docker Repositories
+    +----------------------------------------------------------------------+
+
+    Id:                  schema2
+    Display Name:        None
+    Description:         None
+    Content Unit Counts:
+        Docker Blob:     2
+        Docker Manifest: 1
+
+.. note::
+
+    ``skopeo copy`` looses all the tags in the repository, therefore the manifests
+    need to be tagged as a separate step after uploading it.
+
+::
+
+    $ pulp-admin docker repo search manifest --repo-id schema2
+
+    Created:      2018-02-14T16:06:12Z
+    Metadata:
+      Config Layer:       sha256:5b0d59026729b68570d99bc4f3f7c31a2e4f2a5736435641565
+                          d93e7c25bd2c3
+      Digest:             sha256:d5483f2ed144c808d4b077f5ec6821d2b3c378ca6cd5a3a5ef9
+                          927b99ac28f99
+      Downloaded:         True
+      Fs Layers:
+        Blob Sum:   sha256:57310166fe88e0dc63a80ca5c219283a932db0f3969712e2f8a86ada1
+                    43bf566
+        Layer Type: application/vnd.docker.image.rootfs.diff.tar.gzip
+      Pulp User Metadata:
+      Schema Version:     2
+    Repo Id:      schema2
+    Unit Id:      db9071ed-36f0-44dc-b759-fdf58f065bef
+    Unit Type Id: docker_manifest
+    Updated:      2018-02-14T16:06:12Z
+
+
+.. tip::
+
+    To upload v2 schema 1 image manifest repeat steps mentioned aboved, just specify the format
+    ``skopeo copy --format v2s1``
+
+
+Uploading a Manifest List
+-------------------------
+
+Manifests referenced by the Manifest List must already be associated to
+the target repository. For this example, start with a synced busybox
+repository.::
+
+   $ pulp-admin docker repo sync run --repo-id busybox
+
+To upload your Manifest List, use the ``upload`` command::
+
+   $ pulp-admin docker repo uploads upload --repo-id=busybox --manifest-list -f your_manifest_list.json
+   +----------------------------------------------------------------------+
+                                 Unit Upload
+   +----------------------------------------------------------------------+
+
+   Extracting necessary metadata for each request...
+   [==================================================] 100%
+   Analyzing: your_manifest_list.json
+   ... completed
+
+   Creating upload requests on the server...
+   [==================================================] 100%
+   Initializing: your_manifest_list.json
+   ... completed
+
+   Starting upload of selected units. If this process is stopped through ctrl+c,
+   the uploads will be paused and may be resumed later using the resume command or
+   canceled entirely using the cancel command.
+
+   Uploading: your_manifest_list.json
+   [==================================================] 100%
+   1358/1358 bytes
+   ... completed
+
+   Importing into the repository...
+   This command may be exited via ctrl+c without affecting the request.
+
+
+   [\]
+   Running...
+
+   Task Succeeded
+
+
+   Deleting the upload request...
+   ... completed
+
+
 Tagging a Manifest
 ------------------
 
@@ -365,62 +535,162 @@ to only one manifest.
 
 .. note::
 
-    Pulp now supports manifest schema 1 and schema 2 versions. So when tagging a manifest,
-    bear in mind that within a repo there could be two tags with the same name but pointing
-    to manifests with different schema versions.
+    Pulp now supports image manifest schema 1 and schema 2 versions, same as manifest lists schema 2.
+    So when tagging a manifest( image or list), bear in mind that within a repo there could be two
+    tags with the same name but pointing to manifests with different schema versions.
 
 
-For instance, suppose we have the following manifests::
+For instance, suppose we have the following image manifest that is tagged ::
 
-    $ pulp-admin docker repo search manifest --repo-id busybox
-    Created:      2016-11-10T16:27:30Z
-    Metadata:     
-      Digest:             sha256:4eccca494e527311eb4a4ebee1f90d9362971d882bb22fd7ded
-                          46d517129b1ac
-      Downloaded:         True
-      Fs Layers:          
-        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
-                  b46d4
-        Blob Sum: sha256:191ff942861f5cfdc97ba2e76b5dec5f3894a9c21d6f88fbeaec2ea373c
-                  c657a
-        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
-                  b46d4
-      Name:               library/busybox
-      Pulp User Metadata: 
+    pulp-admin docker repo search tag --repo-id man-list --str-eq='name=uclibc'
+
+    Created:      2017-07-12T11:43:29Z
+    Metadata:
+      Manifest Digest:    sha256:26b0ddb0504097612cd7ed2265eade43f2490cd111a7cfcf7d1
+                          51dba83b20a5e
+      Manifest Type:      image
+      Name:               uclibc
+      Pulp User Metadata:
+      Repo Id:            man-list
       Schema Version:     1
-      Tag:                latest
-    Repo Id:      busybox
-    Unit Id:      f064d1e9-0cbf-40ec-9648-85acbcc5e348
-    Unit Type Id: docker_manifest
-    Updated:      2016-11-10T16:27:30Z
+    Repo Id:      man-list
+    Unit Id:      a37aa675-194c-4f07-925b-e1e12d98ad85
+    Unit Type Id: docker_tag
+    Updated:      2017-07-12T11:43:29Z
 
-    Created:      2016-11-10T16:27:30Z
-    Metadata:     
-      Digest:             sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c0
-                          70b2844a0f56d
-      Downloaded:         True
-      Fs Layers:          
-        Blob Sum: sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955
-                  b46d4
-        Blob Sum: sha256:8ddc19f16526912237dd8af81971d5e4dd0587907234be2b83e249518d5
-                  b673f
-      Name:               library/busybox
-      Pulp User Metadata: 
-      Schema Version:     1
-      Tag:                latest
-    Repo Id:      busybox
-    Unit Id:      f0663d57-a8d9-4093-a90c-5603280eafa3
-    Unit Type Id: docker_manifest
-    Updated:      2016-11-10T16:27:30Z
-
-If we have a tag named latest and it points to the first manifest with digest
-sha256:4ecca..., we can point it to the second manifest with the following
+If we have a tag named uclibc and it points to the manifest with digest
+sha256:26b0ddb0..., we can point it to the new manifest with the following
 command::
 
-    $ pulp-admin docker repo tag --repo-id busybox --tag-name latest --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
+    $ pulp-admin docker repo tag --repo-id busybox --tag-name latest --digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
 
 We can also create a new tag and point it to the same manifest with::
 
-    $ pulp-admin docker repo tag --repo-id busybox --tag-name 1.2 --manifest-digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
+    $ pulp-admin docker repo tag --repo-id busybox --tag-name 1.2 --digest sha256:c152ddeda2b828fbb610cb9e4cb121e1879dd5301d336f0a6c070b2844a0f56d
 
 
+Copy
+----
+
+The ``docker repo copy`` command can be used to copy docker v1 and v2 content.
+In this recipe, we will go through the copy process of different docker content types ::
+
+    $ pulp-admin docker repo list
+
+    +----------------------------------------------------------------------+
+                              Docker Repositories
+    +----------------------------------------------------------------------+
+
+    Id:                  containers
+    Display Name:        None
+    Description:         None
+    Content Unit Counts:
+      Docker Blob:          93
+      Docker Manifest:      115
+      Docker Manifest List: 4
+      Docker Tag:           128
+
+    Id:                  containers2
+    Display Name:        None
+    Description:         None
+    Content Unit Counts:
+
+
+Let's copy all image manifests from repo `containers` to the destination repo `containers2` ::
+
+    $ pulp-admin docker repo copy manifest --from-repo-id containers --to-repo-id containers2
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [|]
+    Running...
+
+    Copied:
+      docker_blob: 93
+      docker_manifest: 115
+
+
+As you can see during the copy of image manifests, all referenced blobs were carried over as well.
+Note that tags are lost during the copy of the manifests.
+
+  ::
+    $ pulp-admin docker repo copy
+
+    Usage: pulp-admin [SUB_SECTION, ..] COMMAND
+    Description: content copy commands
+
+    Available Commands:
+      image         - copies images from one repository into another
+      manifest      - copies manifests from one repository into another
+      manifest-list - copies manifest lists from one repository into another
+      tag           - copies tags from one repository into another
+
+
+* If a manifest list is copied, all listed image manifests within the manifest list and blobs
+  will be carried over. Tags of image manifests will not be copied.
+* If a tag which references an image manifest is copied, image manifest and all its blobs will
+  be copied over.
+* If a tag which references a manifest list is copied, the manifest list, all listed image manifests
+  within the manifest list and blobs will be carried over. Tags of images manifests will not be copied.
+
+
+Remove
+------
+
+The ``docker repo remove`` command can be used to remove docker v1 and v2 content from the repository.
+In this recipe, we will go through the removal process of different docker content types.
+
+Let's remove a tag with the name `latest` ::
+
+    $ pulp-admin docker repo remove tag --repo-id containers --str-eq=name=latest
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [\]
+    Running...
+
+    Units Removed:
+      latest
+      latest
+
+There were removed two tags with the name `latest` because one tag was referencing an image manifest
+and the second tag was referencing a manifest list.
+
+In case it is desired to remove a specific tag which references, for example, manifest list, then `manifest type` should be specified ::
+
+    $ pulp-admin docker repo remove tag --repo-id containers --str-eq=name=glibc --str-eq='manifest_type=list'
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    [\]
+    Running...
+
+    Units Removed:
+      glibc
+
+  ::
+
+    $ pulp-admin docker repo remove
+
+    Usage: pulp-admin [SUB_SECTION, ..] COMMAND
+    Description: content removal commands
+
+    Available Commands:
+      image         - remove images from a repository
+      manifest      - remove manifests from a repository
+      manifest-list - remove manifest lists from a repository
+      tag           - remove tags from a repository
+
+* If a tag is removed, just the tag itself will be removed from the repository.
+* If a manifest list is removed, all its image manifests which don't have tags and are not
+  referenced in any other manifest list will be removed from the repo. Orphaned blobs from removed
+  image manifests will be removed as well.
+* If an image manifest is removed, all its blobs, which are not referenced in any other image
+  manifests within the repo, will be removed as well.
+
+.. warning::
+    Please make sure that when you remove an image manifest, it is not referenced in any manifest
+    lists within the repo, otherwise you risk to corrupt a manifest list.

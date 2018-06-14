@@ -4,11 +4,9 @@ import logging
 from pulp.common.config import read_json_config
 from pulp.plugins.distributor import Distributor
 
-from pulp_docker.common.constants import BLOB_TYPE_ID, IMAGE_TYPE_ID, MANIFEST_TYPE_ID, TAG_TYPE_ID
+from pulp_docker.common import constants
 from pulp_docker.plugins.distributors import configuration
 from pulp_docker.plugins.distributors.publish_steps import DockerRsyncPublisher
-
-TYPES = (IMAGE_TYPE_ID, BLOB_TYPE_ID, MANIFEST_TYPE_ID, TAG_TYPE_ID)
 
 TYPE_ID_DISTRIBUTOR_DOCKER_RSYNC = 'docker_rsync_distributor'
 CONF_FILE_PATH = 'server/plugins.conf.d/%s.json' % TYPE_ID_DISTRIBUTOR_DOCKER_RSYNC
@@ -47,7 +45,7 @@ class DockerRsyncDistributor(Distributor):
         """
         return {'id': TYPE_ID_DISTRIBUTOR_DOCKER_RSYNC,
                 'display_name': DISTRIBUTOR_DISPLAY_NAME,
-                'types': TYPES}
+                'types': constants.SUPPORTED_TYPES}
 
     # -- repo lifecycle methods ------------------------------------------------
 

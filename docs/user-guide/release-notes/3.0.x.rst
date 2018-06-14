@@ -1,0 +1,29 @@
+3.0 Release Notes
+=================
+
+3.0.2
+-----
+
+See the :fixedbugs_pulp_docker:`3.0.2`.
+
+3.0.1
+-----
+
+See the :fixedbugs_pulp_docker:`3.0.1`.
+
+3.0.0
+-----
+
+Manifest List V2 schema version 2 is now supported. It can be normally synced into Pulp from
+docker registry, published and served by Crane. As a relust new unit type `ManifestList` was
+introduced in 3.0.
+Support for image manifest V2 schema version 1 and schema version 2  did not change.
+
+Publish directory structure for manifests has been changed to manage more effectively manifest
+lists. Now each manifest schema version has its own directory `manifests/1`, `manifests/2`
+and `manifests/list`. This change will not affect already published content, it will take place with
+the new publish action.
+
+A new `redirect file` format has been introduced to enable Crane to serve both schema versions.
+
+Existing command, docker repo tag now accepts instead of --manifest-digest --digest option.
