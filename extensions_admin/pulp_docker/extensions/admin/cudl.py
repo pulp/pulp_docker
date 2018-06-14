@@ -53,6 +53,12 @@ d = _('Enable sync of v2 API. defaults to "true"')
 OPT_ENABLE_V2 = PulpCliOption('--enable-v2', d, required=False,
                               parse_func=okaara_parsers.parse_boolean)
 
+d = _('Whitelist of Tags to download. The format of the parameter is '
+      '"<tag_name>,<tag_name>"; for example: "latest,1,". This is only available for v2 content.'
+      'To unset this option use --tags=None')
+OPTION_WHITELIST_TAGS = PulpCliOption('--tags', d, required=False,
+                                      parse_func=okaara_parsers.parse_optional_csv_string)
+
 DESC_FEED = _('URL for the upstream docker index, not including repo name')
 
 
@@ -83,6 +89,10 @@ class CreateUpdateMixin(object):
         if enable_v2 is not None:
             config[constants.CONFIG_KEY_ENABLE_V2] = enable_v2
 
+        whitelist_tags = user_input.pop(OPTION_WHITELIST_TAGS.keyword, None)
+        if whitelist_tags is not None:
+            config[constants.CONFIG_KEY_WHITELIST_TAGS] = whitelist_tags
+
         return config
 
 
@@ -101,6 +111,7 @@ class CreateDockerRepositoryCommand(CreateUpdateMixin, CreateAndConfigureReposit
         self.add_option(OPT_REPO_REGISTRY_ID)
         self.add_option(OPT_ENABLE_V1)
         self.add_option(OPT_ENABLE_V2)
+        self.add_option(OPTION_WHITELIST_TAGS)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 
@@ -159,6 +170,7 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
         self.add_option(OPT_REPO_REGISTRY_ID)
         self.add_option(OPT_ENABLE_V1)
         self.add_option(OPT_ENABLE_V2)
+        self.add_option(OPTION_WHITELIST_TAGS)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 
@@ -172,6 +184,11 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
             importer_config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
 
         if importer_config:
+            whitelist_tags = importer_config.get(OPTION_WHITELIST_TAGS.keyword, None)
+
+            # If tags is set to 'None', unset the field
+            if whitelist_tags == ['None']:
+                importer_config[OPTION_WHITELIST_TAGS.keyword] = None
             kwargs['importer_config'] = importer_config
 
         # Update distributor configuration

@@ -34,6 +34,7 @@ CONFIG_KEY_REPO_REGISTRY_ID = 'repo-registry-id'
 CONFIG_KEY_MASK_ID = 'mask_id'
 CONFIG_KEY_ENABLE_V1 = 'enable_v1'
 CONFIG_KEY_ENABLE_V2 = 'enable_v2'
+CONFIG_KEY_WHITELIST_TAGS = 'tags'
 
 SYNC_STEP_MAIN = 'sync_step_main'
 SYNC_STEP_METADATA = 'sync_step_metadata'

@@ -138,6 +138,56 @@ the old feed URL and enable/disable v1/v2::
     Task Succeeded
 
 
+Whitelist Tags to Sync
+----------------------
+
+By default Pulp will sync all available tags. An optional parameter can be passed to the importer
+to tell Pulp to sync only tags in the list.::
+
+    $ pulp-admin docker repo create --repo-id=whitelistsynctest --feed=https://registry-1.docker.io --upstream-name=busybox --tags=latest,1
+    Repository [whitelistsynctest] successfully created
+
+    $ pulp-admin docker repo sync run --repo-id whitelistsynctest
+    +----------------------------------------------------------------------+
+                  Synchronizing Repository [whitelistsynctest]
+    +----------------------------------------------------------------------+
+
+    This command may be exited via ctrl+c without affecting the request.
+
+
+    Downloading manifests
+    [/]
+    ... completed
+
+    Copying units already in pulp
+    [-]
+    ... completed
+
+    Copying units already in pulp
+    [-]
+    ... completed
+
+    Downloading remote files
+    [==================================================] 100%
+    17 of 17 items
+    ... completed
+
+    Saving Manifests and Blobs
+    [-]
+    ... completed
+
+    Saving Tags
+    [==================================================] 100%
+    4 of 4 items
+    ... completed
+
+
+    Task Succeeded
+
+
+    Task Succeeded
+
+
 Publish
 -------
 

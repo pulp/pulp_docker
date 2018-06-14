@@ -20,3 +20,7 @@ The following docker specific properties are supported:
 
 ``enable_v2``
   Enables the docker v2 protocol. Defaults to True when not specified.
+
+``tags``
+  A CSV whitelist of tags to sync. If not provided, the importer will sync all available tags.
+  This is only available for v2 content.
