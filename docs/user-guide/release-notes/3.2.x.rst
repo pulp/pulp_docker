@@ -4,9 +4,27 @@
 3.2.0
 -----
 
-Blob files for layers referenced in the manifest of an uploaded tarball no longer need to be
-included in the tarball if they are already contained in the specified repository. Blob files
-included in the tarball that are already contained in the repository will be ignored.
+New Features:
+*************
 
-Support for whitelisting tags for v2 content during sync added. If --tags argument is passed,
-only tags in the whitelist are synced, otherwise all tags are synced.
+* Upload a subset of images via tarball:
+
+  * `Issue 3497 <https://pulp.plan.io/issues/3497>`_
+  * Blob files for layers referenced in the manifest of an uploaded tarball no longer need to be
+    included in the tarball if they are already contained in the specified repository. Blob files
+    included in the tarball that are already contained in the repository will be ignored.
+
+* Whitelisting tags for sync: `Issue 3450 <https://pulp.plan.io/issues/3450>`_
+
+  * Support for whitelisting tags for v2 content during sync added.
+  * If --tags argument is passed, only tags in the whitelist are synced, otherwise all tags are synced.
+
+Bug Fixes:
+**********
+
+* Fixed a problem with uploaded tarballs from a new version of Skopeo. `Issue 3703
+  <https://pulp.plan.io/issues/3703>`_
+* Fixed a syncing from google registries. `Issue 3573 <https://pulp.plan.io/issues/3573>`_
+* Fixed uploads for large tarfiles. `Issue 3667 <https://pulp.plan.io/issues/3667>`_
+* Improved error message for incorrect sync credentials. `Issue 3686
+  <https://pulp.plan.io/issues/3686>`_
