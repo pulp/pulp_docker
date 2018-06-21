@@ -9,15 +9,10 @@ implementation for more details.
     https://github.com/pulp/pulp_example/
 """
 
-from gettext import gettext as _
+# from gettext import gettext as _
 from logging import getLogger
 
-from django.db import models
-
-from pulpcore.plugin.models import (Artifact, Content, ContentArtifact, RemoteArtifact, Remote,
-                                    ProgressBar, Publisher, RepositoryVersion, PublishedArtifact,
-                                    PublishedMetadata)
-from pulpcore.plugin.tasking import Task
+from pulpcore.plugin.models import Content, Publisher, Remote
 
 
 log = getLogger(__name__)

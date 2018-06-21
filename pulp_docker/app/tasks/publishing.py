@@ -3,10 +3,7 @@ from gettext import gettext as _
 
 from pulpcore.plugin.models import (
     RepositoryVersion,
-    Publication,
-    PublishedArtifact,
-    PublishedMetadata,
-    RemoteArtifact)
+    Publication)
 from pulpcore.plugin.tasking import WorkingDirectory
 
 from pulp_docker.app.models import DockerPublisher

@@ -82,7 +82,6 @@ class DockerPublisherViewSet(core.PublisherViewSet):
     queryset = models.DockerPublisher.objects.all()
     serializer_class = serializers.DockerPublisherSerializer
 
-
     @detail_route(methods=('post',), serializer_class=RepositoryPublishURLSerializer)
     def publish(self, request, pk):
         """

@@ -1,13 +1,13 @@
 import logging
 from gettext import gettext as _
 
-from pulpcore.plugin.models import Artifact, RepositoryVersion, Repository
-from pulpcore.plugin.changeset import (
-    BatchIterator,
-    ChangeSet,
-    PendingArtifact,
-    PendingContent,
-    SizedIterable)
+from pulpcore.plugin.models import RepositoryVersion, Repository
+# from pulpcore.plugin.changeset import (
+#     BatchIterator,
+#     ChangeSet,
+#     PendingArtifact,
+#     PendingContent,
+#     SizedIterable)
 from pulpcore.plugin.tasking import WorkingDirectory
 
 from pulp_docker.app.models import DockerRemote
@@ -30,13 +30,14 @@ def synchronize(remote_pk, repository_pk):
     """
     remote = DockerRemote.objects.get(pk=remote_pk)
     repository = Repository.objects.get(pk=repository_pk)
-    base_version = RepositoryVersion.latest(repository)
+    # base_version = RepositoryVersion.latest(repository)
 
     if not remote.url:
         raise ValueError(_('An remote must have a url specified to synchronize.'))
 
     with WorkingDirectory():
-        with RepositoryVersion.create(repository) as new_version:
+        # with RepositoryVersion.create(repository) as new_version:
+        with RepositoryVersion.create(repository):
             log.info(
                 _('Synchronizing: repository=%(r)s remote=%(p)s'),
                 {

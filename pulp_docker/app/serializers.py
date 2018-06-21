@@ -8,7 +8,6 @@ implementation for more details.
 .. _pulp_example:
     https://github.com/pulp/pulp_example/
 """
-from rest_framework import serializers
 from pulpcore.plugin import serializers as platform
 
 from . import models
