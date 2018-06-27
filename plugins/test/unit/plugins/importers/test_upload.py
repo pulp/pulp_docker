@@ -25,9 +25,9 @@ class UploadTest(unittest.TestCase):
         self.work_dir = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.work_dir, ignore_errors=True)
 
-    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    @mock.patch('pulp_docker.plugins.importers.upload.Version.from_file')
     def test_AddUnits(self, mock_v, _repo_controller, _Manifest_save, _Blob_save):
-        mock_v.return_value = upload.transport.Version('1.0')
+        mock_v.return_value = upload.Version('1.0')
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
         os.makedirs(step_work_dir)
@@ -45,7 +45,7 @@ class UploadTest(unittest.TestCase):
                      for x in layers)
 
         parent = mock.MagicMock(file_path=img, parent=None, uploaded_unit=None)
-        parent.v2_step_get_local_units.units_to_download = units
+        parent.available_units = units
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -75,9 +75,9 @@ class UploadTest(unittest.TestCase):
             units[0],
             parent.uploaded_unit)
 
-    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    @mock.patch('pulp_docker.plugins.importers.upload.Version.from_file')
     def test_AddUnits_skopeo11(self, mock_v, _repo_controller, _Manifest_save, _Blob_save):
-        mock_v.return_value = upload.transport.Version('1.1')
+        mock_v.return_value = upload.Version('1.1')
 
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
@@ -96,7 +96,7 @@ class UploadTest(unittest.TestCase):
                      for x in layers)
 
         parent = mock.MagicMock(file_path=img, parent=None, uploaded_unit=None)
-        parent.v2_step_get_local_units.units_to_download = units
+        parent.available_units = units
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -127,43 +127,10 @@ class UploadTest(unittest.TestCase):
             units[0],
             parent.uploaded_unit)
 
-    @mock.patch("pulp_docker.plugins.models.Manifest.objects")
-    def test_AddUnits__mf_exists(self, _Manifest_objects, _repo_controller,
-                                 _Manifest_save, _Blob_save):
-        # This is where we will untar the image
-        step_work_dir = os.path.join(self.work_dir, "working_dir")
-        os.makedirs(step_work_dir)
-
-        img, layers = self._create_image()
-        manifest_data = dict(layers=[dict(digest=x['digest'],
-                                          mediaType="ignored")
-                                     for x in layers],
-                             config=dict(digest="abc"),
-                             schemaVersion=2)
-        units = [
-            models.Manifest.from_json(json.dumps(manifest_data), digest="012"),
-        ]
-        units.extend(models.Blob(digest="sha256:%s" % x['digest'])
-                     for x in layers)
-
-        parent = mock.MagicMock(file_path=img, uploaded_unit=None)
-        parent.v2_step_get_local_units.units_to_download = []
-        parent.available_units = units
-        step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
-                               working_dir=step_work_dir)
-        step.parent = parent
-        step.process_lifecycle()
-
-        # Make sure a manifest was looked up and added in the parent's
-        # uploaded_unit
-        self.assertEquals(
-            _Manifest_objects.get.return_value,
-            parent.uploaded_unit)
-
-    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    @mock.patch('pulp_docker.plugins.importers.upload.Version.from_file')
     def test_AddUnits_error_bad_checksum(self, mock_v, _repo_controller, _Manifest_save,
                                          _Blob_save):
-        mock_v.return_value = upload.transport.Version('1.0')
+        mock_v.return_value = upload.Version('1.0')
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
         os.makedirs(step_work_dir)
@@ -182,7 +149,7 @@ class UploadTest(unittest.TestCase):
 
         parent = mock.MagicMock()
         parent.configure_mock(file_path=img, parent=None)
-        parent.v2_step_get_local_units.units_to_download = units
+        parent.available_units = units
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -193,11 +160,11 @@ class UploadTest(unittest.TestCase):
             "Checksum bad-digest (sha256) does not validate",
             str(ctx.exception))
 
-    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    @mock.patch('pulp_docker.plugins.importers.upload.Version.from_file')
     def test_AddUnits_error_missing_layer(self, mock_v, _repo_controller, _Manifest_save,
                                           _Blob_save):
         _repo_controller.find_repo_content_units.return_value = ()
-        mock_v.return_value = upload.transport.Version('1.0')
+        mock_v.return_value = upload.Version('1.0')
 
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
@@ -219,7 +186,7 @@ class UploadTest(unittest.TestCase):
 
         parent = mock.MagicMock()
         parent.configure_mock(file_path=img, parent=None)
-        parent.v2_step_get_local_units.units_to_download = units
+        parent.available_units = units
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -230,10 +197,10 @@ class UploadTest(unittest.TestCase):
             "Layer this-is-missing.tar is not present in the image",
             str(ctx.exception))
 
-    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    @mock.patch('pulp_docker.plugins.importers.upload.Q', mock.Mock)
+    @mock.patch('pulp_docker.plugins.importers.upload.Version.from_file')
     def test_AddUnits_existing_layer(self, mock_v, _repo_controller, _Manifest_save, _Blob_save):
-        mock_v.return_value = upload.transport.Version('1.0')
-        _repo_controller.find_repo_content_units.return_value = (mock.Mock(),)
+        mock_v.return_value = upload.Version('1.0')
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")
         os.makedirs(step_work_dir)
@@ -251,9 +218,17 @@ class UploadTest(unittest.TestCase):
         # This layer not in the tarball.
         units.append(models.Blob(digest="sha256:this-already-in-the-repository"))
 
+        def find_units(units_q, **unused):
+            if units_q.digest == units[-1].digest:
+                return (mock.Mock(),)
+            else:
+                return ()
+
+        _repo_controller.find_repo_content_units.side_effect = find_units
+
         parent = mock.MagicMock()
         parent.configure_mock(file_path=img, parent=None)
-        parent.v2_step_get_local_units.units_to_download = units
+        parent.available_units = units
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -267,12 +242,12 @@ class UploadTest(unittest.TestCase):
             units[0],
             parent.uploaded_unit)
 
-    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    @mock.patch('pulp_docker.plugins.importers.upload.Version.from_file')
     @mock.patch("pulp_docker.plugins.importers.upload.models.Manifest.objects")
     @mock.patch("pulp_docker.plugins.importers.upload.models.Tag.objects")
     def test_AddTags(self, _Tag_objects, _Manifest_objects, mock_v, _repos, _Manifest_save,
                      _Blob_save):
-        mock_v.return_value = upload.transport.Version('1.0')
+        mock_v.return_value = upload.Version('1.0')
         _Manifest_objects.filter.return_value.count.return_value = 1
         _Manifest_objects.filter.return_value.__getitem__.return_value.schema_version = 42
 
@@ -292,7 +267,7 @@ class UploadTest(unittest.TestCase):
             schema_version=42, manifest_digest='sha256:123',
             pulp_user_metadata=None)
 
-    @mock.patch('pulp_docker.plugins.importers.upload.transport.Version.from_file')
+    @mock.patch('pulp_docker.plugins.importers.upload.Version.from_file')
     def test_AddTags__error_no_name(self, mock_v, _repo_controller, _Manifest_save, _Blob_save):
         # This is where we will untar the image
         step_work_dir = os.path.join(self.work_dir, "working_dir")

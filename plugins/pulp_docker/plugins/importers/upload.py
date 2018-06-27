@@ -31,7 +31,7 @@ from pulp.plugins.util.publish_step import PluginStep, GetLocalUnitsStep
 from pulp.server.db import model as pulp_models
 
 from pulp_docker.common import constants, error_codes, tarutils
-from pulp_docker.common import dir_transport as transport
+from pulp_docker.common.dir_transport import Version
 from pulp_docker.plugins import models
 from pulp_docker.plugins.importers import v1_sync
 from pulp.plugins.util import verification
@@ -110,8 +110,6 @@ class UploadStep(PluginStep):
         Handles the upload of a v2 s2 docker image
         """
         self.add_child(ProcessManifest(constants.UPLOAD_STEP_IMAGE_MANIFEST))
-        self.v2_step_get_local_units = GetLocalUnitsStep(constants.IMPORTER_TYPE_ID)
-        self.add_child(self.v2_step_get_local_units)
         self.add_child(AddUnits(step_type=constants.UPLOAD_STEP_SAVE))
 
     def _handle_manifest_list(self):
@@ -392,69 +390,94 @@ class AddUnits(PluginStep):
         Return an iterator that will traverse the list of Units
         that were present in the uploaded tarball.
 
+        Manifest:
+          - included as-is.
+        Blob:
+          - Validated.
+          - Omitted when already in the repository.
+          - The uploaded file is renamed in the working directory to the <digest>.
+
         :return: An iterable containing the Blobs and Manifests present in the uploaded tarball.
-        :rtype:  iterator
+        :rtype:  collections.Iterable
         """
-        return iter(self.parent.v2_step_get_local_units.units_to_download)
+        items = []
+        for item in self.parent.available_units:
+            if isinstance(item, models.Blob):
+                blobs = repository.find_repo_content_units(
+                    repository=self.get_repo().repo_obj,
+                    units_q=Q(digest=item.digest),
+                    limit=1)
+                if tuple(blobs):
+                    continue
+                path = self._validate_blob(item)
+                dst_path = os.path.join(self.get_working_dir(), item.digest)
+                os.rename(path, dst_path)
+            items.append(item)
+        return iter(items)
+
+    def _validate_blob(self, item):
+        """
+        Ensure the blob has been uploaded and validate using the digest.
+
+        :param item: The blob to be validated.
+        :type item: models.Blob
+        :return: The absolute path to the validated blob file.
+        :raises PulpCodedValidationException: On IOError or digest validation failed.
+        """
+        algorithm, _, digest = item.digest.rpartition(':')
+        if not algorithm:
+            algorithm = 'sha256'
+        path = self._blob_path(digest)
+        try:
+            with open(path) as fp:
+                try:
+                    verification.verify_checksum(fp, algorithm, digest)
+                except verification.VerificationException:
+                    raise PulpCodedValidationException(
+                        error_code=error_codes.DKR1017,
+                        checksum_type=algorithm,
+                        checksum=digest)
+        except IOError:
+            raise PulpCodedValidationException(
+                error_code=error_codes.DKR1018,
+                layer=os.path.basename(path))
+        return path
+
+    def _blob_path(self, digest):
+        """
+        Determine the appropriate path to an uploaded blob.
+        Version < 1.1 has .tar extension.
+
+        :param digest: The blob digest.
+        :type digest: str
+        :return: The absolute path to the uploaded blob.
+        :rtype: str
+        """
+        working_dir = self.get_working_dir()
+        path = os.path.join(working_dir, 'version')
+        version = Version.from_file(path)
+        if version < Version('1.1'):
+            name = '{d}.tar'.format(d=digest)
+        else:
+            name = digest
+        return os.path.join(working_dir, name)
 
     def process_main(self, item=None):
         """
-        Save blobs and manifest to repository
+        Create blobs, manifest and add to repository.
 
         :param item: A Docker manifest or blob unit
         :type      : pulp_docker.plugins.models.Blob or pulp_docker.plugins.models.Manifest
         :return:     None
         """
-        if isinstance(item, models.Blob):
-            checksum_type, _, checksum = item.digest.rpartition(':')
-            if not checksum_type:
-                # Never assume. But oh well
-                checksum_type = "sha256"
-
-            blob_src_path = os.path.join(self.get_working_dir(), checksum)
-            version_file_path = os.path.join(self.get_working_dir(), 'version')
-            transport_version = transport.Version.from_file(version_file_path)
-            if transport_version < transport.Version('1.1'):
-                # Directory Transport Version 1.0 expects each file to end in .tar
-                blob_src_path = "{path}.tar".format(path=blob_src_path)
-
-            try:
-                with open(blob_src_path) as fobj:
-                    try:
-                        verification.verify_checksum(fobj, checksum_type, checksum)
-                    except verification.VerificationException:
-                        raise PulpCodedValidationException(
-                            error_code=error_codes.DKR1017,
-                            checksum_type=checksum_type,
-                            checksum=checksum)
-            except IOError:
-                blobs = repository.find_repo_content_units(
-                    self.get_repo().repo_obj,
-                    units_q=Q(digest=item.digest),
-                    limit=1)
-                if tuple(blobs):
-                    return
-                raise PulpCodedValidationException(
-                    error_code=error_codes.DKR1018,
-                    layer=os.path.basename(blob_src_path))
-            blob_dest_path = os.path.join(self.get_working_dir(), item.digest)
-            os.rename(blob_src_path, blob_dest_path)
         item.set_storage_path(item.digest)
+
         try:
-            item.save_and_import_content(os.path.join(self.get_working_dir(), item.digest))
+            path = os.path.join(self.get_working_dir(), item.digest)
+            item.save_and_import_content(path)
         except NotUniqueError:
             item = item.__class__.objects.get(**item.unit_key)
+
         repository.associate_single_unit(self.get_repo().repo_obj, item)
         if isinstance(item, models.Manifest):
             self.parent.uploaded_unit = item
-
-    def finalize(self):
-        # If the manifest was already present, process_main() won't be
-        # invoked
-        if self.parent.uploaded_unit:
-            return
-        # Unit was already present
-        for item in self.parent.available_units:
-            if isinstance(item, models.Manifest):
-                item = item.__class__.objects.get(**item.unit_key)
-                self.parent.uploaded_unit = item
