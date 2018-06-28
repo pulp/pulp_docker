@@ -17,7 +17,7 @@ The following options are available to the docker importer configuration.
  synchronization. Default is True.
 
 ``tags``
- CSV whitelist of tags to include on sync. If not provided, sync will download
+ List of tags to include on sync. If not provided, sync will download
  all available tags. This feature is only available for v2 content.
 
 .. note::
