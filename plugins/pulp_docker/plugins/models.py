@@ -88,6 +88,7 @@ class FSLayer(mongoengine.EmbeddedDocument):
     """
     # This will be the digest of a Blob document.
     blob_sum = mongoengine.StringField(required=True)
+    size = mongoengine.IntField()
     layer_type = mongoengine.StringField()
 
 
@@ -211,7 +212,8 @@ class Manifest(pulp_models.FileContentUnit, UnitMixin):
         config_layer = None
         try:
             fs_layers = [FSLayer(blob_sum=layer['digest'],
-                         layer_type=layer['mediaType']) for layer in manifest['layers']]
+                                 size=layer.get('size', ''),
+                                 layer_type=layer['mediaType']) for layer in manifest['layers']]
             config_layer = manifest['config']['digest']
         except KeyError:
             fs_layers = [FSLayer(blob_sum=layer['blobSum']) for layer in manifest['fsLayers']]
@@ -227,6 +229,12 @@ class Manifest(pulp_models.FileContentUnit, UnitMixin):
         return '/'.join(('manifests', str(self.schema_version), self.digest))
 
 
+class EmbeddedManifest(mongoengine.EmbeddedDocument):
+    digest = mongoengine.StringField(required=True)
+    os = mongoengine.StringField()
+    arch = mongoengine.StringField()
+
+
 class ManifestList(pulp_models.FileContentUnit, UnitMixin):
     """
     This model represents a Docker v2, Schema 2 Manifest list, as described here:
@@ -235,7 +243,7 @@ class ManifestList(pulp_models.FileContentUnit, UnitMixin):
     """
     digest = mongoengine.StringField(required=True)
     schema_version = mongoengine.IntField(required=True)
-    manifests = mongoengine.ListField(mongoengine.StringField(), required=True)
+    manifests = mongoengine.ListField(mongoengine.EmbeddedDocumentField(EmbeddedManifest))
     amd64_digest = mongoengine.StringField()
     amd64_schema_version = mongoengine.IntField()
 
@@ -272,7 +280,10 @@ class ManifestList(pulp_models.FileContentUnit, UnitMixin):
         amd64_digest = None
         amd64_schema_version = None
         for image_man in manifest_list['manifests']:
-            manifests.append(image_man['digest'])
+            manifest = EmbeddedManifest(digest=image_man['digest'],
+                                        os=image_man['platform'].get('os', ''),
+                                        arch=image_man['platform'].get('architecture', ''))
+            manifests.append(manifest)
             # we need to store separately the digest for the amd64 linux image manifest for later
             # conversion. There can be several image manifests that would match the ^ criteria but
             # we would keep just the first occurence.

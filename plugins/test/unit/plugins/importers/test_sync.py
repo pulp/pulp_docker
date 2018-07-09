@@ -123,8 +123,15 @@ class TestDownloadManifestsStep(unittest.TestCase):
         # There should be one manifest that has the correct digest
         self.assertEqual(len(step.parent.available_manifests), 1)
         self.assertEqual(step.parent.available_manifests[0].digest, digest)
-        expected_man = ['sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
-                        'sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92']
+        expected_man = [
+            models.EmbeddedManifest(
+                digest='sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
+                os='linux',
+                arch='amd64'),
+            models.EmbeddedManifest(
+                digest='sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92',
+                os='linux',
+                arch='arm')]
         self.assertEqual(step.parent.available_manifests[0].manifests, expected_man)
         self.assertEqual(mock_manifest.call_count, 3)
         self.assertEqual(step.parent.index_repository.get_manifest.call_count, 3)

@@ -10,3 +10,7 @@ included in the tarball that are already contained in the repository will be ign
 
 Support for whitelisting tags for v2 content during sync added. If --tags argument is passed,
 only tags in the whitelist are synced, otherwise all tags are synced.
+
+Os, and arch information is now available on image manifests in the ManifestList
+
+Size information is now avaiable on each FSLayer on schema2 Manifests.
