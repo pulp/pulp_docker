@@ -271,7 +271,7 @@ class DownloadManifestsStep(publish_step.PluginStep):
         manifest_list = models.ManifestList.from_json(manifest_list, digest)
         self.parent.available_manifests.append(manifest_list)
         for image_man in manifest_list.manifests:
-            manifests = self.parent.index_repository.get_manifest(image_man, headers=True,
+            manifests = self.parent.index_repository.get_manifest(image_man['digest'], headers=True,
                                                                   tag=False)
             manifest, digest, _ = manifests[0]
             self._process_manifest(manifest, digest, available_blobs, tag=None)

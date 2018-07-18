@@ -144,8 +144,15 @@ class TestManifestList(unittest.TestCase):
         Assert correct operation of the __init__() method.
         """
         digest = 'sha256:69fd2d3fa813bcbb3a572f1af80fe31a1710409e15dde91af79be62b37ab4f70'
-        manifests = ['sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
-                     'sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92']
+        manifests = [
+            models.EmbeddedManifest(
+                digest='sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
+                os='linux',
+                arch='amd64'),
+            models.EmbeddedManifest(
+                digest='sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92',
+                os='linux',
+                arch='arm')]
         schema_version = 2
         amd64_digest = 'sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf'
         amd64_schema_version = 2
@@ -265,8 +272,13 @@ class TestManifestList(unittest.TestCase):
         Assert correct operation of the unit_key property.
         """
         digest = 'sha256:69fd2d3fa813bcbb3a572f1af80fe31a1710409e15dde91af79be62b37ab4f70'
-        manifests = ['sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
-                     'sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92']
+        manifests = [
+            {'digest': 'sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf',
+             'arch': 'amd64',
+             'os': 'linux'},
+            {'digest': 'sha256:de9576aa7f9ac6aff09029293ca23136011302c02e183e856a2cd6d37b84ab92',
+             'arch': 'arm',
+             'os': 'linux'}]
         schema_version = 2
         amd64_digest = 'sha256:c55544de64a01e157b9d931f5db7a16554a14be19c367f91c9a8cdc46db086bf'
         amd64_schema_version = 2
