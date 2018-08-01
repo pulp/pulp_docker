@@ -360,7 +360,7 @@ class DockerImporter(Importer):
         # Collect referenced manifests
         manifest_digests = set()
         for manifest in unit.manifests:
-            manifest_digests.add(manifest)
+            manifest_digests.add(manifest.digest)
 
         if unit.amd64_digest:
             manifest_digests.add(unit.amd64_digest)
