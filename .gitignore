@@ -58,3 +58,8 @@ docs/*/_build/
 
 # vim
 *.swp
+
+# Django migrations
+# Ignored during early development to prevent accidental commits;
+# we'll want these to not be ignored when releasing 4.0
+pulp_docker/app/migrations
