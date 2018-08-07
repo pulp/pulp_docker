@@ -489,7 +489,7 @@ class DockerImporter(Importer):
         # Find manifest digests referenced by removed manifest lists (orphaned)
         orphaned = set()
         for image_man in manifest_list.manifests:
-            orphaned.add(image_man)
+            orphaned.add(image_man.digest)
             if manifest_list.amd64_digest:
                 orphaned.add(manifest_list.amd64_digest)
         if not orphaned:
@@ -503,7 +503,7 @@ class DockerImporter(Importer):
         for man_list in unit_association.RepoUnitAssociationManager._units_from_criteria(
                 repo, criteria):
             for image_man in man_list.manifests:
-                adopted.add(image_man)
+                adopted.add(image_man.digest)
             if man_list.amd64_digest:
                 adopted.add(man_list.amd64_digest)
 
