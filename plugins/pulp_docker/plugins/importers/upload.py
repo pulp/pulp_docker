@@ -196,7 +196,9 @@ class AddManifestList(PluginStep):
         transfer_repo = self.get_repo()
 
         #  Ensure that all referenced manifests are already in repository.
-        manifest_digests = set(manifest_list_instance.manifests)
+        manifest_digests = set(
+            [manifest.digest for manifest in manifest_list_instance['manifests']]
+        )
         qs = models.Manifest.objects.filter(
             digest__in=sorted(manifest_digests)).only('id', 'digest')
         known_manifests = dict((manifest['digest'], manifest['id']) for manifest in qs)
