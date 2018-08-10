@@ -236,7 +236,8 @@ class ProcessManifest(PluginStep):
         """
         Pull the image manifest out of the tar file
         """
-        image_manifest = json.dumps(tarutils.get_image_manifest(self.parent.file_path))
+        image_manifest = json.dumps(tarutils.get_image_manifest(self.parent.file_path),
+                                    separators=(',', ':'))
         digest = models.UnitMixin.calculate_digest(image_manifest)
         with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
             manifest_file.write(image_manifest)

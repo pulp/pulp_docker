@@ -3,6 +3,8 @@ import json
 import os
 import tarfile
 
+from collections import OrderedDict
+
 
 def get_metadata(tarfile_path):
     """
@@ -131,7 +133,8 @@ def get_image_manifest(tarfile_path):
         for member in archive.getmembers():
             # find the "manifest.json" file
             if os.path.basename(member.path) == 'manifest.json':
-                image_manifest = json.load(archive.extractfile(member))
+                image_manifest = json.load(archive.extractfile(member),
+                                           object_pairs_hook=OrderedDict)
                 break
 
     return image_manifest
