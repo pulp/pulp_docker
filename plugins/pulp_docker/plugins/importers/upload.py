@@ -232,14 +232,21 @@ class ProcessManifest(PluginStep):
     metadata for further processing
     """
 
+    def initialize(self):
+        """
+        Extract the tarfile to get all the layers from it.
+        """
+        # Brute force, extract the tar file for now
+        with contextlib.closing(tarfile.open(self.parent.file_path)) as archive:
+            archive.extractall(self.get_working_dir())
+
     def process_main(self):
         """
         Pull the image manifest out of the tar file
         """
-        image_manifest = json.dumps(tarutils.get_image_manifest(self.parent.file_path))
+        with open(os.path.join(self.get_working_dir(), 'manifest.json'), 'r') as manifest_file:
+            image_manifest = manifest_file.read()
         digest = models.UnitMixin.calculate_digest(image_manifest)
-        with open(os.path.join(self.get_working_dir(), digest), 'w') as manifest_file:
-            manifest_file.write(image_manifest)
         manifest = models.Manifest.from_json(image_manifest, digest)
         self.parent.available_units.append(manifest)
         self.parent.available_units.extend(self.get_models(manifest))
@@ -379,13 +386,6 @@ class AddUnits(PluginStep):
     """
     Add Manifest and Blobs extracted in the ProcessManifest Step
     """
-    def initialize(self):
-        """
-        Extract the tarfile to get all the layers from it.
-        """
-        # Brute force, extract the tar file for now
-        with contextlib.closing(tarfile.open(self.parent.file_path)) as archive:
-            archive.extractall(self.get_working_dir())
 
     def get_iterator(self):
         """
@@ -475,7 +475,10 @@ class AddUnits(PluginStep):
         item.set_storage_path(item.digest)
 
         try:
-            path = os.path.join(self.get_working_dir(), item.digest)
+            if isinstance(item, models.Manifest):
+                path = os.path.join(self.get_working_dir(), 'manifest.json')
+            else:
+                path = os.path.join(self.get_working_dir(), item.digest)
             item.save_and_import_content(path)
         except NotUniqueError:
             item = item.__class__.objects.get(**item.unit_key)
