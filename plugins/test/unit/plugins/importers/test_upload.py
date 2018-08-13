@@ -46,6 +46,13 @@ class UploadTest(unittest.TestCase):
 
         parent = mock.MagicMock(file_path=img, parent=None, uploaded_unit=None)
         parent.available_units = units
+
+        # Depends on the ProcessManifest.initialize() to extract the tarball.
+        step = upload.ProcessManifest(step_type=constants.UPLOAD_STEP_IMAGE_MANIFEST,
+                                      working_dir=step_work_dir)
+        step.parent = parent
+        step.initialize()
+
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -64,7 +71,7 @@ class UploadTest(unittest.TestCase):
             [mock.call(x) for x in dst_blobs],
             _Blob_save.call_args_list)
         _Manifest_save.assert_called_once_with(
-            os.path.join(step_work_dir, "012"))
+            os.path.join(step_work_dir, "manifest.json"))
 
         # Make sure associate_single_unit got called
         repo_obj = parent.get_repo.return_value.repo_obj
@@ -97,6 +104,13 @@ class UploadTest(unittest.TestCase):
 
         parent = mock.MagicMock(file_path=img, parent=None, uploaded_unit=None)
         parent.available_units = units
+
+        # Depends on the ProcessManifest.initialize() to extract the tarball.
+        step = upload.ProcessManifest(step_type=constants.UPLOAD_STEP_IMAGE_MANIFEST,
+                                      working_dir=step_work_dir)
+        step.parent = parent
+        step.initialize()
+
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -116,7 +130,7 @@ class UploadTest(unittest.TestCase):
             [mock.call(x) for x in dst_blobs],
             _Blob_save.call_args_list)
         _Manifest_save.assert_called_once_with(
-            os.path.join(step_work_dir, "012"))
+            os.path.join(step_work_dir, "manifest.json"))
 
         # Make sure associate_single_unit got called
         repo_obj = parent.get_repo.return_value.repo_obj
@@ -150,6 +164,13 @@ class UploadTest(unittest.TestCase):
         parent = mock.MagicMock()
         parent.configure_mock(file_path=img, parent=None)
         parent.available_units = units
+
+        # Depends on the ProcessManifest.initialize() to extract the tarball.
+        step = upload.ProcessManifest(step_type=constants.UPLOAD_STEP_IMAGE_MANIFEST,
+                                      working_dir=step_work_dir)
+        step.parent = parent
+        step.initialize()
+
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -187,6 +208,13 @@ class UploadTest(unittest.TestCase):
         parent = mock.MagicMock()
         parent.configure_mock(file_path=img, parent=None)
         parent.available_units = units
+
+        # Depends on the ProcessManifest.initialize() to extract the tarball.
+        step = upload.ProcessManifest(step_type=constants.UPLOAD_STEP_IMAGE_MANIFEST,
+                                      working_dir=step_work_dir)
+        step.parent = parent
+        step.initialize()
+
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
@@ -229,6 +257,13 @@ class UploadTest(unittest.TestCase):
         parent = mock.MagicMock()
         parent.configure_mock(file_path=img, parent=None)
         parent.available_units = units
+
+        # Depends on the ProcessManifest.initialize() to extract the tarball.
+        step = upload.ProcessManifest(step_type=constants.UPLOAD_STEP_IMAGE_MANIFEST,
+                                      working_dir=step_work_dir)
+        step.parent = parent
+        step.initialize()
+
         step = upload.AddUnits(step_type=constants.UPLOAD_STEP_SAVE,
                                working_dir=step_work_dir)
         step.parent = parent
