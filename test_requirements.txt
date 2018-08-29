@@ -1,6 +1,8 @@
 coverage
-flake8==2.6.2
-mock<1.1
-nose
-nosexcover
-unittest2
+flake8
+flake8-docstrings
+flake8-tuple
+flake8-quotes
+mock
+git+https://github.com/PulpQE/pulp-smash.git#egg=pulp-smash
+pytest
