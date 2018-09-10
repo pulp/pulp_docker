@@ -19,7 +19,7 @@ from pulp_docker.tests.functional.constants import (
     DOCKER_CONTENT_PATH,
     DOCKER_REMOTE_PATH,
 )
-from pulp_docker.tests.functional.utils import gen_docker_remote, skip_if
+from pulp_docker.tests.functional.utils import gen_docker_remote, gen_docker_image_attrs, skip_if
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
 
@@ -51,7 +51,7 @@ class ContentUnitTestCase(unittest.TestCase):
 
     def test_01_create_content_unit(self):
         """Create content unit."""
-        attrs = _gen_docker_content_unit_attrs(self.artifact)
+        attrs = gen_docker_image_attrs(self.artifact)
         self.content_unit.update(self.client.post(DOCKER_CONTENT_PATH, attrs))
         for key, val in attrs.items():
             with self.subTest(key=key):
@@ -84,7 +84,7 @@ class ContentUnitTestCase(unittest.TestCase):
 
         This HTTP method is not supported and a HTTP exception is expected.
         """
-        attrs = _gen_docker_content_unit_attrs(self.artifact)
+        attrs = gen_docker_image_attrs(self.artifact)
         with self.assertRaises(HTTPError):
             self.client.patch(self.content_unit['_href'], attrs)
 
@@ -94,19 +94,9 @@ class ContentUnitTestCase(unittest.TestCase):
 
         This HTTP method is not supported and a HTTP exception is expected.
         """
-        attrs = _gen_docker_content_unit_attrs(self.artifact)
+        attrs = gen_docker_image_attrs(self.artifact)
         with self.assertRaises(HTTPError):
             self.client.put(self.content_unit['_href'], attrs)
-
-
-def _gen_docker_content_unit_attrs(artifact):
-    """Generate a dict with content unit attributes.
-
-    :param: artifact: A dict of info about the artifact.
-    :returns: A semi-random dict for use in creating a content unit.
-    """
-    # FIXME: Add content specific metadata here.
-    return {'artifact': artifact['_href']}
 
 
 # Implement sync support before enabling this test.

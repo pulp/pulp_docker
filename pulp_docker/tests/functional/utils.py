@@ -30,29 +30,6 @@ def set_up_module():
     require_pulp_plugins({'pulp_docker'}, SkipTest)
 
 
-def populate_pulp(cfg, url=DOCKER_FIXTURE_URL):
-    """Add docker contents to Pulp.
-
-    :param pulp_smash.config.PulpSmashConfig: Information about a Pulp application.
-    :param url: The docker repository URL. Defaults to
-        :data:`pulp_smash.constants.DOCKER_FIXTURE_URL`
-    :returns: A list of dicts, where each dict describes one file content in Pulp.
-    """
-    client = api.Client(cfg, api.json_handler)
-    remote = {}
-    repo = {}
-    try:
-        remote.update(client.post(DOCKER_REMOTE_PATH, gen_docker_remote(url)))
-        repo.update(client.post(REPO_PATH, gen_repo()))
-        sync(cfg, remote, repo)
-    finally:
-        if remote:
-            client.delete(remote['_href'])
-        if repo:
-            client.delete(repo['_href'])
-    return client.get(DOCKER_CONTENT_PATH)['results']
-
-
 def gen_docker_remote(**kwargs):
     """Return a semi-random dict for use in creating a docker Remote.
 
@@ -81,7 +58,7 @@ def gen_docker_publisher(**kwargs):
     return publisher
 
 
-def get_docker_content_unit_paths(repo):
+def get_docker_image_paths(repo):
     """Return the relative path of content units present in a docker repository.
 
     :param repo: A dict of information about the repository.
@@ -91,6 +68,39 @@ def get_docker_content_unit_paths(repo):
     # It's just an example -- this needs to be replaced with an implementation that works
     # for repositories of this content type.
     return [content_unit['relative_path'] for content_unit in get_content(repo)]
+
+
+def gen_docker_image_attrs(artifact):
+    """Generate a dict with content unit attributes.
+
+    :param: artifact: A dict of info about the artifact.
+    :returns: A semi-random dict for use in creating a content unit.
+    """
+    # FIXME: Add content specific metadata here.
+    return {'artifact': artifact['_href']}
+
+
+def populate_pulp(cfg, url=DOCKER_FIXTURE_URL):
+    """Add docker contents to Pulp.
+
+    :param pulp_smash.config.PulpSmashConfig: Information about a Pulp application.
+    :param url: The docker repository URL. Defaults to
+        :data:`pulp_smash.constants.DOCKER_FIXTURE_URL`
+    :returns: A list of dicts, where each dict describes one file content in Pulp.
+    """
+    client = api.Client(cfg, api.json_handler)
+    remote = {}
+    repo = {}
+    try:
+        remote.update(client.post(DOCKER_REMOTE_PATH, gen_docker_remote(url)))
+        repo.update(client.post(REPO_PATH, gen_repo()))
+        sync(cfg, remote, repo)
+    finally:
+        if remote:
+            client.delete(remote['_href'])
+        if repo:
+            client.delete(repo['_href'])
+    return client.get(DOCKER_CONTENT_PATH)['results']
 
 
 skip_if = partial(selectors.skip_if, exc=SkipTest)
