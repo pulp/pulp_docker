@@ -463,7 +463,17 @@ class V2Repository(object):
                                                      repo=self.name,
                                                      registry=self.registry_url,
                                                      reason=str(e))
-        return json.loads(tags)['tags'] or []
+        tag_list = json.loads(tags)['tags'] or []
+        # check for the presence of the pagination link header
+        link = headers.get('Link')
+        while link:
+            # according RFC5988 URI-reference can be relative or absolute
+            _, _, path, params, query, fragm = urlparse.urlparse(link.split(';')[0].strip('>, <'))
+            link = urlparse.urlunparse((None, None, path, params, query, fragm))
+            headers, tags = self._get_path(link)
+            tag_list.extend(json.loads(tags)['tags'])
+            link = headers.get('Link')
+        return tag_list
 
     def _get_path(self, path, headers=None):
         """
