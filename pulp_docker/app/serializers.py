@@ -11,29 +11,6 @@ from pulpcore.plugin import serializers as platform
 from . import models
 
 
-class DockerContentSerializer(platform.ContentSerializer):
-    """
-    A Serializer for DockerContent.
-
-    Add serializers for the new fields defined in DockerContent and
-    add those fields to the Meta class keeping fields from the parent class as well.
-
-    For example::
-
-    field1 = serializers.TextField()
-    field2 = serializers.IntegerField()
-    field3 = serializers.CharField()
-
-    class Meta:
-        fields = platform.ContentSerializer.Meta.fields + ('field1', 'field2', 'field3')
-        model = models.DockerContent
-    """
-
-    class Meta:
-        fields = platform.ContentSerializer.Meta.fields
-        model = models.DockerContent
-
-
 class DockerRemoteSerializer(platform.RemoteSerializer):
     """
     A Serializer for DockerRemote.

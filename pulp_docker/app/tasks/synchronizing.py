@@ -9,7 +9,7 @@ from pulpcore.plugin.stages import (
     Stage
 )
 
-from pulp_docker.app.models import DockerContent, DockerRemote
+from pulp_docker.app.models import ImageManifest, DockerRemote
 
 
 log = logging.getLogger(__name__)
@@ -67,14 +67,14 @@ class DockerFirstStage(Stage):
         result = await downloader.run()
         # Use ProgressBar to report progress
         for entry in self.read_my_metadata_file_somehow(result.path):
-            unit = DockerContent(entry)  # make the content unit in memory-only
+            unit = ImageManifest(entry)  # make the content unit in memory-only
             artifact = Artifact(entry)  # make Artifact in memory-only
             da = DeclarativeArtifact(artifact, entry.url, entry.relative_path, self.remote)
             dc = DeclarativeContent(content=unit, d_artifacts=[da])
             await out_q.put(dc)
         await out_q.put(None)
 
-    def read_my_metadata_file_somehow(path):
+    def read_my_metadata_file_somehow(self, path):
         """
         Parse the metadata for docker Content type.
 

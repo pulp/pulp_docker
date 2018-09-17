@@ -19,22 +19,6 @@ from rest_framework.decorators import detail_route
 from . import models, serializers, tasks
 
 
-class DockerContentViewSet(core.ContentViewSet):
-    """
-    A ViewSet for DockerContent.
-
-    Define endpoint name which will appear in the API endpoint for this content type.
-    For example::
-        http://pulp.example.com/pulp/api/v3/content/docker/
-
-    Also specify queryset and serializer for DockerContent.
-    """
-
-    endpoint_name = 'docker'
-    queryset = models.DockerContent.objects.all()
-    serializer_class = serializers.DockerContentSerializer
-
-
 class DockerRemoteViewSet(core.RemoteViewSet):
     """
     A ViewSet for DockerRemote.
