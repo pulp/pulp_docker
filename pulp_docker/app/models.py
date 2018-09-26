@@ -1,9 +1,13 @@
 from logging import getLogger
 from types import SimpleNamespace
+import asyncio
 
 from django.db import models
 
+from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import BaseDistribution, Content, Remote, Publisher
+
+from . import downloaders
 
 
 logger = getLogger(__name__)
@@ -17,33 +21,6 @@ MEDIA_TYPE = SimpleNamespace(
     REGULAR_BLOB='application/vnd.docker.image.rootfs.diff.tar.gzip',
     FOREIGN_BLOB='application/vnd.docker.image.rootfs.foreign.diff.tar.gzip',
 )
-
-
-class ImageManifest(Content):
-    """
-    A docker manifest.
-
-    This content has one artifact.
-
-    Fields:
-        digest (models.CharField): The manifest digest.
-        schema_version (models.IntegerField): The docker schema version.
-        media_type (models.CharField): The manifest media type.
-    """
-
-    TYPE = 'manifest'
-
-    digest = models.CharField(max_length=255)
-    schema_version = models.IntegerField()
-    media_type = models.CharField(
-        max_length=60,
-        choices=(
-            (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1),
-            (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V2),
-        ))
-
-    class Meta:
-        unique_together = ('digest',)
 
 
 class ManifestBlob(Content):
@@ -71,7 +48,34 @@ class ManifestBlob(Content):
             (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB),
         ))
 
-    manifest = models.ForeignKey(ImageManifest, related_name='blobs', on_delete=models.CASCADE)
+    class Meta:
+        unique_together = ('digest',)
+
+
+class ImageManifest(Content):
+    """
+    A docker manifest.
+
+    This content has one artifact.
+
+    Fields:
+        digest (models.CharField): The manifest digest.
+        schema_version (models.IntegerField): The docker schema version.
+        media_type (models.CharField): The manifest media type.
+    """
+
+    TYPE = 'manifest'
+
+    digest = models.CharField(max_length=255)
+    schema_version = models.IntegerField()
+    media_type = models.CharField(
+        max_length=60,
+        choices=(
+            (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1),
+            (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V2),
+        ))
+
+    blobs = models.ManyToManyField(ManifestBlob, through='BlobManifestBlob')
 
     class Meta:
         unique_together = ('digest',)
@@ -106,6 +110,13 @@ class ManifestList(Content):
 
     class Meta:
         unique_together = ('digest',)
+
+
+class BlobManifestBlob(models.Model):
+    manifest = models.ForeignKey(
+        ImageManifest, related_name='blob_manifests', on_delete=models.CASCADE)
+    manifest_blob = models.ForeignKey(
+        ManifestBlob, related_name='manifest_blobs', on_delete=models.CASCADE)
 
 
 class ManifestListManifest(models.Model):
@@ -190,8 +201,63 @@ class DockerRemote(Remote):
 
     Define any additional fields for your new importer if needed.
     """
+    upstream_name = models.CharField(max_length=255, db_index=True)
 
     TYPE = 'docker'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.token = {'token': None}
+        self._token_lock = None
+
+    @property
+    def token_lock(self):
+        if self._token_lock is None:
+            self._token_lock = asyncio.Lock()
+        return self._token_lock
+
+    @property
+    def download_factory(self):
+        """
+        Return the DownloaderFactory which can be used to generate asyncio capable downloaders.
+
+        Upon first access, the DownloaderFactory is instantiated and saved internally.
+
+        Plugin writers are expected to override when additional configuration of the
+        DownloaderFactory is needed.
+
+        Returns:
+            DownloadFactory: The instantiated DownloaderFactory to be used by
+                get_downloader()
+        """
+        try:
+            return self._download_factory
+        except AttributeError:
+            self._download_factory = DownloaderFactory(
+                self,
+                downloader_overrides={
+                    'http': downloaders.TokenAuthHttpDownloader,
+                    'https': downloaders.TokenAuthHttpDownloader,
+                }
+            )
+            return self._download_factory
+
+    def get_downloader(self, url, **kwargs):
+        kwargs['remote'] = self
+        return self.download_factory.build(url, **kwargs)
+
+    @property
+    def namespaced_upstream_name(self):
+        """
+        Returns an upstream Docker repository name with a namespace.
+
+        For upstream repositories that do not have a namespace, the convention is to use 'library'
+        as the namespace.
+        """
+        if '/' not in self.upstream_name:
+            return 'library/{name}'.format(name=self.upstream_name)
+        else:
+            return self.upstream_name
 
 
 class DockerDistribution(BaseDistribution):
