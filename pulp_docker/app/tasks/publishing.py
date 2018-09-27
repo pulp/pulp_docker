@@ -3,12 +3,8 @@ from gettext import gettext as _
 
 from pulpcore.plugin.models import (  # noqa
     RepositoryVersion,
-    Publication,
-    PublishedArtifact,
-    PublishedMetadata,
-    RemoteArtifact
+    Publication
 )
-from pulpcore.plugin.tasking import WorkingDirectory
 
 from pulp_docker.app.models import DockerPublisher
 
@@ -32,25 +28,7 @@ def publish(publisher_pk, repository_version_pk):
         ver=repository_version.number,
         pub=publisher.name
     ))
-    with WorkingDirectory():
-        with Publication.create(repository_version, publisher) as publication:
-            # Write any Artifacts (files) to the file system, and the database.
-            #
-            # artifact = YourArtifactWriter.write(relative_path)
-            # published_artifact = PublishedArtifact(
-            #     relative_path=artifact.relative_path,
-            #     publication=publication,
-            #     content_artifact=artifact)
-            # published_artifact.save()
 
-            # Write any metadata files to the file system, and the database.
-            #
-            # metadata = YourMetadataWriter.write(relative_path)
-            # metadata = PublishedMetadata(
-            #     relative_path=os.path.basename(manifest.relative_path),
-            #     publication=publication,
-            #     file=File(open(manifest.relative_path, 'rb')))
-            # metadata.save()
-            pass
+    publication = Publication.create(repository_version, publisher, pass_through=True)
 
     log.info(_('Publication: {publication} created').format(publication.pk))
