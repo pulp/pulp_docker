@@ -17,7 +17,7 @@ from pulp_smash.pulp3.utils import (
 from pulp_docker.tests.functional.utils import (
     gen_docker_remote,
     gen_docker_publisher,
-    get_docker_content_unit_paths,
+    get_docker_image_paths,
 )
 from pulp_docker.tests.functional.constants import (
     DOCKER_FIXTURE_URL,
@@ -87,7 +87,7 @@ class DownloadContentTestCase(unittest.TestCase):
         self.addCleanup(client.delete, distribution['_href'])
 
         # Pick a content unit, and download it from both Pulp Fixtures…
-        unit_path = choice(get_docker_content_unit_paths(repo))
+        unit_path = choice(get_docker_image_paths(repo))
         fixtures_hash = hashlib.sha256(
             utils.http_get(urljoin(DOCKER_FIXTURE_URL, unit_path))
         ).hexdigest()

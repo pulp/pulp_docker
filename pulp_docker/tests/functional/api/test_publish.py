@@ -38,6 +38,12 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
     * `Pulp Smash #897 <https://github.com/PulpQE/pulp-smash/issues/897>`_
     """
 
+    @classmethod
+    def setUpClass(cls):
+        """Create class-wide variables."""
+        cls.cfg = config.get_config()
+        cls.client = api.Client(cls.cfg, api.json_handler)
+
     def test_all(self):
         """Test whether a particular repository version can be published.
 
@@ -51,26 +57,23 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
         6. Assert that an exception is raised when providing two different
            repository versions to be published at same time.
         """
-        cfg = config.get_config()
-        client = api.Client(cfg, api.json_handler)
-
         body = gen_docker_remote()
-        remote = client.post(DOCKER_REMOTE_PATH, body)
-        self.addCleanup(client.delete, remote['_href'])
+        remote = self.client.post(DOCKER_REMOTE_PATH, body)
+        self.addCleanup(self.client.delete, remote['_href'])
 
-        repo = client.post(REPO_PATH, gen_repo())
-        self.addCleanup(client.delete, repo['_href'])
+        repo = self.client.post(REPO_PATH, gen_repo())
+        self.addCleanup(self.client.delete, repo['_href'])
 
-        sync(cfg, remote, repo)
+        sync(self.cfg, remote, repo)
 
-        publisher = client.post(DOCKER_PUBLISHER_PATH, gen_docker_publisher())
-        self.addCleanup(client.delete, publisher['_href'])
+        publisher = self.client.post(DOCKER_PUBLISHER_PATH, gen_docker_publisher())
+        self.addCleanup(self.client.delete, publisher['_href'])
 
         # Step 1
-        repo = client.post(REPO_PATH, gen_repo())
-        self.addCleanup(client.delete, repo['_href'])
-        for docker_content in client.get(DOCKER_CONTENT_PATH)['results']:
-            client.post(
+        repo = self.client.post(REPO_PATH, gen_repo())
+        self.addCleanup(self.client.delete, repo['_href'])
+        for docker_content in self.client.get(DOCKER_CONTENT_PATH)['results']:
+            self.client.post(
                 repo['_versions_href'],
                 {'add_content_units': [docker_content['_href']]}
             )
@@ -78,13 +81,13 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
         non_latest = choice(version_hrefs[:-1])
 
         # Step 2
-        publication = publish(cfg, publisher, repo)
+        publication = publish(self.cfg, publisher, repo)
 
         # Step 3
         self.assertEqual(publication['repository_version'], version_hrefs[-1])
 
         # Step 4
-        publication = publish(cfg, publisher, repo, non_latest)
+        publication = publish(self.cfg, publisher, repo, non_latest)
 
         # Step 5
         self.assertEqual(publication['repository_version'], non_latest)
@@ -95,4 +98,4 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
                 'repository': repo['_href'],
                 'repository_version': non_latest
             }
-            client.post(urljoin(publisher['_href'], 'publish/'), body)
+            self.client.post(urljoin(publisher['_href'], 'publish/'), body)

@@ -2,7 +2,7 @@
 """Tests that sync docker plugin repositories."""
 import unittest
 
-from pulp_smash import api, config
+from pulp_smash import api, config, exceptions
 from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import (
     gen_repo,
@@ -21,7 +21,7 @@ from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # n
 
 # Implement sync support before enabling this test.
 @unittest.skip("FIXME: plugin writer action required")
-class BasicSyncDockerRepoTestCase(unittest.TestCase):
+class BasicSyncTestCase(unittest.TestCase):
     """Sync repositories with the docker plugin."""
 
     @classmethod
@@ -71,3 +71,27 @@ class BasicSyncDockerRepoTestCase(unittest.TestCase):
         self.assertNotEqual(latest_version_href, repo['_latest_version_href'])
         self.assertEqual(len(get_content(repo)), DOCKER_FIXTURE_COUNT)
         self.assertEqual(len(get_added_content(repo)), 0)
+
+
+class SyncInvalidURLTestCase(unittest.TestCase):
+    """Sync a repository with an invalid url on the Remote."""
+
+    def test_all(self):
+        """
+        Sync a repository using a Remote url that does not exist.
+
+        Test that we get a task failure.
+
+        """
+        cfg = config.get_config()
+        client = api.Client(cfg, api.json_handler)
+
+        repo = client.post(REPO_PATH, gen_repo())
+        self.addCleanup(client.delete, repo['_href'])
+
+        body = gen_docker_remote(url="http://i-am-an-invalid-url.com/invalid/")
+        remote = client.post(DOCKER_REMOTE_PATH, body)
+        self.addCleanup(client.delete, remote['_href'])
+
+        with self.assertRaises(exceptions.TaskReportError):
+            sync(cfg, remote, repo)
