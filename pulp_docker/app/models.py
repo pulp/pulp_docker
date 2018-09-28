@@ -197,8 +197,6 @@ class DockerRemote(Remote):
 class DockerDistribution(BaseDistribution):
     """
     A docker distribution defines how a publication is distributed by Pulp's webserver.
-
-    All docker distributions are made available at /v2/<base_path>/.
     """
 
     class Meta:
