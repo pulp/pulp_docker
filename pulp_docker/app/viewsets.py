@@ -7,24 +7,24 @@ Check `Plugin Writer's Guide`_ for more details.
 
 from drf_yasg.utils import swagger_auto_schema
 
-from pulpcore.plugin import viewsets as core
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositoryPublishURLSerializer,
     RepositorySyncURLSerializer,
 )
 from pulpcore.plugin.tasking import enqueue_with_reservation
+from pulpcore.plugin.viewsets import (
+    RemoteViewSet,
+    OperationPostponedResponse,
+    PublisherViewSet)
 from rest_framework.decorators import detail_route
 
 from . import models, serializers, tasks
 
 
-class DockerRemoteViewSet(core.RemoteViewSet):
+class DockerRemoteViewSet(RemoteViewSet):
     """
     A ViewSet for DockerRemote.
-
-    Similar to the DockerContentViewSet above, define endpoint_name,
-    queryset and serializer, at a minimum.
     """
 
     endpoint_name = 'docker'
@@ -56,15 +56,12 @@ class DockerRemoteViewSet(core.RemoteViewSet):
                 'repository_pk': repository.pk
             }
         )
-        return core.OperationPostponedResponse(result, request)
+        return OperationPostponedResponse(result, request)
 
 
-class DockerPublisherViewSet(core.PublisherViewSet):
+class DockerPublisherViewSet(PublisherViewSet):
     """
     A ViewSet for DockerPublisher.
-
-    Similar to the DockerContentViewSet above, define endpoint_name,
-    queryset and serializer, at a minimum.
     """
 
     endpoint_name = 'docker'
@@ -101,4 +98,4 @@ class DockerPublisherViewSet(core.PublisherViewSet):
                 'repository_version_pk': str(repository_version.pk)
             }
         )
-        return core.OperationPostponedResponse(result, request)
+        return OperationPostponedResponse(result, request)
