@@ -92,7 +92,7 @@ Create a repository ``foo``
 .. code:: json
 
     {
-        "_href": "http://localhost:8000/pulp/api/v3/repositories/1/",
+        "_href": "/pulp/api/v3/repositories/1/",
         ...
     }
 
@@ -106,7 +106,7 @@ Create a new remote ``bar``
 .. code:: json
 
     {
-        "_href": "http://localhost:8000/pulp/pulp/api/v3/remotes/docker/1/",
+        "_href": "/pulp/pulp/api/v3/remotes/docker/1/",
         ...
     }
 
@@ -126,55 +126,16 @@ Look at the new Repository Version created
 .. code:: json
 
     {
-        "_added_href": "http://localhost:8000/pulp/api/v3/repositories/1/versions/1/added_content/",
-        "_content_href": "http://localhost:8000/pulp/api/v3/repositories/1/versions/1/content/",
-        "_href": "http://localhost:8000/pulp/api/v3/repositories/1/versions/1/",
-        "_removed_href": "http://localhost:8000/pulp/api/v3/repositories/1/versions/1/removed_content/",
+        "_added_href": "/pulp/api/v3/repositories/1/versions/1/added_content/",
+        "_content_href": "/pulp/api/v3/repositories/1/versions/1/content/",
+        "_href": "/pulp/api/v3/repositories/1/versions/1/",
+        "_removed_href": "/pulp/api/v3/repositories/1/versions/1/removed_content/",
         "content_summary": {
             "docker": 3
         },
         "created": "2018-02-23T20:29:54.499055Z",
         "number": 1
     }
-
-
-Upload ``$CONTENT_NAME`` to Pulp
------------------------------
-
-Create an Artifact by uploading the docker to Pulp.
-
-``$ http --form POST http://localhost:8000/pulp/api/v3/artifacts/ file@./$CONTENT_NAME``
-
-.. code:: json
-
-    {
-        "_href": "http://localhost:8000/pulp/api/v3/artifacts/1/",
-        ...
-    }
-
-Create ``docker`` content from an Artifact
------------------------------------------
-
-Create a content unit and point it to your artifact
-
-``$ http POST http://localhost:8000/pulp/api/v3/content/docker/dockers/ relative_path=$CONTENT_NAME artifact="http://localhost:8000/pulp/api/v3/artifacts/1/"``
-
-.. code:: json
-
-    {
-        "artifact": "http://localhost:8000/pulp/api/v3/artifacts/1/",
-        "relative_path": "$CONTENT_NAME",
-        "type": "docker"
-    }
-
-``$ export CONTENT_HREF=$(http :8000/pulp/api/v3/content/docker/dockers/ | jq -r '.results[] | select(.relative_path == "$CONTENT_NAME") | ._href')``
-
-
-Add content to repository ``foo``
----------------------------------
-
-``$ http POST $REPO_HREF'versions/' add_content_units:="[\"$CONTENT_HREF\"]"``
-
 
 Create a ``docker`` Publisher ``baz``
 ----------------------------------------------
@@ -184,7 +145,7 @@ Create a ``docker`` Publisher ``baz``
 .. code:: json
 
     {
-        "_href": "http://localhost:8000/pulp/pulp/api/v3/publishers/docker/1/",
+        "_href": "/pulp/pulp/api/v3/publishers/docker/1/",
         ...
     }
 
@@ -198,25 +159,23 @@ Use the ``bar`` Publisher to create a Publication
 
 .. code:: json
 
-    [
-        {
-            "_href": "http://localhost:8000/pulp/api/v3/tasks/fd4cbecd-6c6a-4197-9cbe-4e45b0516309/",
-            "task_id": "fd4cbecd-6c6a-4197-9cbe-4e45b0516309"
-        }
-    ]
+    {
+        "task": "/pulp/api/v3/tasks/fd4cbecd-6c6a-4197-9cbe-4e45b0516309/"
+    }
 
 ``$ export PUBLICATION_HREF=$(http :8000/pulp/api/v3/publications/ | jq -r --arg PUBLISHER_HREF "$PUBLISHER_HREF" '.results[] | select(.publisher==$PUBLISHER_HREF) | ._href')``
 
-Add a Distribution to Publisher ``bar``
----------------------------------------
+Add a Docker Distribution to serve your publication
+---------------------------------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/distributions/ name='baz' base_path='foo' publication=$PUBLICATION_HREF``
+``$ http POST http://localhost:8000/pulp/api/v3/docker-distributions/ name='baz' base_path='foo'
+publication=$PUBLICATION_HREF``
 
 
 .. code:: json
 
     {
-        "_href": "http://localhost:8000/pulp/api/v3/distributions/1/",
+        "_href": "/pulp/api/v3/docker-distributions/1/",
        ...
     }
 
@@ -225,7 +184,10 @@ Check status of a task
 
 ``$ http GET http://localhost:8000/pulp/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
 
-Download ``$CONTENT_NAME`` from Pulp
-------------------------------------------------------------------
+Perform a docker pull from Pulp
+-------------------------------
 
-``$ http GET http://localhost:8000/pulp/content/foo/$CONTENT_NAME``
+If SSL has not been setup for your Pulp, configure docker to work with the insecure registry:
+https://docs.docker.com/registry/insecure/#deploy-a-plain-http-registry
+
+``$ docker pull localhost:8000/foo``

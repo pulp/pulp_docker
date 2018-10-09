@@ -30,6 +30,4 @@ def publish(publisher_pk, repository_version_pk):
     ))
 
     with Publication.create(repository_version, publisher, pass_through=True) as publication:
-        pass
-
-    log.info(_('Publication: {publication} created').format(publication.pk))
+        log.info(_('Publication: {publication} created').format(publication=publication.pk))
