@@ -3,13 +3,19 @@ from urllib.parse import urljoin
 import json
 import logging
 
+from django.db import transaction
 from django.db.models import Q
+from django.db.utils import IntegrityError
 
-from pulpcore.plugin.models import Artifact, ProgressBar, Repository  # noqa
+from pulpcore.plugin.models import Artifact, ProgressBar, Repository, ContentArtifact  # noqa
 from pulpcore.plugin.stages import (
     DeclarativeArtifact,
     DeclarativeContent,
     DeclarativeVersion,
+    QueryExistingArtifacts,
+    QueryExistingContentUnits,
+    ArtifactDownloader,
+    ContentUnitSaver,
     Stage
 )
 
@@ -51,7 +57,28 @@ def synchronize(remote_pk, repository_pk):
         raise ValueError(_('A remote must have a url specified to synchronize.'))
 
     first_stage = DockerFirstStage(remote)
-    DeclarativeVersion(first_stage, repository).create()
+    DockerDeclarativeVersion(first_stage, repository).create()
+
+
+class DockerDeclarativeVersion(DeclarativeVersion):
+    def pipeline_stages(self, new_version):
+        """
+        Build the list of pipeline stages feeding into the
+        ContentUnitAssociation stage.
+        Plugin-writers may override this method to build a custom pipeline. This
+        can be achieved by returning a list with different stages or by extending
+        the list returned by this method.
+        Args:
+            new_version (:class:`~pulpcore.plugin.models.RepositoryVersion`): The
+                new repository version that is going to be built.
+        Returns:
+            list: List of :class:`~pulpcore.plugin.stages.Stage` instances
+        """
+        return [
+            self.first_stage,
+            QueryExistingArtifacts(), ArtifactDownloader(), QueryAndSaveArtifacts(),
+            QueryExistingContentUnits(), ContentUnitSaver(),
+        ]
 
 
 class DockerFirstStage(Stage):
@@ -138,6 +165,11 @@ class DockerFirstStage(Stage):
             file=tag_downloader.path,
             **digests
         )
+        try:
+            manifest_list_artifact.save()
+        except Exception as e:
+            manifest_list_artifact = Artifact.objects.get(sha256=digests['sha256'])
+
         da = DeclarativeArtifact(
             artifact=manifest_list_artifact,
             url=tag_downloader.url,
@@ -149,18 +181,30 @@ class DockerFirstStage(Stage):
             digest=digests['sha256'],
             schema_version=manifest_list_data['schemaVersion'],
             media_type=manifest_list_data['mediaType'],
-            # artifacts=[manifest_list_artifact] TODO(asmacdo) does this get set?
         )
-        try:
-            manifest_list_artifact.save()
-        except Exception as e:
-            manifest_list_artifact = Artifact.objects.get(sha256=digests['sha256'])
         try:
             manifest_list.save()
         except Exception as e:
             list_log.info("Already created, using existing copy")
             manifest_list = ManifestList.objects.get(digest=manifest_list.digest)
-
+        try:
+            with transaction.atomic():
+                content_artifact = ContentArtifact(
+                    relative_path=manifest_list.digest,
+                    content=manifest_list,
+                    artifact=manifest_list_artifact,
+                )
+                content_artifact.save()
+        except IntegrityError:
+            content_artifact = ContentArtifact.objects.get(
+                relative_path=manifest_list.digest,
+                content=manifest_list,
+            )
+            content_artifact.artifact = manifest_list_artifact
+            content_artifact.save()
+        # if manifest_list.artifacts.count() < 1:
+        #     import ipdb; ipdb.set_trace()
+        #     print(manifest_list)
         list_log.info("OUT: new list")
         list_dc = DeclarativeContent(content=manifest_list, d_artifacts=[da])
         await out_q.put(list_dc)
@@ -191,6 +235,11 @@ class DockerFirstStage(Stage):
             file=downloader.path,
             **digests
         )
+        try:
+            manifest_artifact.save()
+        except Exception as e:
+            manifest_artifact = Artifact.objects.get(sha256=digests['sha256'])
+
         da = DeclarativeArtifact(
             artifact=manifest_artifact,
             url=downloader.url,
@@ -202,17 +251,27 @@ class DockerFirstStage(Stage):
             digest=digests['sha256'],
             schema_version=manifest_data['schemaVersion'],
             media_type=manifest_data['mediaType'],
-            # artifacts=[manifest_artifact] TODO(asmacdo) does this get set?
         )
-        try:
-            manifest_artifact.save()
-        except Exception as e:
-            manifest_artifact = Artifact.objects.get(sha256=digests['sha256'])
         try:
             manifest.save()
         except Exception as e:
             # man_log.info("using existing manifest")
             manifest = ImageManifest.objects.get(digest=manifest.digest)
+        try:
+            with transaction.atomic():
+                content_artifact = ContentArtifact(
+                    relative_path=manifest.digest,
+                    content=manifest,
+                    artifact=manifest_artifact,
+                )
+                content_artifact.save()
+        except IntegrityError:
+            content_artifact = ContentArtifact.objects.get(
+                relative_path=manifest.digest,
+                content=manifest,
+            )
+            content_artifact.artifact = manifest_artifact
+            content_artifact.save()
 
         # man_log.info("Successful creation.")
         man_dc = DeclarativeContent(content=manifest, d_artifacts=[da])
