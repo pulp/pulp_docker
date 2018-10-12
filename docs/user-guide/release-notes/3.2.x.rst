@@ -1,6 +1,17 @@
 3.2 Release Notes
 =================
 
+3.2.1
+-----
+
+Bug Fixes:
+**********
+
+See the full list of :fixedbugs_pulp_docker:`3.2.1`.
+
+* Added pagination support for listing image tags. `Issue 3960 <https://pulp.plan.io/issues/3960>`_
+
+
 3.2.0
 -----
 
