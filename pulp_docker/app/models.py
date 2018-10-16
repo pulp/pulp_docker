@@ -113,6 +113,10 @@ class ManifestList(Content):
 
 
 class BlobManifestBlob(models.Model):
+    """
+    Many-to-many relationship between ManifestBlobs and ImageManifests.
+    """
+
     manifest = models.ForeignKey(
         ImageManifest, related_name='blob_manifests', on_delete=models.CASCADE)
     manifest_blob = models.ForeignKey(
@@ -198,20 +202,25 @@ class DockerPublisher(Publisher):
 class DockerRemote(Remote):
     """
     A Remote for DockerContent.
-
-    Define any additional fields for your new importer if needed.
     """
+
     upstream_name = models.CharField(max_length=255, db_index=True)
 
     TYPE = 'docker'
 
     def __init__(self, *args, **kwargs):
+        """
+        Create a remote instance that includes a token and token_lock.
+        """
         super().__init__(*args, **kwargs)
         self.token = {'token': None}
         self._token_lock = None
 
     @property
     def token_lock(self):
+        """
+        Provides a lock so only a single downloader can retrieve a new bearer token.
+        """
         if self._token_lock is None:
             self._token_lock = asyncio.Lock()
         return self._token_lock
@@ -229,6 +238,7 @@ class DockerRemote(Remote):
         Returns:
             DownloadFactory: The instantiated DownloaderFactory to be used by
                 get_downloader()
+
         """
         try:
             return self._download_factory
@@ -243,6 +253,16 @@ class DockerRemote(Remote):
             return self._download_factory
 
     def get_downloader(self, url, **kwargs):
+        """
+        Get a downloader for this url.
+
+        Args:
+            url (str): URL to fetch from.
+
+        Returns:
+            TODO
+
+        """
         kwargs['remote'] = self
         return self.download_factory.build(url, **kwargs)
 

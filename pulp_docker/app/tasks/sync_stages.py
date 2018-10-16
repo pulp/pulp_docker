@@ -21,7 +21,9 @@ class TagListStage(Stage):
     """
     The first stage of a pulp_docker sync pipeline.
     """
+
     def __init__(self, remote):
+        """Initialize the stage."""
         self.remote = remote
 
     async def __call__(self, in_q, out_q):
@@ -66,6 +68,7 @@ class TagListStage(Stage):
 
         Returns:
             pulpcore.plugin.stages.DeclarativeContent: A Tag DeclarativeContent object
+
         """
         relative_url = '/v2/{name}/manifests/{tag}'.format(
             name=self.remote.namespaced_upstream_name,
@@ -94,11 +97,24 @@ class ProcessContentStage(Stage):
     For each processed type, create content from nested fields. This stage does not process
     ManifestBlobs, which do not contain nested content.
     """
+
     def __init__(self, remote):
+        """
+        Inform the stage about the remote to use.
+        """
         self.remote = remote
-        # TODO remove debugging tool
 
     async def __call__(self, in_q, out_q):
+        """
+        Create new Content for all unsaved content units with downloaded artifacts.
+
+        Args:
+            in_q(asyncio.Queue): Queue of pulpcore.plugin.stages.DeclarativeContent objects to be
+                                 processed.
+            out_q(asyncio.Queue): Queue of pulpcore.plugin.stages.DeclarativeContent objects that
+                                  have either been processed or were created in this stage.
+
+        """
         _skipped_schema_1_count = 0
         _tagged_manifest_list_count = 0
         _tagged_manifest_count = 0
@@ -162,6 +178,14 @@ class ProcessContentStage(Stage):
         await out_q.put(None)
 
     async def create_and_process_tagged_manifest_list(self, tag_dc, manifest_list_data, out_q):
+        """
+        Create a ManifestList and nested ImageManifests from the Tag artifact.
+
+        Args:
+            tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
+            manifest_list_data (dict): Data about a ManifestList
+            out_q (asyncio.Queue): Queue to put created ManifestList and ImageManifest dcs.
+        """
         # TODO(test this) dc that comes here should always be a tag
         manifest_list = ManifestList(
             digest="sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256),
@@ -176,6 +200,14 @@ class ProcessContentStage(Stage):
         await out_q.put(list_dc)
 
     async def create_and_process_tagged_manifest(self, tag_dc, manifest_data, out_q):
+        """
+        Create a Manifest and nested ManifestBlobs from the Tag artifact.
+
+        Args:
+            tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
+            manifest_data (dict): Data about a single new ImageManifest.
+            out_q (asyncio.Queue): Queue to put created ImageManifest dcs and Blob dcs.
+        """
         # tagged manifests actually have an artifact already that we need to use.
         manifest = ImageManifest(
             digest=tag_dc.d_artifacts[0].artifact.sha256,
@@ -191,6 +223,14 @@ class ProcessContentStage(Stage):
         await out_q.put(man_dc)
 
     async def create_pending_manifest(self, list_dc, manifest_data, out_q):
+        """
+        Create a pending manifest from manifest data in a ManifestList.
+
+        Args:
+            list_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
+            manifest_data (dict): Data about a single new ImageManifest.
+            out_q (asyncio.Queue): Queue to put created ImageManifest dcs.
+        """
         digest = manifest_data['digest']
         relative_url = '/v2/{name}/manifests/{digest}'.format(
             name=self.remote.namespaced_upstream_name,
@@ -219,7 +259,16 @@ class ProcessContentStage(Stage):
         await out_q.put(man_dc)
 
     async def create_pending_blob(self, man_dc, blob_data, out_q):
-        sha256 = blob_data['digest'],
+        """
+        Create a pending blob from a layer in the ImageManifest.
+
+        Args:
+            man_dc (pulpcore.plugin.stages.DeclarativeContent): dc for an ImageManifest
+            blob_data (dict): Data about a single new blob.
+            out_q (asyncio.Queue): Queue to put created blob dcs.
+
+        """
+        sha256 = blob_data['digest']
         # TODO since i have a digest, I should pass to the artifact here for validation.
         blob_artifact = Artifact()
         blob = ManifestBlob(
@@ -247,7 +296,18 @@ class ProcessContentStage(Stage):
 
 
 class InterrelateContent(Stage):
+    """
+    Stage for relating Content to other Content.
+    """
+
     async def __call__(self, in_q, out_q):
+        """
+        Relate each item in the in_q to objects specified on the DeclarativeContent.
+
+        Args:
+            in_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
+            out_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
+        """
         while True:
             dc = await in_q.get()
             if dc is None:
@@ -264,6 +324,12 @@ class InterrelateContent(Stage):
         await out_q.put(None)
 
     def relate_blob(self, dc):
+        """
+        Relate a ManifestBlob to a Manifest.
+
+        Args:
+            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
+        """
         # TODO I think we can assume this works, no blobs can be synced without belonging to a
         # manifest. If the manifest has been processed, it almost certainly has been saved.
         related_dc = dc.extra_data.get('relation')
@@ -277,6 +343,12 @@ class InterrelateContent(Stage):
             pass
 
     def relate_manifest(self, dc):
+        """
+        Relate an ImageManifest to a Tag or ManifestList.
+
+        Args:
+            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
+        """
         # TODO I think we can assume this works, no manifests can be synced without belonging to a
         # manifest list or tag
         related_dc = dc.extra_data.get('relation')
@@ -294,6 +366,12 @@ class InterrelateContent(Stage):
                 pass
 
     def relate_manifest_list(self, dc):
+        """
+        Relate a ManifestList to a Tag.
+
+        Args:
+            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
+        """
         related_dc = dc.extra_data.get('relation')
         assert type(related_dc.content) is Tag
         # TODO how do we want to handle uniqueness enforcement
@@ -304,7 +382,9 @@ class DidItWorkStage(Stage):
     """
     TODO remove this development tool.
     """
+
     async def __call__(self, in_q, out_q):
+        """Dev tool."""
         while True:
             log_it = await in_q.get()
             if log_it is None:
@@ -314,6 +394,7 @@ class DidItWorkStage(Stage):
         await out_q.put(None)
 
     def log_state(self, dc):
+        """Development tool."""
         # TODO dont assume 1 artifact
         downloaded = dc.d_artifacts[0].artifact.file.name != ""
         dl = "D" if downloaded else "!d"

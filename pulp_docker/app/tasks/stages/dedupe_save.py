@@ -1,17 +1,21 @@
 from django.db.models import Q
 from pulpcore.plugin.stages import Stage
-from pulpcore.plugin.models import Artifact, ContentArtifact, ProgressBar, RemoteArtifact
-
-# from pulp_docker.app.models import ManifestList, ImageManifest, ManifestBlob
+from pulpcore.plugin.models import Artifact, ContentArtifact, RemoteArtifact
+# from pulpcore.plugin.models import ProgressBar
 
 import logging
 log = logging.getLogger("STUPIDSAVE")
 
 
 class SerialArtifactSave(Stage):
+    """
+    Save Artifacts one at a time, combining duplicates.
+    """
+
     async def __call__(self, in_q, out_q):
         """
         The coroutine for this stage.
+
         Args:
             in_q (:class:`asyncio.Queue`): The queue to receive
                 :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
@@ -19,6 +23,7 @@ class SerialArtifactSave(Stage):
                 :class:`~pulpcore.plugin.stages.DeclarativeContent` into.
         Returns:
             The coroutine for this stage.
+
         """
         while True:
             dc = await in_q.get()
@@ -29,6 +34,13 @@ class SerialArtifactSave(Stage):
         await out_q.put(None)
 
     def query_and_save_artifacts(self, dc):
+        """
+        Combine duplicated artifacts, save unique artifacts.
+
+        Args:
+            in_q (:class:`asyncio.Queue`): The queue to receive
+                :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
+        """
         for da in dc.d_artifacts:
             artifact_q = Q()
             for digest_name in da.artifact.DIGEST_FIELDS:
@@ -46,7 +58,23 @@ class SerialArtifactSave(Stage):
 
 
 class SerialContentSave(Stage):
+    """
+    Combine duplicated Content, save unique Content.
+    """
+
     async def __call__(self, in_q, out_q):
+        """
+        The coroutine for this stage.
+
+        Args:
+            in_q (:class:`asyncio.Queue`): The queue to receive
+                :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
+            out_q (:class:`asyncio.Queue`): The queue to put
+                :class:`~pulpcore.plugin.stages.DeclarativeContent` into.
+        Returns:
+            The coroutine for this stage.
+
+        """
         while True:
             dc = await in_q.get()
             # finished
@@ -65,6 +93,13 @@ class SerialContentSave(Stage):
         await out_q.put(None)
 
     def query_and_save_content(self, dc):
+        """
+        Combine duplicate Content, save unique Content.
+
+        Args:
+            dc (class:`~pulpcore.plugin.stages.DeclarativeContent`): Object containing Content to
+                                                                     be saved.
+        """
         model_type = type(dc.content)
         unit_key = dc.content.natural_key_dict()
         try:
@@ -77,6 +112,14 @@ class SerialContentSave(Stage):
             dc.content = existing_content
 
     def create_content_artifacts(self, dc):
+        """
+        Create ContentArtifacts to associate saved Content to saved Artifacts.
+
+        Args:
+            dc (class:`~pulpcore.plugin.stages.DeclarativeContent`): Object containing Content and
+                                                                     Artifacts to relate.
+        """
+        # For docker, we don't need to loop.
         for da in dc.d_artifacts:
             content_artifact = ContentArtifact(
                 content=dc.content,
@@ -102,6 +145,17 @@ class SerialContentSave(Stage):
             new_remote_artifact.save()
 
     def settled(self, dc):
+        """
+        Indicates that all Artifacts in this dc are saved.
+
+        Args:
+            dc (class:`~pulpcore.plugin.stages.DeclarativeContent`): Object containing Artifacts
+                                                                     that may be saved.
+
+        Returns:
+            bool: True when all Artifacts have been saved, False otherwise.
+
+        """
         settled_dc = True
         for da in dc.d_artifacts:
             if da.artifact.pk is None:

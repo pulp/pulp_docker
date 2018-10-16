@@ -109,24 +109,16 @@ class TokenAuthHttpDownloader(HttpDownloader):
 
     @staticmethod
     def auth_header(token):
+        """
+        Create an auth header that optionally includes a bearer token.
+
+        Args:
+            token (str): Bearer token to use in header
+
+        Returns:
+            dictionary: containing Authorization headers or {} if token is None.
+
+        """
         if token is not None:
             return {'Authorization': 'Bearer {token}'.format(token=token)}
         return {}
-
-    def parse_401_response_headers(self, auth_header):
-        """
-        Parse the www-authenticate header from a 401 response into a dictionary that contains
-        the information necessary to retrieve a token.
-
-        :param auth_header: www-authenticate header returned in a 401 response
-        :type  auth_header: basestring
-        """
-        auth_header = auth_header[len("Bearer "):]
-        auth_header = re.split(',(?=[^=,]+=)', auth_header)
-
-        # The remaining string consists of comma seperated key=value pairs
-        auth_dict = {}
-        for key, value in (item.split('=') for item in auth_header):
-            # The value is a string within a string, so we need to load as json
-            auth_dict[key] = json.loads(value)
-        return auth_dict

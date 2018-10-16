@@ -41,14 +41,14 @@ class DockerDeclarativeVersion(DeclarativeVersion):
     """
 
     def __init__(self, repository, remote, mirror=True):
+        """Initialize the class."""
         self.repository = repository
         self.remote = remote
         self.mirror = mirror
 
     def pipeline_stages(self, new_version):
         """
-        Build the list of pipeline stages feeding into the
-        ContentUnitAssociation stage.
+        Build a list of stages feeding into the ContentUnitAssociation stage.
 
         Args:
             new_version (:class:`~pulpcore.plugin.models.RepositoryVersion`): The
@@ -56,6 +56,7 @@ class DockerDeclarativeVersion(DeclarativeVersion):
 
         Returns:
             list: List of :class:`~pulpcore.plugin.stages.Stage` instances
+
         """
         # We only want to create a single instance of each stage. Each call to the stage is
         # encapsulated, so it isn't necessary to create a new instance. Also, stages that run

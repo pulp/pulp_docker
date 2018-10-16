@@ -10,19 +10,32 @@ class ConcurrentRunner(Stage):
     For each item in_q, spin up a new instance of the Stage and run them all concurrently. All
     output from the concurrent Stage is consolidated into a single out_q.
     """
+
     def __init__(self, stage, max_concurrent_content=5):
+        """Initialize the stage."""
         self.max_concurrent_content = max_concurrent_content
         self.stage = stage
 
     @property
     def saturated(self):
+        """
+        Indicates that max concurrency has been reached.
+        """
         return len(self.futures) >= self.max_concurrent_content
 
-    @property
-    def shutdown(self):
-        return self._next_task is None
-
     async def __call__(self, in_q, out_q):
+        """
+        The coroutine for this stage.
+
+        Args:
+            in_q (:class:`asyncio.Queue`): The queue to receive
+                :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
+            out_q (:class:`asyncio.Queue`): The queue to put
+                :class:`~pulpcore.plugin.stages.DeclarativeContent` into.
+        Returns:
+            The coroutine for this stage.
+
+        """
         # TODO add max_concurrent
         self.futures = set()
         prev_running = True
@@ -73,13 +86,17 @@ class SingletonQueue:
     """
     A Queue that only contains 1 item.
     """
+
     def __init__(self):
+        """Initialize the Queue."""
         self.q = None
 
     async def put(self, item):
+        """Put an item on the Queue."""
         self.q = item
 
     async def get(self):
+        """Retrieve an item from the Queue."""
         item = self.q
         self.q = None
         return item

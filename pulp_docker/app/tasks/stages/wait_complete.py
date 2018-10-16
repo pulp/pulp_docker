@@ -7,7 +7,20 @@ class WaitUntilComplete(Stage):
     """
     Does not output until previous stages are complete.
     """
+
     async def __call__(self, in_q, out_q):
+        """
+        The coroutine for this stage.
+
+        Args:
+            in_q (:class:`asyncio.Queue`): The queue to receive
+                :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
+            out_q (:class:`asyncio.Queue`): The queue to put
+                :class:`~pulpcore.plugin.stages.DeclarativeContent` into.
+        Returns:
+            The coroutine for this stage.
+
+        """
         pending_q = asyncio.Queue()
         # Wait
         while True:

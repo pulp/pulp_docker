@@ -25,6 +25,7 @@ class DockerRemoteSerializer(platform.RemoteSerializer):
     class Meta:
         validators = platform.RemoteSerializer.Meta.validators + [myValidator1, myValidator2]
     """
+
     upstream_name = serializers.CharField(
         required=True,
         allow_blank=False,
@@ -49,6 +50,7 @@ class DockerPublisherSerializer(platform.PublisherSerializer):
     class Meta:
         validators = platform.PublisherSerializer.Meta.validators + [myValidator1, myValidator2]
     """
+
     class Meta:
         fields = platform.PublisherSerializer.Meta.fields
         model = models.DockerPublisher
