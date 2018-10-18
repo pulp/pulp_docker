@@ -4,7 +4,7 @@ import logging
 from pulpcore.plugin.models import Artifact, ProgressBar, Repository, RepositoryVersion  # noqa
 from pulpcore.plugin.stages import ArtifactDownloader, DeclarativeVersion
 
-from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage
+from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage, DidItWorkStage
 from pulp_docker.app.models import DockerRemote
 from pulp_docker.app.tasks.stages.dedupe_save import SerialArtifactSave, SerialContentSave
 
@@ -86,6 +86,7 @@ class DockerDeclarativeVersion(DeclarativeVersion):
             serial_artifact_save,
             process_content,
             serial_content_save,
+            DidItWorkStage(),
 
             # Requires that all content (and related content) is already saved. By the time a
             # ManifestBlob gets here, the Manifest that contains it has already been saved. By the

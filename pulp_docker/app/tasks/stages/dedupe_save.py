@@ -3,6 +3,8 @@ from pulpcore.plugin.stages import Stage
 from pulpcore.plugin.models import Artifact, ContentArtifact, RemoteArtifact
 # from pulpcore.plugin.models import ProgressBar
 
+from pulp_docker.app.models import Tag
+
 import logging
 log = logging.getLogger("STUPIDSAVE")
 
@@ -80,8 +82,9 @@ class SerialContentSave(Stage):
             # finished
             if dc is None:
                 break
+
             # Artifacts have not been downloaded
-            elif not self.settled(dc):
+            if not self.settled(dc):
                 await out_q.put(dc)
             # already saved
             elif dc.content.pk is not None:

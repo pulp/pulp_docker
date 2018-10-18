@@ -2,6 +2,7 @@ from urllib.parse import urljoin
 import json
 import logging
 
+from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressBar
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 
@@ -155,7 +156,15 @@ class ProcessContentStage(Stage):
                 # TODO add config layer
                 _manifest_count += 1
                 for layer in content_data.get("layers"):
-                    await self.create_pending_blob(dc, layer, out_q)
+                    blob_dc = await self.create_pending_blob(dc, layer, out_q)
+                    blob_dc.extra_data['relation'] = dc
+                    await out_q.put(blob_dc)
+
+                config_layer = content_data.get('config')
+                if config_layer:
+                    config_blob_dc = await self.create_pending_blob(dc, config_layer, out_q)
+                    config_blob_dc.extra_data['config_relation'] = dc
+                    await out_q.put(config_blob_dc)
                 await out_q.put(dc)
             elif type(dc.content) is ManifestList:
                 _manifest_list_count += 1
@@ -196,7 +205,6 @@ class ProcessContentStage(Stage):
         for manifest in manifest_list_data.get('manifests'):
             await self.create_pending_manifest(list_dc, manifest, out_q)
         list_dc.extra_data['relation'] = tag_dc
-
         await out_q.put(list_dc)
 
     async def create_and_process_tagged_manifest(self, tag_dc, manifest_data, out_q):
@@ -218,7 +226,16 @@ class ProcessContentStage(Stage):
         man_dc = DeclarativeContent(content=manifest, d_artifacts=[tag_dc.d_artifacts[0]])
         # TODO add config layer
         for layer in manifest_data.get('layers'):
-            await self.create_pending_blob(man_dc, layer, out_q)
+            blob_dc = await self.create_pending_blob(man_dc, layer, out_q)
+            blob_dc.extra_data['relation'] = man_dc
+            await out_q.put(blob_dc)
+
+        config_layer = manifest_data.get('config')
+        if config_layer:
+            config_blob_dc = await self.create_pending_blob(man_dc, config_layer, out_q)
+            config_blob_dc.extra_data['config_relation'] = man_dc
+            await out_q.put(config_blob_dc)
+
         man_dc.extra_data['relation'] = tag_dc
         await out_q.put(man_dc)
 
@@ -290,9 +307,8 @@ class ProcessContentStage(Stage):
         blob_dc = DeclarativeContent(
             content=blob,
             d_artifacts=[da],
-            extra_data={'relation': man_dc}
         )
-        await out_q.put(blob_dc)
+        return blob_dc
 
 
 class InterrelateContent(Stage):
@@ -308,6 +324,13 @@ class InterrelateContent(Stage):
             in_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
             out_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
         """
+        self.ml_t = 0
+        self.existing_ml_t = 0
+        self.m_t = 0
+        self.existing_m_t = 0
+        self.m_ml = 0
+        self.c_m = 0
+        self.b_m = 0
         while True:
             dc = await in_q.get()
             if dc is None:
@@ -320,7 +343,21 @@ class InterrelateContent(Stage):
                 elif type(dc.content) is ImageManifest:
                     self.relate_manifest(dc)
 
+            configured_dc = dc.extra_data.get('config_relation')
+            if configured_dc:
+                log.warn("Relating config layer")
+                configured_dc.content.config_blob = dc.content
+                configured_dc.content.save()
+                self.c_m += 1
+
             await out_q.put(dc)
+        log.warn("ML - T: {n}".format(n=self.ml_t))
+        log.warn("Existing ML - T: {n}".format(n=self.existing_ml_t))
+        log.warn("M - T: {n}".format(n=self.m_t))
+        log.warn("Existing M - T: {n}".format(n=self.existing_m_t))
+        log.warn("M - ML: {n}".format(n=self.m_ml))
+        log.warn("C - M: {n}".format(n=self.c_m))
+        log.warn("B - M: {n}".format(n=self.b_m))
         await out_q.put(None)
 
     def relate_blob(self, dc):
@@ -336,9 +373,11 @@ class InterrelateContent(Stage):
         # TODO invert this, try to save, and pass if it fails
         try:
             BlobManifestBlob.objects.get(manifest=related_dc.content, manifest_blob=dc.content)
+            log.warn("blob manifest blob already exists")
         except BlobManifestBlob.DoesNotExist:
             thru = BlobManifestBlob(manifest=related_dc.content, manifest_blob=dc.content)
             thru.save()
+            self.b_m += 1
         else:
             pass
 
@@ -353,15 +392,25 @@ class InterrelateContent(Stage):
         # manifest list or tag
         related_dc = dc.extra_data.get('relation')
         # TODO invert this, try to save, and retrieve if it fails.
-        if type(related_dc) is Tag:
+        if type(related_dc.content) is Tag:
+            assert related_dc.content.manifest is None
             related_dc.content.manifest = dc.content
-        elif type(related_dc) is ManifestList:
+            try:
+                related_dc.content.save()
+            except IntegrityError as e:
+                existing_tag = Tag.objects.get(name=related_dc.content.name, manifest=dc.content)
+                related_dc.content = existing_tag
+                self.existing_m_t += 1
+            else:
+                self.m_t += 1
+        elif type(related_dc.content) is ManifestList:
             try:
                 ManifestListManifest.objects.get(
                     manifest_list=related_dc.content, manifest=dc.content)
             except ManifestListManifest.DoesNotExist:
                 thru = ManifestListManifest(manifest_list=related_dc.content, manifest=dc.content)
                 thru.save()
+                self.m_ml += 1
             else:
                 pass
 
@@ -374,8 +423,17 @@ class InterrelateContent(Stage):
         """
         related_dc = dc.extra_data.get('relation')
         assert type(related_dc.content) is Tag
-        # TODO how do we want to handle uniqueness enforcement
+        assert related_dc.content.manifest_list is None
         related_dc.content.manifest_list = dc.content
+        # TODO how do we want to handle uniqueness enforcement
+        try:
+            related_dc.content.save()
+        except IntegrityError as e:
+            existing_tag = Tag.objects.get(name=related_dc.content.name, manifest_list=dc.content)
+            related_dc.content = existing_tag
+            self.existing_ml_t += 1
+        else:
+            self.ml_t += 1
 
 
 class DidItWorkStage(Stage):

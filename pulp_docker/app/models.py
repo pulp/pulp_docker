@@ -76,6 +76,8 @@ class ImageManifest(Content):
         ))
 
     blobs = models.ManyToManyField(ManifestBlob, through='BlobManifestBlob')
+    config_blob = models.ForeignKey(ManifestBlob, related_name='config_blob',
+                                    null=True, on_delete=models.CASCADE)  # through table?
 
     class Meta:
         unique_together = ('digest',)
