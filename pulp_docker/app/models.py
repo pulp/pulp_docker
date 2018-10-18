@@ -210,23 +210,6 @@ class DockerRemote(Remote):
 
     TYPE = 'docker'
 
-    def __init__(self, *args, **kwargs):
-        """
-        Create a remote instance that includes a token and token_lock.
-        """
-        super().__init__(*args, **kwargs)
-        self.token = {'token': None}
-        self._token_lock = None
-
-    @property
-    def token_lock(self):
-        """
-        Provides a lock so only a single downloader can retrieve a new bearer token.
-        """
-        if self._token_lock is None:
-            self._token_lock = asyncio.Lock()
-        return self._token_lock
-
     @property
     def download_factory(self):
         """

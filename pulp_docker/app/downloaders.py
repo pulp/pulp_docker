@@ -1,6 +1,7 @@
 from gettext import gettext as _
 from logging import getLogger
 from urllib import parse
+import asyncio
 # import backoff
 import json
 import re
@@ -20,6 +21,8 @@ class TokenAuthHttpDownloader(HttpDownloader):
 
     Additionally, use custom headers from DeclarativeArtifact.extra_data['headers']
     """
+    token = {'token': None}
+    token_lock = asyncio.Lock()
 
     def __init__(self, *args, **kwargs):
         """
@@ -45,7 +48,7 @@ class TokenAuthHttpDownloader(HttpDownloader):
         headers = {}
         if extra_data is not None:
             headers = extra_data.get('headers', headers)
-        this_token = self.remote.token['token']
+        this_token = self.token['token']
         auth_headers = self.auth_header(this_token)
         headers.update(auth_headers)
         # dl_log.info("Fetching from URL: {url}".format(url=self.url))
@@ -57,10 +60,10 @@ class TokenAuthHttpDownloader(HttpDownloader):
                 # Need to retry request
                 if handle_401 and e.status == 401 and response_auth_header is not None:
                     # Token has not been updated during request
-                    if self.remote.token['token'] is None or \
-                       self.remote.token['token'] == this_token:
+                    if self.token['token'] is None or \
+                       self.token['token'] == this_token:
 
-                        self.remote.token['token'] = None
+                        self.token['token'] = None
                         await self.update_token(response_auth_header, this_token)
                     return await self.run(handle_401=False)
                 else:
@@ -78,8 +81,8 @@ class TokenAuthHttpDownloader(HttpDownloader):
         """
         Update the Bearer token to be used with all requests.
         """
-        async with self.remote.token_lock:
-            if self.remote.token['token'] is not None and self.remote.token['token'] == used_token:
+        async with self.token_lock:
+            if self.token['token'] is not None and self.token['token'] == used_token:
                 return
             dl_log.info("Updating Token")
             bearer_info_string = response_auth_header[len("Bearer "):]
@@ -105,7 +108,7 @@ class TokenAuthHttpDownloader(HttpDownloader):
             async with self.session.get(token_url, raise_for_status=True) as token_response:
                 token_data = await token_response.text()
 
-            self.remote.token['token'] = json.loads(token_data)['token']
+            self.token['token'] = json.loads(token_data)['token']
 
     @staticmethod
     def auth_header(token):
