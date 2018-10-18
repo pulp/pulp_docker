@@ -399,6 +399,8 @@ class InterrelateContent(Stage):
                 related_dc.content.save()
             except IntegrityError as e:
                 existing_tag = Tag.objects.get(name=related_dc.content.name, manifest=dc.content)
+                # TODO this isn't ideal
+                related_dc.content.delete()
                 related_dc.content = existing_tag
                 self.existing_m_t += 1
             else:
@@ -430,6 +432,8 @@ class InterrelateContent(Stage):
             related_dc.content.save()
         except IntegrityError as e:
             existing_tag = Tag.objects.get(name=related_dc.content.name, manifest_list=dc.content)
+            # TODO this isn't ideal
+            related_dc.content.delete()
             related_dc.content = existing_tag
             self.existing_ml_t += 1
         else:
