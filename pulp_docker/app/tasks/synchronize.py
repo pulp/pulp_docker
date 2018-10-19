@@ -1,10 +1,10 @@
 from gettext import gettext as _
 import logging
 
-from pulpcore.plugin.models import Artifact, ProgressBar, Repository, RepositoryVersion  # noqa
+from pulpcore.plugin.models import ProgressBar, Repository
 from pulpcore.plugin.stages import ArtifactDownloader, DeclarativeVersion
 
-from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage, DidItWorkStage
+from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage
 from pulp_docker.app.models import DockerRemote
 from pulp_docker.app.tasks.stages.dedupe_save import SerialArtifactSave, SerialContentSave
 
@@ -69,29 +69,40 @@ class DockerDeclarativeVersion(DeclarativeVersion):
         return [
             TagListStage(self.remote),
 
-            # Group handles Tags, Manifest Lists, and Manifests
+            # In: Pending Tags (not downloaded yet)
             downloader,
             serial_artifact_save,
             process_content,
             serial_content_save,
+            # Out: Finished Tags, Finished ManifestLists, Finished ImageManifests,
+            #      Pending ImageManifests, Pending ManifestBlobs
 
-            # Group handles Manifests and ManifestBlobs
+
+            # In: Pending ImageManifests, Pending Blobs
+            # In: Finished content (no-op)
             downloader,
             serial_artifact_save,
             process_content,
             serial_content_save,
+            # Out: No-op (Finished Tags, ManifestLists, ImageManifests)
+            # Out: Finished ImageManifests, Finished ManifestBlobs, Pending ManifestBlobs
 
-            # Group handles ManifestBlobs only
+            # In: Pending Blobs
+            # In: Finished content (no-op)
             downloader,
             serial_artifact_save,
             process_content,
             serial_content_save,
-            DidItWorkStage(),
+            # Out: Finished content, Tags, ManifestLists, ImageManifests, ManifestBlobs
 
+            # In: Tags, ManifestLists, ImageManifests, ManifestBlobs (downloaded, processed, and
+            # saved)
             # Requires that all content (and related content) is already saved. By the time a
             # ManifestBlob gets here, the Manifest that contains it has already been saved. By the
             # time a Manifest gets here, the ManifestList has already been saved.
             InterrelateContent(),
+            # Out: Content that has been related to other Content.
 
             # TODO custom add/remove stages with enforced uniqueness
+            # Dedupe Tags
         ]
