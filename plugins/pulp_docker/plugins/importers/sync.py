@@ -7,7 +7,6 @@ import httplib
 import itertools
 import logging
 import os
-import signal
 
 from mongoengine import NotUniqueError
 
@@ -424,6 +423,7 @@ class AuthDownloadStep(publish_step.DownloadStep):
         self.description = _('Downloading remote files')
         self.token = None
         self._requests_map = {}
+        self._failed_download_urls = []
 
     def process_main(self, item=None):
         """
@@ -432,6 +432,9 @@ class AuthDownloadStep(publish_step.DownloadStep):
         for request in self.downloads:
             self._requests_map[request.url] = request
         super(AuthDownloadStep, self).process_main(item)
+        if self._failed_download_urls:
+            failed_urls = ", ".join(self._failed_download_urls)
+            raise PulpCodedException(error_code=error_codes.DKR1020, failed_urls=failed_urls)
 
     def download_failed(self, report):
         """
@@ -468,4 +471,5 @@ class AuthDownloadStep(publish_step.DownloadStep):
             super(AuthDownloadStep, self).download_failed(report)
             # Docker blobs have ancestry relationships and need all blobs to function. Sync should
             # stop immediately to prevent publishing of an incomplete repository.
-            os.kill(os.getpid(), signal.SIGKILL)
+            self._failed_download_urls.append(report.url)
+            self.downloader.cancel()

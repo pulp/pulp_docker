@@ -48,3 +48,6 @@ DKR1018 = Error("DKR1018", _("Layer %(layer)s is not present in the image"),
                 ['layer'])
 DKR1019 = Error("DKR1019", _("Tag does not contain required field: %(field)s."),
                 ['field'])
+DKR1020 = Error("DKR1020", _("Image download(s) from %(failed_urls)s failed. Sync task has"
+                             " failed to prevent a corrupted repository."),
+                ['failed_urls'])
