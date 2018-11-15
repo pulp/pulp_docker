@@ -20,6 +20,7 @@ class TokenAuthHttpDownloader(HttpDownloader):
 
     Additionally, use custom headers from DeclarativeArtifact.extra_data['headers']
     """
+
     token = {'token': None}
     token_lock = asyncio.Lock()
 

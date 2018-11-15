@@ -1,8 +1,11 @@
 """
+Temporary module.
+
 This module contains temporary replacements of several pulpcore stages that did not properly
 duplicates within the stream. The entire module should be deleted after #4060 is finished.
 
 https://pulp.plan.io/issues/4060
+
 """
 from django.db import IntegrityError
 from django.db.models import Q
@@ -58,7 +61,7 @@ class SerialArtifactSave(Stage):
                 da.artifact.save()
             # ValueError raised by /home/vagrant/devel/pulp/pulpcore/pulpcore/app/models/fields.py",
             # line 32
-            except (ValueError, IntegrityError) as e:  # dupe
+            except (ValueError, IntegrityError):  # dupe
                 existing_artifact = Artifact.objects.get(artifact_q)
                 da.artifact = existing_artifact
 
@@ -110,7 +113,7 @@ class SerialContentSave(Stage):
         unit_key = dc.content.natural_key_dict()
         try:
             dc.content.save()
-        except IntegrityError as e:
+        except IntegrityError:
             existing_content = model_type.objects.get(**unit_key)
             dc.content = existing_content
             assert dc.content.pk is not None
@@ -133,7 +136,7 @@ class SerialContentSave(Stage):
             )
             try:
                 content_artifact.save()
-            except IntegrityError as e:
+            except IntegrityError:
                 content_artifact = ContentArtifact.objects.get(
                     content=dc.content,
                     artifact=da.artifact,
@@ -156,7 +159,7 @@ class SerialContentSave(Stage):
             )
             try:
                 new_remote_artifact.save()
-            except IntegrityError as e:
+            except IntegrityError:
                 pass
 
     def settled(self, dc):

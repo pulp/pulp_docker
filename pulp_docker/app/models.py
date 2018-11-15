@@ -246,6 +246,7 @@ class DockerRemote(Remote):
         Returns:
             subclass of :class:`~pulpcore.plugin.download.BaseDownloader`: A downloader that
             is configured with the remote settings.
+
         """
         kwargs['remote'] = self
         return self.download_factory.build(url, **kwargs)

@@ -18,10 +18,6 @@ V2_ACCEPT_HEADERS = {
 }
 
 
-class UnsupportedDockerContentTypeError(Exception):
-    pass
-
-
 class TagListStage(Stage):
     """
     The first stage of a pulp_docker sync pipeline.
@@ -155,7 +151,7 @@ class ProcessContentStage(Stage):
                 await out_q.put(dc)
             else:
                 msg = "Unexpected type cannot be processed{tp}".format(tp=type(dc.content))
-                raise UnsupportedDockerContentTypeError(msg)
+                raise Exception(msg)
 
         await out_q.put(None)
 
@@ -327,7 +323,7 @@ class InterrelateContent(Stage):
         thru = BlobManifestBlob(manifest=related_dc.content, manifest_blob=dc.content)
         try:
             thru.save()
-        except IntegrityError as e:
+        except IntegrityError:
             pass
 
     def relate_manifest(self, dc):
@@ -344,14 +340,14 @@ class InterrelateContent(Stage):
             related_dc.content.manifest = dc.content
             try:
                 related_dc.content.save()
-            except IntegrityError as e:
+            except IntegrityError:
                 existing_tag = Tag.objects.get(name=related_dc.content.name, manifest=dc.content)
                 related_dc.content = existing_tag
         elif type(related_dc.content) is ManifestList:
             thru = ManifestListManifest(manifest_list=related_dc.content, manifest=dc.content)
             try:
                 thru.save()
-            except IntegrityError as e:
+            except IntegrityError:
                 pass
 
     def relate_manifest_list(self, dc):
@@ -367,6 +363,6 @@ class InterrelateContent(Stage):
         related_dc.content.manifest_list = dc.content
         try:
             related_dc.content.save()
-        except IntegrityError as e:
+        except IntegrityError:
             existing_tag = Tag.objects.get(name=related_dc.content.name, manifest_list=dc.content)
             related_dc.content = existing_tag
