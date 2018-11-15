@@ -1,12 +1,12 @@
 from gettext import gettext as _
 import logging
 
-from pulpcore.plugin.models import ProgressBar, Repository
+from pulpcore.plugin.models import Repository
 from pulpcore.plugin.stages import ArtifactDownloader, DeclarativeVersion
 
 from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage
 from pulp_docker.app.models import DockerRemote
-from pulp_docker.app.tasks.stages.dedupe_save import SerialArtifactSave, SerialContentSave
+from pulp_docker.app.tasks.dedupe_save import SerialArtifactSave, SerialContentSave
 
 
 log = logging.getLogger(__name__)
@@ -28,10 +28,8 @@ def synchronize(remote_pk, repository_pk):
     """
     remote = DockerRemote.objects.get(pk=remote_pk)
     repository = Repository.objects.get(pk=repository_pk)
-
     if not remote.url:
         raise ValueError(_('A remote must have a url specified to synchronize.'))
-
     DockerDeclarativeVersion(repository, remote).create()
 
 
@@ -50,6 +48,8 @@ class DockerDeclarativeVersion(DeclarativeVersion):
         """
         Build a list of stages feeding into the ContentUnitAssociation stage.
 
+        This defines the "architecture" of the entire sync.
+
         Args:
             new_version (:class:`~pulpcore.plugin.models.RepositoryVersion`): The
                 new repository version that is going to be built.
@@ -59,9 +59,7 @@ class DockerDeclarativeVersion(DeclarativeVersion):
 
         """
         # We only want to create a single instance of each stage. Each call to the stage is
-        # encapsulated, so it isn't necessary to create a new instance. Also, stages that run
-        # concurrent calls (the ArtifactDownloader) need to be in a single instance to ensure that
-        # max_concurrent is respected together, not individually.
+        # encapsulated, so it isn't necessary to create a new instance.
         downloader = ArtifactDownloader()
         serial_artifact_save = SerialArtifactSave()
         serial_content_save = SerialContentSave()
@@ -91,18 +89,12 @@ class DockerDeclarativeVersion(DeclarativeVersion):
             # In: Finished content (no-op)
             downloader,
             serial_artifact_save,
-            process_content,
             serial_content_save,
             # Out: Finished content, Tags, ManifestLists, ImageManifests, ManifestBlobs
 
             # In: Tags, ManifestLists, ImageManifests, ManifestBlobs (downloaded, processed, and
-            # saved)
-            # Requires that all content (and related content) is already saved. By the time a
-            # ManifestBlob gets here, the Manifest that contains it has already been saved. By the
-            # time a Manifest gets here, the ManifestList has already been saved.
+            #     saved)
+            # Requires that all content (and related content in dc.extra_data) is already saved.
             InterrelateContent(),
             # Out: Content that has been related to other Content.
-
-            # TODO custom add/remove stages with enforced uniqueness
-            # Dedupe Tags
         ]

@@ -3,7 +3,7 @@ import json
 import logging
 
 from django.db import IntegrityError
-from pulpcore.plugin.models import Artifact, ProgressBar
+from pulpcore.plugin.models import Artifact
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 
 from pulp_docker.app.models import (ImageManifest, MEDIA_TYPE, ManifestBlob,
@@ -16,6 +16,10 @@ log = logging.getLogger(__name__)
 V2_ACCEPT_HEADERS = {
     'accept': ','.join([MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_LIST])
 }
+
+
+class UnsupportedDockerContentTypeError(Exception):
+    pass
 
 
 class TagListStage(Stage):
@@ -36,25 +40,21 @@ class TagListStage(Stage):
             out_q (asyncio.Queue): Tag `DeclarativeContent` objects are sent here.
 
         """
-        with ProgressBar(message="Downloading Tags List") as pb:
-            log.debug("Fetching tags list for upstream repository: {repo}".format(
-                repo=self.remote.upstream_name
-            ))
-            relative_url = '/v2/{name}/tags/list'.format(name=self.remote.namespaced_upstream_name)
-            tag_list_url = urljoin(self.remote.url, relative_url)
-            list_downloader = self.remote.get_downloader(tag_list_url)
-            await list_downloader.run()
+        log.debug("Fetching tags list for upstream repository: {repo}".format(
+            repo=self.remote.upstream_name
+        ))
+        relative_url = '/v2/{name}/tags/list'.format(name=self.remote.namespaced_upstream_name)
+        tag_list_url = urljoin(self.remote.url, relative_url)
+        list_downloader = self.remote.get_downloader(tag_list_url)
+        await list_downloader.run()
 
         with open(list_downloader.path) as tags_raw:
             tags_dict = json.loads(tags_raw.read())
             tag_list = tags_dict['tags']
-        pb.increment()
-        # TODO add pagination
-        log.warn("Tag list len {num}".format(num=len(tag_list)))
+
         for tag_name in tag_list:
             tag_dc = self.create_pending_tag(tag_name)
             await out_q.put(tag_dc)
-            pb.increment()
 
         await out_q.put(None)
 
@@ -77,14 +77,12 @@ class TagListStage(Stage):
         )
         url = urljoin(self.remote.url, relative_url)
         tag = Tag(name=tag_name)
-        # TODO this one, we don't have anything to add here, so we can't do validation
         manifest_artifact = Artifact()
         da = DeclarativeArtifact(
             artifact=manifest_artifact,
             url=url,
-            relative_path="TODO-where-should-this-go-{name}".format(name=tag_name),
+            relative_path=tag_name,
             remote=self.remote,
-            # TODO is this necessary for tag list?
             extra_data={'headers': V2_ACCEPT_HEADERS}
         )
         tag_dc = DeclarativeContent(content=tag, d_artifacts=[da])
@@ -116,25 +114,18 @@ class ProcessContentStage(Stage):
                                   have either been processed or were created in this stage.
 
         """
-        _skipped_schema_1_count = 0
-        _tagged_manifest_list_count = 0
-        _tagged_manifest_count = 0
-        _manifest_list_count = 0
-        _manifest_count = 0
         while True:
             dc = await in_q.get()
             if dc is None:
                 break
-            # If content has been saved, it has also been processed.
-            elif dc.content.pk is not None:
+            elif dc.extra_data.get('processed'):
                 await out_q.put(dc)
                 continue
-            # We don't need to process blobs.
             elif type(dc.content) is ManifestBlob:
                 await out_q.put(dc)
                 continue
 
-            # TODO All docker content contains a single artifact.
+            # All docker content contains a single artifact.
             assert len(dc.d_artifacts) == 1
             with dc.d_artifacts[0].artifact.file.open() as content_file:
                 raw = content_file.read()
@@ -144,17 +135,12 @@ class ProcessContentStage(Stage):
                 if content_data.get('mediaType') == MEDIA_TYPE.MANIFEST_LIST:
                     await self.create_and_process_tagged_manifest_list(dc, content_data, out_q)
                     await out_q.put(dc)
-                    _tagged_manifest_list_count += 1
                 elif content_data.get('mediaType') == MEDIA_TYPE.MANIFEST_V2:
                     await self.create_and_process_tagged_manifest(dc, content_data, out_q)
                     await out_q.put(dc)
-                    _tagged_manifest_count += 1
                 else:
                     assert content_data.get('schemaVersion') == 1
-                    _skipped_schema_1_count += 1
             elif type(dc.content) is ImageManifest:
-                # TODO add config layer
-                _manifest_count += 1
                 for layer in content_data.get("layers"):
                     blob_dc = await self.create_pending_blob(dc, layer, out_q)
                     blob_dc.extra_data['relation'] = dc
@@ -165,25 +151,12 @@ class ProcessContentStage(Stage):
                     config_blob_dc = await self.create_pending_blob(dc, config_layer, out_q)
                     config_blob_dc.extra_data['config_relation'] = dc
                     await out_q.put(config_blob_dc)
+                dc.extra_data['processed'] = True
                 await out_q.put(dc)
-            elif type(dc.content) is ManifestList:
-                _manifest_list_count += 1
-                # TODO remove or make custom exception
-                raise Exception("Manifest Lists should have been downloaded and saved as tags.")
             else:
-                # TODO remove or make custom exception
                 msg = "Unexpected type cannot be processed{tp}".format(tp=type(dc.content))
-                raise Exception(msg)
+                raise UnsupportedDockerContentTypeError(msg)
 
-        # TODO remove debugging numbers
-        # is it possible to track these with a multiple progress bars?
-        # This is here because I think we are leaking content somewhere, maybe dedupe save?
-        log.info("Skippped {n}".format(n=_skipped_schema_1_count))
-        log.info("tagged MLs: {n}".format(n=_tagged_manifest_list_count))
-        log.info("tagged Ms: {n}".format(n=_tagged_manifest_count))
-        log.info("Ms: {n}".format(n=_manifest_count))
-        log.info("MLs: {n}".format(n=_manifest_list_count))
-        # TODO how to track blobs?
         await out_q.put(None)
 
     async def create_and_process_tagged_manifest_list(self, tag_dc, manifest_list_data, out_q):
@@ -195,7 +168,7 @@ class ProcessContentStage(Stage):
             manifest_list_data (dict): Data about a ManifestList
             out_q (asyncio.Queue): Queue to put created ManifestList and ImageManifest dcs.
         """
-        # TODO(test this) dc that comes here should always be a tag
+        assert type(tag_dc.content) is Tag
         manifest_list = ManifestList(
             digest="sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256),
             schema_version=manifest_list_data['schemaVersion'],
@@ -205,6 +178,8 @@ class ProcessContentStage(Stage):
         for manifest in manifest_list_data.get('manifests'):
             await self.create_pending_manifest(list_dc, manifest, out_q)
         list_dc.extra_data['relation'] = tag_dc
+        list_dc.extra_data['processed'] = True
+        tag_dc.extra_data['processed'] = True
         await out_q.put(list_dc)
 
     async def create_and_process_tagged_manifest(self, tag_dc, manifest_data, out_q):
@@ -216,20 +191,16 @@ class ProcessContentStage(Stage):
             manifest_data (dict): Data about a single new ImageManifest.
             out_q (asyncio.Queue): Queue to put created ImageManifest dcs and Blob dcs.
         """
-        # tagged manifests actually have an artifact already that we need to use.
         manifest = ImageManifest(
             digest=tag_dc.d_artifacts[0].artifact.sha256,
             schema_version=manifest_data['schemaVersion'],
             media_type=manifest_data['mediaType'],
         )
-        # extra_data="TODO(asmacdo) add reference to tag"
         man_dc = DeclarativeContent(content=manifest, d_artifacts=[tag_dc.d_artifacts[0]])
-        # TODO add config layer
         for layer in manifest_data.get('layers'):
             blob_dc = await self.create_pending_blob(man_dc, layer, out_q)
             blob_dc.extra_data['relation'] = man_dc
             await out_q.put(blob_dc)
-
         config_layer = manifest_data.get('config')
         if config_layer:
             config_blob_dc = await self.create_pending_blob(man_dc, config_layer, out_q)
@@ -237,6 +208,8 @@ class ProcessContentStage(Stage):
             await out_q.put(config_blob_dc)
 
         man_dc.extra_data['relation'] = tag_dc
+        tag_dc.extra_data['processed'] = True
+        man_dc.extra_data['processed'] = True
         await out_q.put(man_dc)
 
     async def create_pending_manifest(self, list_dc, manifest_data, out_q):
@@ -254,8 +227,7 @@ class ProcessContentStage(Stage):
             digest=digest
         )
         manifest_url = urljoin(self.remote.url, relative_url)
-        # TODO since i have a digest, I should pass to the artifact here for validation.
-        manifest_artifact = Artifact()
+        manifest_artifact = Artifact(sha256=digest[len("sha256:"):])
         da = DeclarativeArtifact(
             artifact=manifest_artifact,
             url=manifest_url,
@@ -285,11 +257,10 @@ class ProcessContentStage(Stage):
             out_q (asyncio.Queue): Queue to put created blob dcs.
 
         """
-        sha256 = blob_data['digest']
-        # TODO since i have a digest, I should pass to the artifact here for validation.
-        blob_artifact = Artifact()
+        digest = blob_data['digest']
+        blob_artifact = Artifact(sha256=digest[len("sha256:"):])
         blob = ManifestBlob(
-            digest=sha256,
+            digest=digest,
             media_type=blob_data['mediaType'],
         )
         relative_url = '/v2/{name}/blobs/{digest}'.format(
@@ -324,13 +295,6 @@ class InterrelateContent(Stage):
             in_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
             out_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
         """
-        self.ml_t = 0
-        self.existing_ml_t = 0
-        self.m_t = 0
-        self.existing_m_t = 0
-        self.m_ml = 0
-        self.c_m = 0
-        self.b_m = 0
         while True:
             dc = await in_q.get()
             if dc is None:
@@ -345,19 +309,10 @@ class InterrelateContent(Stage):
 
             configured_dc = dc.extra_data.get('config_relation')
             if configured_dc:
-                log.warn("Relating config layer")
                 configured_dc.content.config_blob = dc.content
                 configured_dc.content.save()
-                self.c_m += 1
 
             await out_q.put(dc)
-        log.warn("ML - T: {n}".format(n=self.ml_t))
-        log.warn("Existing ML - T: {n}".format(n=self.existing_ml_t))
-        log.warn("M - T: {n}".format(n=self.m_t))
-        log.warn("Existing M - T: {n}".format(n=self.existing_m_t))
-        log.warn("M - ML: {n}".format(n=self.m_ml))
-        log.warn("C - M: {n}".format(n=self.c_m))
-        log.warn("B - M: {n}".format(n=self.b_m))
         await out_q.put(None)
 
     def relate_blob(self, dc):
@@ -367,18 +322,12 @@ class InterrelateContent(Stage):
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
         """
-        # TODO I think we can assume this works, no blobs can be synced without belonging to a
-        # manifest. If the manifest has been processed, it almost certainly has been saved.
         related_dc = dc.extra_data.get('relation')
-        # TODO invert this, try to save, and pass if it fails
+        assert related_dc is not None
+        thru = BlobManifestBlob(manifest=related_dc.content, manifest_blob=dc.content)
         try:
-            BlobManifestBlob.objects.get(manifest=related_dc.content, manifest_blob=dc.content)
-            log.warn("blob manifest blob already exists")
-        except BlobManifestBlob.DoesNotExist:
-            thru = BlobManifestBlob(manifest=related_dc.content, manifest_blob=dc.content)
             thru.save()
-            self.b_m += 1
-        else:
+        except IntegrityError as e:
             pass
 
     def relate_manifest(self, dc):
@@ -388,10 +337,8 @@ class InterrelateContent(Stage):
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
         """
-        # TODO I think we can assume this works, no manifests can be synced without belonging to a
-        # manifest list or tag
         related_dc = dc.extra_data.get('relation')
-        # TODO invert this, try to save, and retrieve if it fails.
+        assert related_dc is not None
         if type(related_dc.content) is Tag:
             assert related_dc.content.manifest is None
             related_dc.content.manifest = dc.content
@@ -399,21 +346,12 @@ class InterrelateContent(Stage):
                 related_dc.content.save()
             except IntegrityError as e:
                 existing_tag = Tag.objects.get(name=related_dc.content.name, manifest=dc.content)
-                # TODO this isn't ideal
-                related_dc.content.delete()
                 related_dc.content = existing_tag
-                self.existing_m_t += 1
-            else:
-                self.m_t += 1
         elif type(related_dc.content) is ManifestList:
+            thru = ManifestListManifest(manifest_list=related_dc.content, manifest=dc.content)
             try:
-                ManifestListManifest.objects.get(
-                    manifest_list=related_dc.content, manifest=dc.content)
-            except ManifestListManifest.DoesNotExist:
-                thru = ManifestListManifest(manifest_list=related_dc.content, manifest=dc.content)
                 thru.save()
-                self.m_ml += 1
-            else:
+            except IntegrityError as e:
                 pass
 
     def relate_manifest_list(self, dc):
@@ -427,41 +365,8 @@ class InterrelateContent(Stage):
         assert type(related_dc.content) is Tag
         assert related_dc.content.manifest_list is None
         related_dc.content.manifest_list = dc.content
-        # TODO how do we want to handle uniqueness enforcement
         try:
             related_dc.content.save()
         except IntegrityError as e:
             existing_tag = Tag.objects.get(name=related_dc.content.name, manifest_list=dc.content)
-            # TODO this isn't ideal
-            related_dc.content.delete()
             related_dc.content = existing_tag
-            self.existing_ml_t += 1
-        else:
-            self.ml_t += 1
-
-
-class DidItWorkStage(Stage):
-    """
-    TODO remove this development tool.
-    """
-
-    async def __call__(self, in_q, out_q):
-        """Dev tool."""
-        while True:
-            log_it = await in_q.get()
-            if log_it is None:
-                break
-            self.log_state(log_it)
-            await out_q.put(log_it)
-        await out_q.put(None)
-
-    def log_state(self, dc):
-        """Development tool."""
-        # TODO dont assume 1 artifact
-        downloaded = dc.d_artifacts[0].artifact.file.name != ""
-        dl = "D" if downloaded else "!d"
-        a_saved = dc.d_artifacts[0].artifact.pk is not None
-        a_s = "A" if a_saved else "!a"
-        saved = dc.content.pk is not None
-        sa = "S" if saved else "!s"
-        log.info("{dct}: {dl}{a_s}{sa}".format(dct=type(dc.content), dl=dl, a_s=a_s, sa=sa))

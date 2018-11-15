@@ -2,17 +2,16 @@ from gettext import gettext as _
 from logging import getLogger
 from urllib import parse
 import asyncio
-# import backoff
+import backoff
 import json
 import re
 
 from aiohttp.client_exceptions import ClientResponseError
 
-from pulpcore.plugin.download import HttpDownloader
+from pulpcore.plugin.download import http_giveup, HttpDownloader
 
 
 log = getLogger(__name__)
-dl_log = getLogger("DOWNLOADER")
 
 
 class TokenAuthHttpDownloader(HttpDownloader):
@@ -31,9 +30,8 @@ class TokenAuthHttpDownloader(HttpDownloader):
         self.remote = kwargs.pop('remote')
         super().__init__(*args, **kwargs)
 
-    # TODO(asmacdo) backoff
-    # @backoff.on_exception(backoff.expo, aiohttp.ClientResponseError, max_tries=10, giveup=giveup)
-    async def run(self, handle_401=True, extra_data=None):
+    @backoff.on_exception(backoff.expo, ClientResponseError, max_tries=10, giveup=http_giveup)
+    async def _run(self, handle_401=True, extra_data=None):
         """
         Download, validate, and compute digests on the `url`. This is a coroutine.
 
@@ -41,9 +39,10 @@ class TokenAuthHttpDownloader(HttpDownloader):
         retries with exponential backoff 10 times before allowing a final exception to be raised.
 
         This method provides the same return object type and documented in
-        :meth:`~pulpcore.plugin.download.BaseDownloader.run`.
+        :meth:`~pulpcore.plugin.download.BaseDownloader._run`.
 
-        TODO handle_401(bool): If true, catch 401, request a new token and retry.
+        Args:
+            handle_401(bool): If true, catch 401, request a new token and retry.
         """
         headers = {}
         if extra_data is not None:
@@ -51,7 +50,6 @@ class TokenAuthHttpDownloader(HttpDownloader):
         this_token = self.token['token']
         auth_headers = self.auth_header(this_token)
         headers.update(auth_headers)
-        # dl_log.info("Fetching from URL: {url}".format(url=self.url))
         async with self.session.get(self.url, headers=headers) as response:
             try:
                 response.raise_for_status()
@@ -65,9 +63,8 @@ class TokenAuthHttpDownloader(HttpDownloader):
 
                         self.token['token'] = None
                         await self.update_token(response_auth_header, this_token)
-                    return await self.run(handle_401=False)
+                    return await self._run(handle_401=False)
                 else:
-                    log.warn("404 from URL: {url}".format(self.url))
                     raise
             to_return = await self._handle_response(response)
             await response.release()
@@ -84,7 +81,7 @@ class TokenAuthHttpDownloader(HttpDownloader):
         async with self.token_lock:
             if self.token['token'] is not None and self.token['token'] == used_token:
                 return
-            dl_log.info("Updating Token")
+            log.info("Updating bearer token")
             bearer_info_string = response_auth_header[len("Bearer "):]
             bearer_info_list = re.split(',(?=[^=,]+=)', bearer_info_string)
 

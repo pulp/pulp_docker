@@ -1,6 +1,5 @@
 from logging import getLogger
 from types import SimpleNamespace
-import asyncio
 
 from django.db import models
 
@@ -245,8 +244,8 @@ class DockerRemote(Remote):
             url (str): URL to fetch from.
 
         Returns:
-            TODO
-
+            subclass of :class:`~pulpcore.plugin.download.BaseDownloader`: A downloader that
+            is configured with the remote settings.
         """
         kwargs['remote'] = self
         return self.download_factory.build(url, **kwargs)
@@ -259,6 +258,7 @@ class DockerRemote(Remote):
         For upstream repositories that do not have a namespace, the convention is to use 'library'
         as the namespace.
         """
+        # TODO File issue: only for dockerhub??? This doesn't work against a Pulp2+crane repo
         if '/' not in self.upstream_name:
             return 'library/{name}'.format(name=self.upstream_name)
         else:
