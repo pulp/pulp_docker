@@ -101,7 +101,7 @@ Create a repository ``foo``
 Create a new remote ``bar``
 ---------------------------
 
-``$ http POST http://localhost:8000/pulp/pulp/api/v3/remotes/docker/ name='bar' url='http://some.url/somewhere/'``
+``$ http POST http://localhost:8000/pulp/pulp/api/v3/remotes/docker/ upstream_name='busybox' url='https://registry-1.docker.io'``
 
 .. code:: json
 

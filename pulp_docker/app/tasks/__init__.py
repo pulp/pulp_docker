@@ -1,2 +1,2 @@
 from .publishing import publish  # noqa
-from .synchronizing import synchronize  # noqa
+from .synchronize import synchronize  # noqa
