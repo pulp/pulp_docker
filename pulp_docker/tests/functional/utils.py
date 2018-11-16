@@ -36,8 +36,8 @@ def gen_docker_remote(**kwargs):
     :param url: The URL of an external content source.
     """
     remote = gen_remote(DOCKER_FIXTURE_URL)
-    # FIXME: Add any fields specific to a plugin_teplate remote here
     docker_extra_fields = {
+        'upstream_name': 'busybox',
         **kwargs
     }
     remote.update(**docker_extra_fields)
