@@ -165,12 +165,25 @@ class ProcessContentStage(Stage):
             out_q (asyncio.Queue): Queue to put created ManifestList and ImageManifest dcs.
         """
         assert type(tag_dc.content) is Tag
+        digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
+        relative_url = '/v2/{name}/manifests/{digest}'.format(
+            name=self.remote.namespaced_upstream_name,
+            digest=digest,
+        )
+        url = urljoin(self.remote.url, relative_url)
         manifest_list = ManifestList(
-            digest="sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256),
+            digest=digest,
             schema_version=manifest_list_data['schemaVersion'],
             media_type=manifest_list_data['mediaType'],
         )
-        list_dc = DeclarativeContent(content=manifest_list, d_artifacts=[tag_dc.d_artifacts[0]])
+        da = DeclarativeArtifact(
+            artifact=tag_dc.d_artifacts[0].artifact,
+            url=url,
+            relative_path=digest,
+            remote=self.remote,
+            extra_data={'headers': V2_ACCEPT_HEADERS}
+        )
+        list_dc = DeclarativeContent(content=manifest_list, d_artifacts=[da])
         for manifest in manifest_list_data.get('manifests'):
             await self.create_pending_manifest(list_dc, manifest, out_q)
         list_dc.extra_data['relation'] = tag_dc
