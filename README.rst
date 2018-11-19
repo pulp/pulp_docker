@@ -61,7 +61,7 @@ Install ``pulp_docker`` From PyPI
 
    sudo -u pulp -i
    source ~/pulpvenv/bin/activate
-   pip install pulp-file
+   pip install pulp-docker
    django-admin runserver
 
 
