@@ -14,10 +14,12 @@ from pulpcore.plugin.serializers import (
 )
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
+    NamedModelViewSet,
     RemoteViewSet,
     OperationPostponedResponse,
     PublisherViewSet)
 from rest_framework.decorators import detail_route
+from rest_framework import mixins
 
 from . import models, serializers, tasks
 
@@ -99,3 +101,18 @@ class DockerPublisherViewSet(PublisherViewSet):
             }
         )
         return OperationPostponedResponse(result, request)
+
+
+class DockerDistributionViewSet(NamedModelViewSet,
+                                mixins.CreateModelMixin,
+                                mixins.UpdateModelMixin,
+                                mixins.RetrieveModelMixin,
+                                mixins.ListModelMixin,
+                                mixins.DestroyModelMixin):
+    """
+    ViewSet for DockerDistribution model.
+    """
+
+    endpoint_name = 'docker-distributions'
+    queryset = models.DockerDistribution.objects.all()
+    serializer_class = serializers.DockerDistributionSerializer
