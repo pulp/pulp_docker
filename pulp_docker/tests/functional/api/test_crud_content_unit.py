@@ -1,25 +1,15 @@
 # coding=utf-8
 """Tests that CRUD docker content units."""
 import unittest
-from random import choice
 
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, utils
-from pulp_smash.pulp3.constants import ARTIFACTS_PATH, REPO_PATH
-from pulp_smash.pulp3.utils import (
-    delete_orphans,
-    gen_repo,
-    get_content,
-    sync,
-)
+from pulp_smash.pulp3.constants import ARTIFACTS_PATH
+from pulp_smash.pulp3.utils import delete_orphans
 
-from pulp_docker.tests.functional.constants import (
-    DOCKER_IMAGE_URL,
-    DOCKER_CONTENT_PATH,
-    DOCKER_REMOTE_PATH,
-)
-from pulp_docker.tests.functional.utils import gen_docker_remote, gen_docker_image_attrs, skip_if
+from pulp_docker.tests.functional.constants import DOCKER_IMAGE_URL, DOCKER_CONTENT_PATH
+from pulp_docker.tests.functional.utils import gen_docker_image_attrs, skip_if
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
 
@@ -31,6 +21,7 @@ class ContentUnitTestCase(unittest.TestCase):
     This test targets the following issues:
 
     * `Pulp #2872 <https://pulp.plan.io/issues/2872>`_
+    * `Pulp #3445 <https://pulp.plan.io/issues/3445>`_
     * `Pulp Smash #870 <https://github.com/PulpQE/pulp-smash/issues/870>`_
     """
 
@@ -85,8 +76,9 @@ class ContentUnitTestCase(unittest.TestCase):
         This HTTP method is not supported and a HTTP exception is expected.
         """
         attrs = gen_docker_image_attrs(self.artifact)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HTTPError) as exc:
             self.client.patch(self.content_unit['_href'], attrs)
+        self.assertEqual(exc.exception.response.status_code, 405)
 
     @skip_if(bool, 'content_unit', False)
     def test_03_fully_update(self):
@@ -95,46 +87,16 @@ class ContentUnitTestCase(unittest.TestCase):
         This HTTP method is not supported and a HTTP exception is expected.
         """
         attrs = gen_docker_image_attrs(self.artifact)
-        with self.assertRaises(HTTPError):
+        with self.assertRaises(HTTPError) as exc:
             self.client.put(self.content_unit['_href'], attrs)
+        self.assertEqual(exc.exception.response.status_code, 405)
 
+    @skip_if(bool, 'content_unit', False)
+    def test_04_delete(self):
+        """Attempt to delete a content unit using HTTP DELETE.
 
-# Implement sync support before enabling this test.
-@unittest.skip("FIXME: plugin writer action required")
-class DeleteContentUnitRepoVersionTestCase(unittest.TestCase):
-    """Test whether content unit used by a repo version can be deleted.
-
-    This test targets the following issues:
-
-    * `Pulp #3418 <https://pulp.plan.io/issues/3418>`_
-    * `Pulp Smash #900 <https://github.com/PulpQE/pulp-smash/issues/900>`_
-    """
-
-    def test_all(self):
-        """Test whether content unit used by a repo version can be deleted.
-
-        Do the following:
-
-        1. Sync content to a repository.
-        2. Attempt to delete a content unit present in a repository version.
-           Assert that a HTTP exception was raised.
-        3. Assert that number of content units present on the repository
-           does not change after the attempt to delete one content unit.
+        This HTTP method is not supported and a HTTP exception is expected.
         """
-        cfg = config.get_config()
-        client = api.Client(cfg, api.json_handler)
-
-        body = gen_docker_remote()
-        remote = client.post(DOCKER_REMOTE_PATH, body)
-        self.addCleanup(client.delete, remote['_href'])
-
-        repo = client.post(REPO_PATH, gen_repo())
-        self.addCleanup(client.delete, repo['_href'])
-
-        sync(cfg, remote, repo)
-
-        repo = client.get(repo['_href'])
-        content = get_content(repo)
-        with self.assertRaises(HTTPError):
-            client.delete(choice(content)['_href'])
-        self.assertEqual(len(content), len(get_content(repo)))
+        with self.assertRaises(HTTPError) as exc:
+            self.client.delete(self.content_unit['_href'])
+        self.assertEqual(exc.exception.response.status_code, 405)
