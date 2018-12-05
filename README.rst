@@ -87,7 +87,7 @@ Run Services
 Create a repository ``foo``
 ---------------------------
 
-``$ http POST http://localhost:8000/pulp/pulp/api/v3/repositories/ name=foo``
+``$ http POST http://localhost:8000/pulp/api/v3/repositories/ name=foo``
 
 .. code:: json
 
@@ -96,32 +96,32 @@ Create a repository ``foo``
         ...
     }
 
-``$ export REPO_HREF=$(http :8000/pulp/pulp/api/v3/repositories/ | jq -r '.results[] | select(.name == "foo") | ._href')``
+``$ export REPO_HREF=$(http :8000/pulp/api/v3/repositories/ | jq -r '.results[] | select(.name == "foo") | ._href')``
 
 Create a new remote ``bar``
 ---------------------------
 
-``$ http POST http://localhost:8000/pulp/pulp/api/v3/remotes/docker/ upstream_name='busybox' url='https://registry-1.docker.io'``
+``$ http POST http://localhost:8000/pulp/api/v3/remotes/docker/ name='dockerhub/busybox' upstream_name='busybox' url='https://registry-1.docker.io'``
 
 .. code:: json
 
     {
-        "_href": "/pulp/pulp/api/v3/remotes/docker/1/",
+        "_href": "/pulp/api/v3/remotes/docker/1/",
         ...
     }
 
-``$ export REMOTE_HREF=$(http :8000/pulp/pulp/api/v3/remotes/docker/ | jq -r '.results[] | select(.name == "bar") | ._href')``
+``$ export REMOTE_HREF=$(http :8000/pulp/api/v3/remotes/docker/ | jq -r '.results[] | select(.name == "dockerhub/busybox") | ._href')``
 
 
 Sync repository ``foo`` using Remote ``bar``
 ----------------------------------------------
 
-``$ http POST $REMOTE_HREF'sync/' repository=$REPO_HREF``
+``$ http POST ':8000'$REMOTE_HREF'sync/' repository=$REPO_HREF``
 
 Look at the new Repository Version created
 ------------------------------------------
 
-``$ http GET $REPO_HREF'versions/1/'``
+``$ http GET ':8000'$REPO_HREF'versions/1/'``
 
 .. code:: json
 
@@ -140,22 +140,22 @@ Look at the new Repository Version created
 Create a ``docker`` Publisher ``baz``
 ----------------------------------------------
 
-``$ http POST http://localhost:8000/pulp/pulp/api/v3/publishers/docker/ name=baz repository=$REPO_HREF``
+``$ http POST http://localhost:8000/pulp/api/v3/publishers/docker/ name=baz``
 
 .. code:: json
 
     {
-        "_href": "/pulp/pulp/api/v3/publishers/docker/1/",
+        "_href": "/pulp/api/v3/publishers/docker/1/",
         ...
     }
 
-``$ export PUBLISHER_HREF=$(http :8000/pulp/pulp/api/v3/publishers/docker/ | jq -r '.results[] | select(.name == "baz") | ._href')``
+``$ export PUBLISHER_HREF=$(http :8000/pulp/api/v3/publishers/docker/ | jq -r '.results[] | select(.name == "baz") | ._href')``
 
 
 Use the ``bar`` Publisher to create a Publication
 -------------------------------------------------
 
-``$ http POST $PUBLISHER_HREF'publish/' repository=$REPO_HREF``
+``$ http POST ':8000'$PUBLISHER_HREF'publish/' repository=$REPO_HREF``
 
 .. code:: json
 
@@ -168,8 +168,7 @@ Use the ``bar`` Publisher to create a Publication
 Add a Docker Distribution to serve your publication
 ---------------------------------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/docker-distributions/ name='baz' base_path='foo'
-publication=$PUBLICATION_HREF``
+``$ http POST http://localhost:8000/pulp/api/v3/docker-distributions/ name='baz' base_path='foo' publication=$PUBLICATION_HREF``
 
 
 .. code:: json
@@ -182,7 +181,7 @@ publication=$PUBLICATION_HREF``
 Check status of a task
 ----------------------
 
-``$ http GET http://localhost:8000/pulp/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
+``$ http GET http://localhost:8000/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
 
 Perform a docker pull from Pulp
 -------------------------------
