@@ -5,7 +5,7 @@ from pulpcore.plugin.models import Repository
 from pulpcore.plugin.stages import ArtifactDownloader, DeclarativeVersion
 
 from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage
-from pulp_docker.app.models import DockerRemote
+from pulp_docker.app.models import DockerRemote, ManifestTag, ManifestListTag
 from pulp_docker.app.tasks.dedupe_save import SerialArtifactSave, SerialContentSave
 
 
@@ -30,7 +30,10 @@ def synchronize(remote_pk, repository_pk):
     repository = Repository.objects.get(pk=repository_pk)
     if not remote.url:
         raise ValueError(_('A remote must have a url specified to synchronize.'))
-    DockerDeclarativeVersion(repository, remote).create()
+    remove_duplicate_tags = [{'model': ManifestTag, 'field_names': ['name']},
+                             {'model': ManifestListTag, 'field_names': ['name']}]
+    dv = DockerDeclarativeVersion(repository, remote, remove_duplicates=remove_duplicate_tags)
+    dv.create()
 
 
 class DockerDeclarativeVersion(DeclarativeVersion):
@@ -38,11 +41,12 @@ class DockerDeclarativeVersion(DeclarativeVersion):
     Subclassed Declarative version creates a custom pipeline for Docker sync.
     """
 
-    def __init__(self, repository, remote, mirror=True):
+    def __init__(self, repository, remote, mirror=True, remove_duplicates=None):
         """Initialize the class."""
         self.repository = repository
         self.remote = remote
         self.mirror = mirror
+        self.remove_duplicates = remove_duplicates or []
 
     def pipeline_stages(self, new_version):
         """

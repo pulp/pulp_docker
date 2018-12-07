@@ -14,7 +14,7 @@ from wsgiref.util import FileWrapper
 
 from pulpcore.plugin.models import ContentArtifact
 
-from pulp_docker.app.models import DockerDistribution, Tag
+from pulp_docker.app.models import DockerDistribution, ManifestTag, ManifestListTag
 
 from rest_framework.negotiation import BaseContentNegotiation
 from rest_framework import response, views
@@ -222,6 +222,6 @@ class TagsListView(views.APIView):
         tags = {'name': path, 'tags': []}
         for c in distribution.publication.repository_version.content:
             c = c.cast()
-            if isinstance(c, Tag):
+            if isinstance(c, ManifestTag) or isinstance(c, ManifestListTag):
                 tags['tags'].append(c.name)
         return response.Response(tags)

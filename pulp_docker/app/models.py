@@ -154,23 +154,15 @@ class ManifestListManifest(models.Model):
         ManifestList, related_name='manifest_lists', on_delete=models.CASCADE)
 
 
-class Tag(Content):
+class ManifestTag(Content):
     """
-    A docker tag.
-
-    Each tag will reference either a Manifest or a ManifestList.
-    A repository may contain tags with duplicate names provided each tag references
-    a different type of object (Manifest|ManifestList).  This uniqueness is enforced
-    programmatically.
-
-    This content has no artifacts.
+    A tagged Manifest.
 
     Fields:
         name (models.CharField): The tag name.
 
     Relations:
         manifest (models.ForeignKey): A referenced Manifest.
-        manifest_list (models.ForeignKey): A referenced ManifestList.
 
     """
 
@@ -179,13 +171,35 @@ class Tag(Content):
     name = models.CharField(max_length=255, db_index=True)
 
     manifest = models.ForeignKey(
-        ImageManifest, null=True, related_name='tags', on_delete=models.CASCADE)
-    manifest_list = models.ForeignKey(
-        ManifestList, null=True, related_name='tags', on_delete=models.CASCADE)
+        ImageManifest, null=True, related_name='manifest_tags', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = (
             ('name', 'manifest'),
+        )
+
+
+class ManifestListTag(Content):
+    """
+    A tagged Manifest List.
+
+    Fields:
+        name (models.CharField): The tag name.
+
+    Relations:
+        manifest_list (models.ForeignKey): A referenced Manifest List.
+
+    """
+
+    TYPE = 'tag'
+
+    name = models.CharField(max_length=255, db_index=True)
+
+    manifest_list = models.ForeignKey(
+        ManifestList, null=True, related_name='manifest_list_tags', on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = (
             ('name', 'manifest_list'),
         )
 
