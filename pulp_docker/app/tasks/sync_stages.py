@@ -25,6 +25,7 @@ class TempTag:
     """
 
     def __init__(self, name):
+        """Make a temp tag."""
         self.name = name
 
 
