@@ -133,7 +133,7 @@ class DockerImporter(Importer):
         except PulpCodedValidationException:
             raise
         except Exception as e:
-            return {'success_flag': False, 'summary': e.message, 'details': {}}
+            return {'success_flag': False, 'summary': str(e), 'details': {}}
         details = {}
         if upload_step.uploaded_unit:
             unit = upload_step.uploaded_unit
