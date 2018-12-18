@@ -13,12 +13,28 @@ from django.http import (
 from wsgiref.util import FileWrapper
 
 from pulpcore.plugin.models import ContentArtifact
-from pulpcore.app.views.content import ArtifactNotFound, PathNotResolved
 
 from pulp_docker.app.models import DockerDistribution, Tag
 
 from rest_framework.negotiation import BaseContentNegotiation
 from rest_framework import response, views
+
+
+class PathNotResolved(Exception):
+    """
+    The path could not be resolved to a published file.
+
+    This could be caused by either the distribution, the publication,
+    or the published file could not be found.
+    """
+    pass
+
+
+class ArtifactNotFound(Exception):
+    """
+    The artifact associated with a published-artifact does not exist.
+    """
+    pass
 
 
 class IgnoreClientContentNegotiation(BaseContentNegotiation):
