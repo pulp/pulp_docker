@@ -166,7 +166,7 @@ class ManifestTag(Content):
 
     """
 
-    TYPE = 'tag'
+    TYPE = 'manifest-tag'
 
     name = models.CharField(max_length=255, db_index=True)
 
@@ -191,7 +191,7 @@ class ManifestListTag(Content):
 
     """
 
-    TYPE = 'tag'
+    TYPE = 'manifest-list-tag'
 
     name = models.CharField(max_length=255, db_index=True)
 
