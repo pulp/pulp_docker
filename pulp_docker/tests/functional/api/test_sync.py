@@ -6,13 +6,13 @@ from pulp_smash import api, cli, config, exceptions
 from pulp_smash.pulp3.constants import MEDIA_PATH, REPO_PATH
 from pulp_smash.pulp3.utils import (
     gen_repo,
-    get_content,
-    get_added_content,
+    get_content_summary,
+    get_added_content_summary,
     sync,
 )
 
 from pulp_docker.tests.functional.constants import (
-    DOCKER_FIXTURE_COUNT,
+    DOCKER_FIXTURE_SUMMARY,
     DOCKER_REMOTE_PATH
 )
 from pulp_docker.tests.functional.utils import gen_docker_remote
@@ -59,8 +59,8 @@ class BasicSyncTestCase(unittest.TestCase):
         repo = self.client.get(repo['_href'])
 
         self.assertIsNotNone(repo['_latest_version_href'])
-        self.assertEqual(len(get_content(repo)), DOCKER_FIXTURE_COUNT)
-        self.assertEqual(len(get_added_content(repo)), DOCKER_FIXTURE_COUNT)
+        self.assertEqual(get_content_summary(repo), DOCKER_FIXTURE_SUMMARY)
+        self.assertEqual(get_added_content_summary(repo), DOCKER_FIXTURE_SUMMARY)
 
         # Sync the repository again.
         latest_version_href = repo['_latest_version_href']
@@ -68,8 +68,8 @@ class BasicSyncTestCase(unittest.TestCase):
         repo = self.client.get(repo['_href'])
 
         self.assertNotEqual(latest_version_href, repo['_latest_version_href'])
-        self.assertEqual(len(get_content(repo)), DOCKER_FIXTURE_COUNT)
-        self.assertEqual(len(get_added_content(repo)), 0)
+        self.assertEqual(get_content_summary(repo), DOCKER_FIXTURE_SUMMARY)
+        self.assertEqual(get_added_content_summary(repo), 0)
 
     def test_file_decriptors(self):
         """Test whether file descriptors are closed properly.
