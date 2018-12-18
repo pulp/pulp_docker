@@ -10,6 +10,7 @@ from pulp_smash import api, config
 from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import (
     gen_repo,
+    get_content,
     get_versions,
     publish,
     sync,
@@ -20,7 +21,7 @@ from pulp_docker.tests.functional.utils import (
     gen_docker_publisher,
 )
 from pulp_docker.tests.functional.constants import (
-    DOCKER_CONTENT_PATH,
+    DOCKER_CONTENT_NAME,
     DOCKER_REMOTE_PATH,
     DOCKER_PUBLISHER_PATH,
 )
@@ -70,9 +71,8 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
         self.addCleanup(self.client.delete, publisher['_href'])
 
         # Step 1
-        repo = self.client.post(REPO_PATH, gen_repo())
-        self.addCleanup(self.client.delete, repo['_href'])
-        for docker_content in self.client.get(DOCKER_CONTENT_PATH)['results']:
+        repo = self.client.get(repo['_href'])
+        for docker_content in get_content(repo)[DOCKER_CONTENT_NAME]:
             self.client.post(
                 repo['_versions_href'],
                 {'add_content_units': [docker_content['_href']]}

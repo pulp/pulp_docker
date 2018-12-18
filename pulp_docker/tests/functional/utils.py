@@ -18,6 +18,7 @@ from pulp_smash.pulp3.utils import (
 )
 
 from pulp_docker.tests.functional.constants import (
+    DOCKER_CONTENT_NAME,
     DOCKER_CONTENT_PATH,
     DOCKER_FIXTURE_URL,
     DOCKER_REMOTE_PATH,
@@ -67,7 +68,10 @@ def get_docker_image_paths(repo):
     # FIXME: The "relative_path" is only valid for the file plugin.
     # It's just an example -- this needs to be replaced with an implementation that works
     # for repositories of this content type.
-    return [content_unit['relative_path'] for content_unit in get_content(repo)]
+    return [
+        content_unit['relative_path']
+        for content_unit in get_content(repo)[DOCKER_CONTENT_NAME]
+    ]
 
 
 def gen_docker_image_attrs(artifact):

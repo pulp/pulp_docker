@@ -9,6 +9,9 @@ from pulp_smash.pulp3.constants import (
 )
 
 # FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
+DOCKER_CONTENT_NAME = 'unit'
+
+# FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
 DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
 
 DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/')
@@ -21,6 +24,10 @@ DOCKER_FIXTURE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'docker/')
 
 # FIXME: replace this with the actual number of content units in your test fixture
 DOCKER_FIXTURE_COUNT = 3
+
+DOCKER_FIXTURE_SUMMARY = {
+    DOCKER_CONTENT_NAME: DOCKER_FIXTURE_COUNT
+}
 
 # FIXME: replace this iwth your own fixture repository URL and metadata
 DOCKER_LARGE_FIXTURE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'docker_large/')
