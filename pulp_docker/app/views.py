@@ -1,3 +1,4 @@
+import logging
 import os
 
 from gettext import gettext as _
@@ -14,10 +15,13 @@ from wsgiref.util import FileWrapper
 
 from pulpcore.plugin.models import ContentArtifact
 
-from pulp_docker.app.models import DockerDistribution, Tag
+from pulp_docker.app.models import DockerDistribution, ManifestTag, ManifestListTag, MEDIA_TYPE
 
 from rest_framework.negotiation import BaseContentNegotiation
 from rest_framework import response, views
+
+
+log = logging.getLogger(__name__)
 
 
 class PathNotResolved(Exception):
@@ -153,25 +157,45 @@ class TagView(views.APIView, ServeContentMixin):
         Return a response to the "GET" action.
         """
         distribution = get_object_or_404(DockerDistribution, base_path=path)
-        try:
-            ca = ContentArtifact.objects.get(
-                content__in=distribution.publication.repository_version.content,
-                relative_path=tag_name)
-            content = ca.content.cast()
-            if content.manifest:
-                headers = {'Content-Type': content.manifest.media_type}
+
+        if MEDIA_TYPE.MANIFEST_LIST in request.META['HTTP_ACCEPT']:
+            try:
+                tag = ManifestListTag.objects.get(
+                    pk__in=distribution.publication.repository_version.content,
+                    name=tag_name
+                )
+            # If there is no manifest list tag, try again with manifest tag.
+            except ObjectDoesNotExist:
+                pass
             else:
-                headers = {'Content-Type': content.manifest_list.media_type}
-        except ObjectDoesNotExist:
-            pass
+                headers = {'Content-Type': MEDIA_TYPE.MANIFEST_LIST}
+                return self._dispatch_tag(tag, path, headers)
+
+        if MEDIA_TYPE.MANIFEST_V2 in request.META['HTTP_ACCEPT']:
+            try:
+                tag = ManifestTag.objects.get(
+                    pk__in=distribution.publication.repository_version.content,
+                    name=tag_name
+                )
+            except ObjectDoesNotExist:
+                pass
+            else:
+                headers = {'Content-Type': MEDIA_TYPE.MANIFEST_V2}
+                return self._dispatch_tag(tag, path, headers)
+
         else:
-            artifact = ca.artifact
-            if artifact:
-                return self._dispatch(artifact.file.name, headers)
-            else:
-                raise ArtifactNotFound(path)
+            # This is where we could eventually support on-the-fly conversion to schema 1.
+            log.warn("Client does not accept Docker V2 Schema 2 and is not currently supported.")
 
         raise PathNotResolved(path)
+
+    def _dispatch_tag(self, tag, path, headers):
+        # Tags should only ever have 1 artifact.
+        artifact = tag.artifacts.first()
+        if not artifact:
+            raise ArtifactNotFound(path)
+        else:
+            return self._dispatch(artifact.file.name, headers)
 
 
 class BlobManifestView(views.APIView, ServeContentMixin):
@@ -219,9 +243,9 @@ class TagsListView(views.APIView):
         Return JSON of all tags in this repo.
         """
         distribution = get_object_or_404(DockerDistribution, base_path=path)
-        tags = {'name': path, 'tags': []}
+        tags = {'name': path, 'tags': set()}
         for c in distribution.publication.repository_version.content:
             c = c.cast()
-            if isinstance(c, Tag):
-                tags['tags'].append(c.name)
+            if isinstance(c, ManifestTag) or isinstance(c, ManifestListTag):
+                tags['tags'].add(c.name)
         return response.Response(tags)

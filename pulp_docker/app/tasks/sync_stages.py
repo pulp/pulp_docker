@@ -6,8 +6,9 @@ from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 
-from pulp_docker.app.models import (ImageManifest, MEDIA_TYPE, ManifestBlob,
-                                    ManifestList, Tag, BlobManifestBlob, ManifestListManifest)
+from pulp_docker.app.models import (ImageManifest, MEDIA_TYPE, ManifestBlob, ManifestTag,
+                                    ManifestList, ManifestListTag, BlobManifestBlob,
+                                    ManifestListManifest)
 
 
 log = logging.getLogger(__name__)
@@ -16,6 +17,16 @@ log = logging.getLogger(__name__)
 V2_ACCEPT_HEADERS = {
     'accept': ','.join([MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_LIST])
 }
+
+
+class TempTag:
+    """
+    This is a pseudo Tag that will either become a ManifestTag or a ManifestListTag.
+    """
+
+    def __init__(self, name):
+        """Make a temp tag."""
+        self.name = name
 
 
 class TagListStage(Stage):
@@ -72,7 +83,7 @@ class TagListStage(Stage):
             tag=tag_name,
         )
         url = urljoin(self.remote.url, relative_url)
-        tag = Tag(name=tag_name)
+        tag = TempTag(name=tag_name)
         manifest_artifact = Artifact()
         da = DeclarativeArtifact(
             artifact=manifest_artifact,
@@ -127,7 +138,7 @@ class ProcessContentStage(Stage):
                 raw = content_file.read()
             content_data = json.loads(raw)
 
-            if type(dc.content) is Tag:
+            if type(dc.content) is TempTag:
                 if content_data.get('mediaType') == MEDIA_TYPE.MANIFEST_LIST:
                     await self.create_and_process_tagged_manifest_list(dc, content_data, out_q)
                     await out_q.put(dc)
@@ -164,7 +175,7 @@ class ProcessContentStage(Stage):
             manifest_list_data (dict): Data about a ManifestList
             out_q (asyncio.Queue): Queue to put created ManifestList and ImageManifest dcs.
         """
-        assert type(tag_dc.content) is Tag
+        tag_dc.content = ManifestListTag(name=tag_dc.content.name)
         digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
         relative_url = '/v2/{name}/manifests/{digest}'.format(
             name=self.remote.namespaced_upstream_name,
@@ -200,6 +211,7 @@ class ProcessContentStage(Stage):
             manifest_data (dict): Data about a single new ImageManifest.
             out_q (asyncio.Queue): Queue to put created ImageManifest dcs and Blob dcs.
         """
+        tag_dc.content = ManifestTag(name=tag_dc.content.name)
         manifest = ImageManifest(
             digest=tag_dc.d_artifacts[0].artifact.sha256,
             schema_version=manifest_data['schemaVersion'],
@@ -348,13 +360,14 @@ class InterrelateContent(Stage):
         """
         related_dc = dc.extra_data.get('relation')
         assert related_dc is not None
-        if type(related_dc.content) is Tag:
+        if type(related_dc.content) is ManifestTag:
             assert related_dc.content.manifest is None
             related_dc.content.manifest = dc.content
             try:
                 related_dc.content.save()
             except IntegrityError:
-                existing_tag = Tag.objects.get(name=related_dc.content.name, manifest=dc.content)
+                existing_tag = ManifestTag.objects.get(name=related_dc.content.name,
+                                                       manifest=dc.content)
                 related_dc.content = existing_tag
         elif type(related_dc.content) is ManifestList:
             thru = ManifestListManifest(manifest_list=related_dc.content, manifest=dc.content)
@@ -371,11 +384,12 @@ class InterrelateContent(Stage):
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
         """
         related_dc = dc.extra_data.get('relation')
-        assert type(related_dc.content) is Tag
+        assert type(related_dc.content) is ManifestListTag
         assert related_dc.content.manifest_list is None
         related_dc.content.manifest_list = dc.content
         try:
             related_dc.content.save()
         except IntegrityError:
-            existing_tag = Tag.objects.get(name=related_dc.content.name, manifest_list=dc.content)
+            existing_tag = ManifestListTag.objects.get(name=related_dc.content.name,
+                                                       manifest_list=dc.content)
             related_dc.content = existing_tag
