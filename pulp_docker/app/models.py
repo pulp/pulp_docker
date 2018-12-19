@@ -123,6 +123,9 @@ class BlobManifestBlob(models.Model):
     manifest_blob = models.ForeignKey(
         ManifestBlob, related_name='manifest_blobs', on_delete=models.CASCADE)
 
+    class Meta:
+        unique_together = ('manifest', 'manifest_blob')
+
 
 class ManifestListManifest(models.Model):
     """
@@ -152,6 +155,9 @@ class ManifestListManifest(models.Model):
         ImageManifest, related_name='manifests', on_delete=models.CASCADE)
     manifest_list = models.ForeignKey(
         ManifestList, related_name='manifest_lists', on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('manifest', 'manifest_list')
 
 
 class ManifestTag(Content):
