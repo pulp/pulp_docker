@@ -8,62 +8,11 @@ https://pulp.plan.io/issues/4060
 
 """
 from django.db import IntegrityError
-from django.db.models import Q
 from pulpcore.plugin.stages import Stage
-from pulpcore.plugin.models import Artifact, ContentArtifact, RemoteArtifact
+from pulpcore.plugin.models import ContentArtifact, RemoteArtifact
 
 import logging
 log = logging.getLogger(__name__)
-
-
-class SerialArtifactSave(Stage):
-    """
-    Save Artifacts one at a time, combining duplicates.
-    """
-
-    async def __call__(self, in_q, out_q):
-        """
-        The coroutine for this stage.
-
-        Args:
-            in_q (:class:`asyncio.Queue`): The queue to receive
-                :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
-            out_q (:class:`asyncio.Queue`): The queue to put
-                :class:`~pulpcore.plugin.stages.DeclarativeContent` into.
-        Returns:
-            The coroutine for this stage.
-
-        """
-        while True:
-            dc = await in_q.get()
-            if dc is None:
-                break
-            self.save_and_dedupe_artifacts(dc)
-            await out_q.put(dc)
-        await out_q.put(None)
-
-    def save_and_dedupe_artifacts(self, dc):
-        """
-        Save unique artifacts, combine duplicates.
-
-        Args:
-            in_q (:class:`asyncio.Queue`): The queue to receive
-                :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
-        """
-        for da in dc.d_artifacts:
-            artifact_q = Q()
-            for digest_name in da.artifact.DIGEST_FIELDS:
-                digest_value = getattr(da.artifact, digest_name)
-                if digest_value:
-                    key = {digest_name: digest_value}
-                    artifact_q &= Q(**key)
-            try:
-                da.artifact.save()
-            # ValueError raised by /home/vagrant/devel/pulp/pulpcore/pulpcore/app/models/fields.py",
-            # line 32
-            except (ValueError, IntegrityError):  # dupe
-                existing_artifact = Artifact.objects.get(artifact_q)
-                da.artifact = existing_artifact
 
 
 class SerialContentSave(Stage):
