@@ -19,11 +19,6 @@ class MinimalArtifactSerializer(platform.ArtifactSerializer):
 
     We overrided the platform serializer because it does not include size, and includes digest.
     Since digest is a field on the content units, it would be redundant.
-
-    Even though Docker content can only have 1 Artifact, this field should be used with
-    `many=True` because the Artifact is related with the ContentArtifact through table, and when
-    the same Artifact is served at multiple relative_paths, there are multiple associations of
-    between a given Content and Artifact.
     """
 
     class Meta:
@@ -43,12 +38,12 @@ class ManifestListTagSerializer(platform.ContentSerializer):
         view_name='docker-manifest-lists-detail',
         queryset=models.ManifestList.objects.all()
     )
-    artifacts = MinimalArtifactSerializer(many=True, help_text="File related to this content")
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
         fields = tuple(
             set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('name', 'manifest_list', 'artifacts')
+        ) + ('name', 'manifest_list', '_artifact')
         model = models.ManifestListTag
 
 
@@ -64,12 +59,12 @@ class ManifestTagSerializer(platform.ContentSerializer):
         view_name='docker-manifests-detail',
         queryset=models.ImageManifest.objects.all()
     )
-    artifacts = MinimalArtifactSerializer(many=True, help_text="File related to this content")
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
         fields = tuple(
             set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('name', 'manifest', 'artifacts')
+        ) + ('name', 'manifest', '_artifact')
         model = models.ManifestTag
 
 
@@ -87,12 +82,12 @@ class ManifestListSerializer(platform.ContentSerializer):
         view_name='docker-manifests-detail',
         queryset=models.ImageManifest.objects.all()
     )
-    artifacts = MinimalArtifactSerializer(many=True, help_text="File related to this content")
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
         fields = tuple(
             set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('digest', 'schema_version', 'media_type', 'manifests', 'artifacts')
+        ) + ('digest', 'schema_version', 'media_type', 'manifests', '_artifact')
         model = models.ManifestList
 
 
@@ -116,12 +111,12 @@ class ManifestSerializer(platform.ContentSerializer):
         view_name='docker-blobs-detail',
         queryset=models.ManifestBlob.objects.all()
     )
-    artifacts = MinimalArtifactSerializer(many=True, help_text="File related to this content")
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
         fields = tuple(
             set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('digest', 'schema_version', 'media_type', 'blobs', 'config_blob', 'artifacts')
+        ) + ('digest', 'schema_version', 'media_type', 'blobs', 'config_blob', '_artifact')
         model = models.ImageManifest
 
 
@@ -132,12 +127,12 @@ class BlobSerializer(platform.ContentSerializer):
 
     digest = serializers.CharField(help_text="sha256 of the Blob file")
     media_type = serializers.CharField(help_text="Docker media type of the file")
-    artifacts = MinimalArtifactSerializer(many=True, help_text="File related to this content")
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
         fields = tuple(
             set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('digest', 'media_type', 'artifacts')
+        ) + ('digest', 'media_type', '_artifact')
         model = models.ManifestBlob
 
 

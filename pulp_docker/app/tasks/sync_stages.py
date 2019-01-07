@@ -212,12 +212,25 @@ class ProcessContentStage(Stage):
             out_q (asyncio.Queue): Queue to put created ImageManifest dcs and Blob dcs.
         """
         tag_dc.content = ManifestTag(name=tag_dc.content.name)
+        digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
         manifest = ImageManifest(
-            digest=tag_dc.d_artifacts[0].artifact.sha256,
+            digest=digest,
             schema_version=manifest_data['schemaVersion'],
             media_type=manifest_data['mediaType'],
         )
-        man_dc = DeclarativeContent(content=manifest, d_artifacts=[tag_dc.d_artifacts[0]])
+        relative_url = '/v2/{name}/manifests/{digest}'.format(
+            name=self.remote.namespaced_upstream_name,
+            digest=digest,
+        )
+        url = urljoin(self.remote.url, relative_url)
+        da = DeclarativeArtifact(
+            artifact=tag_dc.d_artifacts[0].artifact,
+            url=url,
+            relative_path=digest,
+            remote=self.remote,
+            extra_data={'headers': V2_ACCEPT_HEADERS}
+        )
+        man_dc = DeclarativeContent(content=manifest, d_artifacts=[da])
         for layer in manifest_data.get('layers'):
             blob_dc = await self.create_pending_blob(man_dc, layer, out_q)
             blob_dc.extra_data['relation'] = man_dc
