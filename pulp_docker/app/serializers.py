@@ -8,9 +8,132 @@ from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
 from pulpcore.plugin import serializers as platform
-from pulpcore.plugin.models import Publication, Repository
+from pulpcore.plugin.models import Artifact, Publication, Repository
 
 from . import models
+
+
+class MinimalArtifactSerializer(platform.ArtifactSerializer):
+    """
+    Serialize Artifacts associated with Docker Content.
+
+    We overrided the platform serializer because it does not include size, and includes digest.
+    Since digest is a field on the content units, it would be redundant.
+    """
+
+    class Meta:
+        fields = ('size', '_href')
+        model = Artifact
+
+
+class ManifestListTagSerializer(platform.ContentSerializer):
+    """
+    Serializer for ManifestListTags.
+    """
+
+    name = serializers.CharField(help_text="Tag name")
+    manifest_list = platform.DetailRelatedField(
+        many=False,
+        help_text="Manifest List that is tagged",
+        view_name='docker-manifest-lists-detail',
+        queryset=models.ManifestList.objects.all()
+    )
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
+
+    class Meta:
+        fields = tuple(
+            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
+        ) + ('name', 'manifest_list', '_artifact')
+        model = models.ManifestListTag
+
+
+class ManifestTagSerializer(platform.ContentSerializer):
+    """
+    Serializer for ManifestTags.
+    """
+
+    name = serializers.CharField(help_text="Tag name")
+    manifest = platform.DetailRelatedField(
+        many=False,
+        help_text="Manifest that is tagged",
+        view_name='docker-manifests-detail',
+        queryset=models.ImageManifest.objects.all()
+    )
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
+
+    class Meta:
+        fields = tuple(
+            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
+        ) + ('name', 'manifest', '_artifact')
+        model = models.ManifestTag
+
+
+class ManifestListSerializer(platform.ContentSerializer):
+    """
+    Serializer for ManifestLists.
+    """
+
+    digest = serializers.CharField(help_text="sha256 of the ManifestList file")
+    schema_version = serializers.IntegerField(help_text="Docker schema version")
+    media_type = serializers.CharField(help_text="Docker media type of the file")
+    manifests = platform.DetailRelatedField(
+        many=True,
+        help_text="Manifests that are referenced by this Manifest List",
+        view_name='docker-manifests-detail',
+        queryset=models.ImageManifest.objects.all()
+    )
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
+
+    class Meta:
+        fields = tuple(
+            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
+        ) + ('digest', 'schema_version', 'media_type', 'manifests', '_artifact')
+        model = models.ManifestList
+
+
+class ManifestSerializer(platform.ContentSerializer):
+    """
+    Serializer for Manifests.
+    """
+
+    digest = serializers.CharField(help_text="sha256 of the Manifest file")
+    schema_version = serializers.IntegerField(help_text="Docker schema version")
+    media_type = serializers.CharField(help_text="Docker media type of the file")
+    blobs = platform.DetailRelatedField(
+        many=True,
+        help_text="Blobs that are referenced by this Manifest",
+        view_name='docker-blobs-detail',
+        queryset=models.ManifestBlob.objects.all()
+    )
+    config_blob = platform.DetailRelatedField(
+        many=False,
+        help_text="Blob that contains configuration for this Manifest",
+        view_name='docker-blobs-detail',
+        queryset=models.ManifestBlob.objects.all()
+    )
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
+
+    class Meta:
+        fields = tuple(
+            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
+        ) + ('digest', 'schema_version', 'media_type', 'blobs', 'config_blob', '_artifact')
+        model = models.ImageManifest
+
+
+class BlobSerializer(platform.ContentSerializer):
+    """
+    Serializer for Blobs.
+    """
+
+    digest = serializers.CharField(help_text="sha256 of the Blob file")
+    media_type = serializers.CharField(help_text="Docker media type of the file")
+    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
+
+    class Meta:
+        fields = tuple(
+            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
+        ) + ('digest', 'media_type', '_artifact')
+        model = models.ManifestBlob
 
 
 class RegistryPathField(serializers.CharField):

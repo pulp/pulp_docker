@@ -22,7 +22,20 @@ MEDIA_TYPE = SimpleNamespace(
 )
 
 
-class ManifestBlob(Content):
+class SingleArtifact:
+    """
+    Mixin for Content with only 1 artifact.
+    """
+
+    @property
+    def _artifact(self):
+        """
+        Return the artifact (there is only one for this content type).
+        """
+        return self._artifacts.get()
+
+
+class ManifestBlob(Content, SingleArtifact):
     """
     A blob defined within a manifest.
 
@@ -51,7 +64,7 @@ class ManifestBlob(Content):
         unique_together = ('digest',)
 
 
-class ImageManifest(Content):
+class ImageManifest(Content, SingleArtifact):
     """
     A docker manifest.
 
@@ -82,7 +95,7 @@ class ImageManifest(Content):
         unique_together = ('digest',)
 
 
-class ManifestList(Content):
+class ManifestList(Content, SingleArtifact):
     """
     A manifest list.
 
@@ -123,6 +136,9 @@ class BlobManifestBlob(models.Model):
     manifest_blob = models.ForeignKey(
         ManifestBlob, related_name='manifest_blobs', on_delete=models.CASCADE)
 
+    class Meta:
+        unique_together = ('manifest', 'manifest_blob')
+
 
 class ManifestListManifest(models.Model):
     """
@@ -153,8 +169,11 @@ class ManifestListManifest(models.Model):
     manifest_list = models.ForeignKey(
         ManifestList, related_name='manifest_lists', on_delete=models.CASCADE)
 
+    class Meta:
+        unique_together = ('manifest', 'manifest_list')
 
-class ManifestTag(Content):
+
+class ManifestTag(Content, SingleArtifact):
     """
     A tagged Manifest.
 
@@ -179,7 +198,7 @@ class ManifestTag(Content):
         )
 
 
-class ManifestListTag(Content):
+class ManifestListTag(Content, SingleArtifact):
     """
     A tagged Manifest List.
 

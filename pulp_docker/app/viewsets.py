@@ -5,6 +5,7 @@ Check `Plugin Writer's Guide`_ for more details.
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
 
+from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 
 from pulpcore.plugin.serializers import (
@@ -14,6 +15,7 @@ from pulpcore.plugin.serializers import (
 )
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
+    ContentViewSet,
     NamedModelViewSet,
     RemoteViewSet,
     OperationPostponedResponse,
@@ -22,6 +24,91 @@ from rest_framework.decorators import detail_route
 from rest_framework import mixins
 
 from . import models, serializers, tasks
+
+
+class ManifestListTagViewSet(ContentViewSet):
+    """
+    ViewSet for ManifestListTag.
+    """
+
+    endpoint_name = 'docker/manifest-list-tags'
+    queryset = models.ManifestListTag.objects.all()
+    serializer_class = serializers.ManifestListTagSerializer
+
+    @transaction.atomic
+    def create(self, request):
+        """
+        Create a new ManifestListTag from a request.
+        """
+        raise NotImplementedError()
+
+
+class ManifestTagViewSet(ContentViewSet):
+    """
+    ViewSet for ManifestTag.
+    """
+
+    endpoint_name = 'docker/manifest-tags'
+    queryset = models.ManifestTag.objects.all()
+    serializer_class = serializers.ManifestTagSerializer
+
+    @transaction.atomic
+    def create(self, request):
+        """
+        Create a new ManifestTag from a request.
+        """
+        raise NotImplementedError()
+
+
+class ManifestListViewSet(ContentViewSet):
+    """
+    ViewSet for ManifestList.
+    """
+
+    endpoint_name = 'docker/manifest-lists'
+    queryset = models.ManifestList.objects.all()
+    serializer_class = serializers.ManifestListSerializer
+
+    @transaction.atomic
+    def create(self, request):
+        """
+        Create a new ManifestList from a request.
+        """
+        raise NotImplementedError()
+
+
+class ManifestViewSet(ContentViewSet):
+    """
+    ViewSet for Manifest.
+    """
+
+    endpoint_name = 'docker/manifests'
+    queryset = models.ImageManifest.objects.all()
+    serializer_class = serializers.ManifestSerializer
+
+    @transaction.atomic
+    def create(self, request):
+        """
+        Create a new Manifest from a request.
+        """
+        raise NotImplementedError()
+
+
+class BlobViewSet(ContentViewSet):
+    """
+    ViewSet for ManifestBlobs.
+    """
+
+    endpoint_name = 'docker/blobs'
+    queryset = models.ManifestBlob.objects.all()
+    serializer_class = serializers.BlobSerializer
+
+    @transaction.atomic
+    def create(self, request):
+        """
+        Create a new ManifestBlob from a request.
+        """
+        raise NotImplementedError()
 
 
 class DockerRemoteViewSet(RemoteViewSet):
