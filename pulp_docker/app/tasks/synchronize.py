@@ -2,11 +2,11 @@ from gettext import gettext as _
 import logging
 
 from pulpcore.plugin.models import Repository
-from pulpcore.plugin.stages import ArtifactDownloader, DeclarativeVersion, ArtifactSaver
+from pulpcore.plugin.stages import (ArtifactDownloader, DeclarativeVersion, ArtifactSaver,
+                                    ContentUnitSaver)
 
 from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage
 from pulp_docker.app.models import DockerRemote, ManifestTag, ManifestListTag
-from pulp_docker.app.tasks.dedupe_save import SerialContentSave
 
 
 log = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ class DockerDeclarativeVersion(DeclarativeVersion):
         # encapsulated, so it isn't necessary to create a new instance.
         downloader = ArtifactDownloader()
         serial_artifact_save = ArtifactSaver()
-        serial_content_save = SerialContentSave()
+        serial_content_save = ContentUnitSaver()
         process_content = ProcessContentStage(self.remote)
         return [
             TagListStage(self.remote),
