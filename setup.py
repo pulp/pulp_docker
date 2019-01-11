@@ -8,7 +8,7 @@ requirements = [
 
 setup(
     name='pulp-docker',
-    version='4.0a1.dev1',
+    version='4.0.0b1',
     description='pulp-docker plugin for the Pulp Project',
     license='GPLv2+',
     author='Pulp Team',
