@@ -6,10 +6,14 @@ requirements = [
     'pulpcore-plugin>=0.1.0b16',
 ]
 
+with open('README.rst') as f:
+    long_description = f.read()
+
 setup(
     name='pulp-docker',
     version='4.0.0b1',
     description='pulp-docker plugin for the Pulp Project',
+    long_description=long_description,
     license='GPLv2+',
     author='Pulp Team',
     author_email='pulp-list@redhat.com',
