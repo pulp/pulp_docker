@@ -7,7 +7,7 @@ from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, utils
 
-from pulp_docker.tests.functional.constants import DOCKER_REMOTE_PATH
+from pulp_docker.tests.functional.constants import DOCKER_REMOTE_PATH, DOWNLOAD_POLICIES
 from pulp_docker.tests.functional.utils import skip_if, gen_docker_remote
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
@@ -126,6 +126,7 @@ def _gen_verbose_remote():
     attrs.update({
         'password': utils.uuid4(),
         'username': utils.uuid4(),
+        'policy': choice(DOWNLOAD_POLICIES),
         'validate': choice((False, True)),
     })
     return attrs

@@ -81,7 +81,7 @@ def gen_docker_image_attrs(artifact):
     :returns: A semi-random dict for use in creating a content unit.
     """
     # FIXME: Add content specific metadata here.
-    return {'artifact': artifact['_href']}
+    return {'_artifact': artifact['_href']}
 
 
 def populate_pulp(cfg, url=DOCKER_FIXTURE_URL):
