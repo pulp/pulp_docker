@@ -70,8 +70,8 @@ Make and Run Migrations
 
 .. code-block:: bash
 
-   pulp-manager makemigrations pulp_docker
-   pulp-manager migrate pulp_docker
+   pulp-manager makemigrations docker
+   pulp-manager migrate docker
 
 Run Services
 ------------
@@ -102,16 +102,16 @@ Create a repository ``foo``
 Create a new remote ``bar``
 ---------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/remotes/docker/ name='dockerhub/busybox' upstream_name='busybox' url='https://registry-1.docker.io'``
+``$ http POST http://localhost:8000/pulp/api/v3/remotes/docker/docker/ name='dockerhub/busybox' upstream_name='busybox' url='https://registry-1.docker.io'``
 
 .. code:: json
 
     {
-        "_href": "/pulp/api/v3/remotes/docker/1/",
+        "_href": "/pulp/api/v3/remotes/docker/docker/1/",
         ...
     }
 
-``$ export REMOTE_HREF=$(http :8000/pulp/api/v3/remotes/docker/ | jq -r '.results[] | select(.name == "dockerhub/busybox") | ._href')``
+``$ export REMOTE_HREF=$(http :8000/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "dockerhub/busybox") | ._href')``
 
 
 Sync repository ``foo`` using Remote ``bar``
@@ -141,7 +141,7 @@ Look at the new Repository Version created
 Create a ``docker`` Publisher ``baz``
 ----------------------------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/publishers/docker/ name=baz``
+``$ http POST http://localhost:8000/pulp/api/v3/publishers/docker/docker/ name=baz``
 
 .. code:: json
 
@@ -150,7 +150,7 @@ Create a ``docker`` Publisher ``baz``
         ...
     }
 
-``$ export PUBLISHER_HREF=$(http :8000/pulp/api/v3/publishers/docker/ | jq -r '.results[] | select(.name == "baz") | ._href')``
+``$ export PUBLISHER_HREF=$(http :8000/pulp/api/v3/publishers/docker/docker/ | jq -r '.results[] | select(.name == "baz") | ._href')``
 
 
 Use the ``bar`` Publisher to create a Publication
