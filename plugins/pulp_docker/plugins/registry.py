@@ -298,7 +298,8 @@ class V2Repository(object):
         # if we have a docker registry image, and no namespace, add the library
         # namespace to the image name.
 
-        if '/' not in name and re.search(r'registry[-,\w]*.docker.io', registry_url, re.IGNORECASE):
+        if '/' not in name and re.search(r'[registry|index][-,\w]*.docker.io',
+                                         registry_url, re.IGNORECASE):
             self.name = "library/" + name
         else:
             self.name = name
