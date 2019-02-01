@@ -9,14 +9,14 @@ from pulp_smash.pulp3.constants import (
 )
 
 # FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
-DOCKER_CONTENT_NAME = 'unit'
+DOCKER_CONTENT_NAME = 'docker.unit'
 
 # FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
 DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
 
-DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/')
+DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/docker/')
 
-DOCKER_PUBLISHER_PATH = urljoin(BASE_PUBLISHER_PATH, 'docker/')
+DOCKER_PUBLISHER_PATH = urljoin(BASE_PUBLISHER_PATH, 'docker/docker/')
 
 
 # FIXME: replace this with your own fixture repository URL and metadata

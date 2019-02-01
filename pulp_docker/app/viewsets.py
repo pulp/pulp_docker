@@ -31,7 +31,7 @@ class ManifestListTagViewSet(ContentViewSet):
     ViewSet for ManifestListTag.
     """
 
-    endpoint_name = 'docker/manifest-list-tags'
+    endpoint_name = 'manifest-list-tags'
     queryset = models.ManifestListTag.objects.all()
     serializer_class = serializers.ManifestListTagSerializer
 
@@ -48,7 +48,7 @@ class ManifestTagViewSet(ContentViewSet):
     ViewSet for ManifestTag.
     """
 
-    endpoint_name = 'docker/manifest-tags'
+    endpoint_name = 'manifest-tags'
     queryset = models.ManifestTag.objects.all()
     serializer_class = serializers.ManifestTagSerializer
 
@@ -65,7 +65,7 @@ class ManifestListViewSet(ContentViewSet):
     ViewSet for ManifestList.
     """
 
-    endpoint_name = 'docker/manifest-lists'
+    endpoint_name = 'manifest-lists'
     queryset = models.ManifestList.objects.all()
     serializer_class = serializers.ManifestListSerializer
 
@@ -82,7 +82,7 @@ class ManifestViewSet(ContentViewSet):
     ViewSet for Manifest.
     """
 
-    endpoint_name = 'docker/manifests'
+    endpoint_name = 'manifests'
     queryset = models.ImageManifest.objects.all()
     serializer_class = serializers.ManifestSerializer
 
@@ -99,7 +99,7 @@ class BlobViewSet(ContentViewSet):
     ViewSet for ManifestBlobs.
     """
 
-    endpoint_name = 'docker/blobs'
+    endpoint_name = 'blobs'
     queryset = models.ManifestBlob.objects.all()
     serializer_class = serializers.BlobSerializer
 
