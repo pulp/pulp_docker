@@ -20,35 +20,24 @@ class SerialContentSave(Stage):
     Save Content one at a time, combining duplicates.
     """
 
-    async def __call__(self, in_q, out_q):
+    async def run(self):
         """
         The coroutine for this stage.
 
-        Args:
-            in_q (:class:`asyncio.Queue`): The queue to receive
-                :class:`~pulpcore.plugin.stages.DeclarativeContent` objects from.
-            out_q (:class:`asyncio.Queue`): The queue to put
-                :class:`~pulpcore.plugin.stages.DeclarativeContent` into.
         Returns:
             The coroutine for this stage.
 
         """
-        while True:
-            dc = await in_q.get()
-            # finished
-            if dc is None:
-                break
-
+        async for dc in self.items():
             # Do not save Content that contains Artifacts which have not been downloaded
             if not self.settled(dc):
-                await out_q.put(dc)
+                await self.put(dc)
             # already saved
             elif dc.content.pk is not None:
-                await out_q.put(dc)
+                await self.put(dc)
             else:
                 self.save_and_dedupe_content(dc)
-                await out_q.put(dc)
-        await out_q.put(None)
+                await self.put(dc)
 
     def save_and_dedupe_content(self, dc):
         """

@@ -7,68 +7,63 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.validators import UniqueValidator
 
-from pulpcore.plugin import serializers as platform
-from pulpcore.plugin.models import Artifact, Publication, Repository
+from pulpcore.plugin.serializers import (
+    DetailRelatedField,
+    IdentityField,
+    ModelSerializer,
+    PublisherSerializer,
+    RelatedField,
+    RemoteSerializer,
+    SingleArtifactContentSerializer,
+)
+from pulpcore.plugin.models import Publication, Repository
 
 from . import models
 
 
-class MinimalArtifactSerializer(platform.ArtifactSerializer):
-    """
-    Serialize Artifacts associated with Docker Content.
-
-    We overrided the platform serializer because it does not include size, and includes digest.
-    Since digest is a field on the content units, it would be redundant.
-    """
-
-    class Meta:
-        fields = ('size', '_href')
-        model = Artifact
-
-
-class ManifestListTagSerializer(platform.ContentSerializer):
+class ManifestListTagSerializer(SingleArtifactContentSerializer):
     """
     Serializer for ManifestListTags.
     """
 
     name = serializers.CharField(help_text="Tag name")
-    manifest_list = platform.DetailRelatedField(
+    manifest_list = DetailRelatedField(
         many=False,
         help_text="Manifest List that is tagged",
         view_name='docker-manifest-lists-detail',
         queryset=models.ManifestList.objects.all()
     )
-    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
-        fields = tuple(
-            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('name', 'manifest_list', '_artifact')
+        fields = SingleArtifactContentSerializer.Meta.fields + (
+            'name',
+            'manifest_list',
+        )
         model = models.ManifestListTag
 
 
-class ManifestTagSerializer(platform.ContentSerializer):
+class ManifestTagSerializer(SingleArtifactContentSerializer):
     """
     Serializer for ManifestTags.
     """
 
     name = serializers.CharField(help_text="Tag name")
-    manifest = platform.DetailRelatedField(
+    manifest = DetailRelatedField(
         many=False,
         help_text="Manifest that is tagged",
         view_name='docker-manifests-detail',
         queryset=models.ImageManifest.objects.all()
     )
-    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
-        fields = tuple(
-            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('name', 'manifest', '_artifact')
+        fields = SingleArtifactContentSerializer.Meta.fields + (
+            'name',
+            'manifest',
+        )
         model = models.ManifestTag
 
 
-class ManifestListSerializer(platform.ContentSerializer):
+class ManifestListSerializer(SingleArtifactContentSerializer):
     """
     Serializer for ManifestLists.
     """
@@ -76,22 +71,24 @@ class ManifestListSerializer(platform.ContentSerializer):
     digest = serializers.CharField(help_text="sha256 of the ManifestList file")
     schema_version = serializers.IntegerField(help_text="Docker schema version")
     media_type = serializers.CharField(help_text="Docker media type of the file")
-    manifests = platform.DetailRelatedField(
+    manifests = DetailRelatedField(
         many=True,
         help_text="Manifests that are referenced by this Manifest List",
         view_name='docker-manifests-detail',
         queryset=models.ImageManifest.objects.all()
     )
-    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
-        fields = tuple(
-            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('digest', 'schema_version', 'media_type', 'manifests', '_artifact')
+        fields = SingleArtifactContentSerializer.Meta.fields + (
+            'digest',
+            'schema_version',
+            'media_type',
+            'manifests',
+        )
         model = models.ManifestList
 
 
-class ManifestSerializer(platform.ContentSerializer):
+class ManifestSerializer(SingleArtifactContentSerializer):
     """
     Serializer for Manifests.
     """
@@ -99,40 +96,43 @@ class ManifestSerializer(platform.ContentSerializer):
     digest = serializers.CharField(help_text="sha256 of the Manifest file")
     schema_version = serializers.IntegerField(help_text="Docker schema version")
     media_type = serializers.CharField(help_text="Docker media type of the file")
-    blobs = platform.DetailRelatedField(
+    blobs = DetailRelatedField(
         many=True,
         help_text="Blobs that are referenced by this Manifest",
         view_name='docker-blobs-detail',
         queryset=models.ManifestBlob.objects.all()
     )
-    config_blob = platform.DetailRelatedField(
+    config_blob = DetailRelatedField(
         many=False,
         help_text="Blob that contains configuration for this Manifest",
         view_name='docker-blobs-detail',
         queryset=models.ManifestBlob.objects.all()
     )
-    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
-        fields = tuple(
-            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('digest', 'schema_version', 'media_type', 'blobs', 'config_blob', '_artifact')
+        fields = SingleArtifactContentSerializer.Meta.fields + (
+            'digest',
+            'schema_version',
+            'media_type',
+            'blobs',
+            'config_blob',
+        )
         model = models.ImageManifest
 
 
-class BlobSerializer(platform.ContentSerializer):
+class BlobSerializer(SingleArtifactContentSerializer):
     """
     Serializer for Blobs.
     """
 
     digest = serializers.CharField(help_text="sha256 of the Blob file")
     media_type = serializers.CharField(help_text="Docker media type of the file")
-    _artifact = MinimalArtifactSerializer(many=False, help_text="File related to this content")
 
     class Meta:
-        fields = tuple(
-            set(platform.ContentSerializer.Meta.fields) - {'_artifacts'}
-        ) + ('digest', 'media_type', '_artifact')
+        fields = SingleArtifactContentSerializer.Meta.fields + (
+            'digest',
+            'media_type',
+        )
         model = models.ManifestBlob
 
 
@@ -152,7 +152,7 @@ class RegistryPathField(serializers.CharField):
         return ''.join([host, '/', value])
 
 
-class DockerRemoteSerializer(platform.RemoteSerializer):
+class DockerRemoteSerializer(RemoteSerializer):
     """
     A Serializer for DockerRemote.
 
@@ -173,11 +173,11 @@ class DockerRemoteSerializer(platform.RemoteSerializer):
     )
 
     class Meta:
-        fields = platform.RemoteSerializer.Meta.fields + ('upstream_name',)
+        fields = RemoteSerializer.Meta.fields + ('upstream_name',)
         model = models.DockerRemote
 
 
-class DockerPublisherSerializer(platform.PublisherSerializer):
+class DockerPublisherSerializer(PublisherSerializer):
     """
     A Serializer for DockerPublisher.
 
@@ -192,16 +192,16 @@ class DockerPublisherSerializer(platform.PublisherSerializer):
     """
 
     class Meta:
-        fields = platform.PublisherSerializer.Meta.fields
+        fields = PublisherSerializer.Meta.fields
         model = models.DockerPublisher
 
 
-class DockerDistributionSerializer(platform.ModelSerializer):
+class DockerDistributionSerializer(ModelSerializer):
     """
     A serializer for DockerDistribution.
     """
 
-    _href = platform.IdentityField(
+    _href = IdentityField(
         view_name='docker-distributions-detail'
     )
     name = serializers.CharField(
@@ -224,21 +224,21 @@ class DockerDistributionSerializer(platform.ModelSerializer):
             UniqueValidator(queryset=models.DockerDistribution.objects.all()),
         ]
     )
-    publisher = platform.DetailRelatedField(
+    publisher = DetailRelatedField(
         required=False,
         help_text=_('Publications created by this publisher and repository are automatically'
                     'served as defined by this distribution'),
         queryset=models.DockerPublisher.objects.all(),
         allow_null=True
     )
-    publication = platform.RelatedField(
+    publication = RelatedField(
         required=False,
         help_text=_('The publication being served as defined by this distribution'),
         queryset=Publication.objects.exclude(complete=False),
         view_name='publications-detail',
         allow_null=True
     )
-    repository = platform.RelatedField(
+    repository = RelatedField(
         required=False,
         help_text=_('Publications created by this repository and publisher are automatically'
                     'served as defined by this distribution'),
@@ -254,7 +254,7 @@ class DockerDistributionSerializer(platform.ModelSerializer):
 
     class Meta:
         model = models.DockerDistribution
-        fields = platform.ModelSerializer.Meta.fields + (
+        fields = ModelSerializer.Meta.fields + (
             'name',
             'base_path',
             'publisher',
