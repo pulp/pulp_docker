@@ -62,38 +62,32 @@ class DockerDeclarativeVersion(DeclarativeVersion):
             list: List of :class:`~pulpcore.plugin.stages.Stage` instances
 
         """
-        # We only want to create a single instance of each stage. Each call to the stage is
-        # encapsulated, so it isn't necessary to create a new instance.
-        downloader = ArtifactDownloader()
-        serial_artifact_save = ArtifactSaver()
-        serial_content_save = SerialContentSave()
-        process_content = ProcessContentStage(self.remote)
         return [
             TagListStage(self.remote),
 
             # In: Pending Tags (not downloaded yet)
-            downloader,
-            serial_artifact_save,
-            process_content,
-            serial_content_save,
+            ArtifactDownloader(),
+            ArtifactSaver(),
+            ProcessContentStage(self.remote),
+            SerialContentSave(),
             # Out: Finished Tags, Finished ManifestLists, Finished ImageManifests,
             #      Pending ImageManifests, Pending ManifestBlobs
 
 
             # In: Pending ImageManifests, Pending Blobs
             # In: Finished content (no-op)
-            downloader,
-            serial_artifact_save,
-            process_content,
-            serial_content_save,
+            ArtifactDownloader(),
+            ArtifactSaver(),
+            ProcessContentStage(self.remote),
+            SerialContentSave(),
             # Out: No-op (Finished Tags, ManifestLists, ImageManifests)
             # Out: Finished ImageManifests, Finished ManifestBlobs, Pending ManifestBlobs
 
             # In: Pending Blobs
             # In: Finished content (no-op)
-            downloader,
-            serial_artifact_save,
-            serial_content_save,
+            ArtifactDownloader(),
+            ArtifactSaver(),
+            SerialContentSave(),
             # Out: Finished content, Tags, ManifestLists, ImageManifests, ManifestBlobs
 
             # In: Tags, ManifestLists, ImageManifests, ManifestBlobs (downloaded, processed, and

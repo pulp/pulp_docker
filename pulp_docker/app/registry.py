@@ -194,8 +194,9 @@ class Registry:
                 streamed back to the client.
 
         """
-        artifact = tag._artifact
-        if not artifact:
+        try:
+            artifact = tag._artifacts.get()
+        except ObjectDoesNotExist:
             raise ArtifactNotFound(tag.name)
         else:
             return await Registry._dispatch(artifact.file.name, response_headers)

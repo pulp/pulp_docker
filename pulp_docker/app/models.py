@@ -22,20 +22,7 @@ MEDIA_TYPE = SimpleNamespace(
 )
 
 
-class SingleArtifact:
-    """
-    Mixin for Content with only 1 artifact.
-    """
-
-    @property
-    def _artifact(self):
-        """
-        Return the artifact (there is only one for this content type).
-        """
-        return self._artifacts.get()
-
-
-class ManifestBlob(Content, SingleArtifact):
+class ManifestBlob(Content):
     """
     A blob defined within a manifest.
 
@@ -64,7 +51,7 @@ class ManifestBlob(Content, SingleArtifact):
         unique_together = ('digest',)
 
 
-class ImageManifest(Content, SingleArtifact):
+class ImageManifest(Content):
     """
     A docker manifest.
 
@@ -95,7 +82,7 @@ class ImageManifest(Content, SingleArtifact):
         unique_together = ('digest',)
 
 
-class ManifestList(Content, SingleArtifact):
+class ManifestList(Content):
     """
     A manifest list.
 
@@ -173,7 +160,7 @@ class ManifestListManifest(models.Model):
         unique_together = ('manifest', 'manifest_list')
 
 
-class ManifestTag(Content, SingleArtifact):
+class ManifestTag(Content):
     """
     A tagged Manifest.
 
@@ -198,7 +185,7 @@ class ManifestTag(Content, SingleArtifact):
         )
 
 
-class ManifestListTag(Content, SingleArtifact):
+class ManifestListTag(Content):
     """
     A tagged Manifest List.
 

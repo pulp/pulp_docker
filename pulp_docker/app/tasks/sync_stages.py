@@ -36,16 +36,12 @@ class TagListStage(Stage):
 
     def __init__(self, remote):
         """Initialize the stage."""
+        super().__init__()
         self.remote = remote
 
-    async def __call__(self, in_q, out_q):
+    async def run(self):
         """
         Build and emit `DeclarativeContent` for each Tag.
-
-        Args:
-            in_q (asyncio.Queue): Unused because the first stage doesn't read from an input queue.
-            out_q (asyncio.Queue): Tag `DeclarativeContent` objects are sent here.
-
         """
         log.debug("Fetching tags list for upstream repository: {repo}".format(
             repo=self.remote.upstream_name
@@ -61,9 +57,7 @@ class TagListStage(Stage):
 
         for tag_name in tag_list:
             tag_dc = self.create_pending_tag(tag_name)
-            await out_q.put(tag_dc)
-
-        await out_q.put(None)
+            await self.put(tag_dc)
 
     def create_pending_tag(self, tag_name):
         """
@@ -108,28 +102,19 @@ class ProcessContentStage(Stage):
         """
         Inform the stage about the remote to use.
         """
+        super().__init__()
         self.remote = remote
 
-    async def __call__(self, in_q, out_q):
+    async def run(self):
         """
         Create new Content for all unsaved content units with downloaded artifacts.
-
-        Args:
-            in_q(asyncio.Queue): Queue of pulpcore.plugin.stages.DeclarativeContent objects to be
-                                 processed.
-            out_q(asyncio.Queue): Queue of pulpcore.plugin.stages.DeclarativeContent objects that
-                                  have either been processed or were created in this stage.
-
         """
-        while True:
-            dc = await in_q.get()
-            if dc is None:
-                break
-            elif dc.extra_data.get('processed'):
-                await out_q.put(dc)
+        async for dc in self.items():
+            if dc.extra_data.get('processed'):
+                await self.put(dc)
                 continue
-            elif type(dc.content) is ManifestBlob:
-                await out_q.put(dc)
+            if type(dc.content) is ManifestBlob:
+                await self.put(dc)
                 continue
 
             # All docker content contains a single artifact.
@@ -140,40 +125,37 @@ class ProcessContentStage(Stage):
 
             if type(dc.content) is TempTag:
                 if content_data.get('mediaType') == MEDIA_TYPE.MANIFEST_LIST:
-                    await self.create_and_process_tagged_manifest_list(dc, content_data, out_q)
-                    await out_q.put(dc)
+                    await self.create_and_process_tagged_manifest_list(dc, content_data)
+                    await self.put(dc)
                 elif content_data.get('mediaType') == MEDIA_TYPE.MANIFEST_V2:
-                    await self.create_and_process_tagged_manifest(dc, content_data, out_q)
-                    await out_q.put(dc)
+                    await self.create_and_process_tagged_manifest(dc, content_data)
+                    await self.put(dc)
                 else:
                     assert content_data.get('schemaVersion') == 1
             elif type(dc.content) is ImageManifest:
                 for layer in content_data.get("layers"):
-                    blob_dc = await self.create_pending_blob(dc, layer, out_q)
+                    blob_dc = await self.create_pending_blob(layer)
                     blob_dc.extra_data['relation'] = dc
-                    await out_q.put(blob_dc)
+                    await self.put(blob_dc)
 
                 config_layer = content_data.get('config')
                 if config_layer:
-                    config_blob_dc = await self.create_pending_blob(dc, config_layer, out_q)
+                    config_blob_dc = await self.create_pending_blob(config_layer)
                     config_blob_dc.extra_data['config_relation'] = dc
-                    await out_q.put(config_blob_dc)
+                    await self.put(config_blob_dc)
                 dc.extra_data['processed'] = True
-                await out_q.put(dc)
+                await self.put(dc)
             else:
                 msg = "Unexpected type cannot be processed{tp}".format(tp=type(dc.content))
                 raise Exception(msg)
 
-        await out_q.put(None)
-
-    async def create_and_process_tagged_manifest_list(self, tag_dc, manifest_list_data, out_q):
+    async def create_and_process_tagged_manifest_list(self, tag_dc, manifest_list_data):
         """
         Create a ManifestList and nested ImageManifests from the Tag artifact.
 
         Args:
             tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
             manifest_list_data (dict): Data about a ManifestList
-            out_q (asyncio.Queue): Queue to put created ManifestList and ImageManifest dcs.
         """
         tag_dc.content = ManifestListTag(name=tag_dc.content.name)
         digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
@@ -196,20 +178,19 @@ class ProcessContentStage(Stage):
         )
         list_dc = DeclarativeContent(content=manifest_list, d_artifacts=[da])
         for manifest in manifest_list_data.get('manifests'):
-            await self.create_pending_manifest(list_dc, manifest, out_q)
+            await self.create_pending_manifest(list_dc, manifest)
         list_dc.extra_data['relation'] = tag_dc
         list_dc.extra_data['processed'] = True
         tag_dc.extra_data['processed'] = True
-        await out_q.put(list_dc)
+        await self.put(list_dc)
 
-    async def create_and_process_tagged_manifest(self, tag_dc, manifest_data, out_q):
+    async def create_and_process_tagged_manifest(self, tag_dc, manifest_data):
         """
         Create a Manifest and nested ManifestBlobs from the Tag artifact.
 
         Args:
             tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
             manifest_data (dict): Data about a single new ImageManifest.
-            out_q (asyncio.Queue): Queue to put created ImageManifest dcs and Blob dcs.
         """
         tag_dc.content = ManifestTag(name=tag_dc.content.name)
         digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
@@ -232,28 +213,27 @@ class ProcessContentStage(Stage):
         )
         man_dc = DeclarativeContent(content=manifest, d_artifacts=[da])
         for layer in manifest_data.get('layers'):
-            blob_dc = await self.create_pending_blob(man_dc, layer, out_q)
+            blob_dc = await self.create_pending_blob(layer)
             blob_dc.extra_data['relation'] = man_dc
-            await out_q.put(blob_dc)
+            await self.put(blob_dc)
         config_layer = manifest_data.get('config')
         if config_layer:
-            config_blob_dc = await self.create_pending_blob(man_dc, config_layer, out_q)
+            config_blob_dc = await self.create_pending_blob(config_layer)
             config_blob_dc.extra_data['config_relation'] = man_dc
-            await out_q.put(config_blob_dc)
+            await self.put(config_blob_dc)
 
         man_dc.extra_data['relation'] = tag_dc
         tag_dc.extra_data['processed'] = True
         man_dc.extra_data['processed'] = True
-        await out_q.put(man_dc)
+        await self.put(man_dc)
 
-    async def create_pending_manifest(self, list_dc, manifest_data, out_q):
+    async def create_pending_manifest(self, list_dc, manifest_data):
         """
         Create a pending manifest from manifest data in a ManifestList.
 
         Args:
             list_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
             manifest_data (dict): Data about a single new ImageManifest.
-            out_q (asyncio.Queue): Queue to put created ImageManifest dcs.
         """
         digest = manifest_data['digest']
         relative_url = '/v2/{name}/manifests/{digest}'.format(
@@ -279,16 +259,14 @@ class ProcessContentStage(Stage):
             d_artifacts=[da],
             extra_data={'relation': list_dc}
         )
-        await out_q.put(man_dc)
+        await self.put(man_dc)
 
-    async def create_pending_blob(self, man_dc, blob_data, out_q):
+    async def create_pending_blob(self, blob_data):
         """
         Create a pending blob from a layer in the ImageManifest.
 
         Args:
-            man_dc (pulpcore.plugin.stages.DeclarativeContent): dc for an ImageManifest
             blob_data (dict): Data about a single new blob.
-            out_q (asyncio.Queue): Queue to put created blob dcs.
 
         """
         digest = blob_data['digest']
@@ -321,18 +299,11 @@ class InterrelateContent(Stage):
     Stage for relating Content to other Content.
     """
 
-    async def __call__(self, in_q, out_q):
+    async def run(self):
         """
-        Relate each item in the in_q to objects specified on the DeclarativeContent.
-
-        Args:
-            in_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
-            out_q (asyncio.Queue): A queue of unrelated pulpcore.plugin.DeclarativeContent objects
+        Relate each item in the input queue to objects specified on the DeclarativeContent.
         """
-        while True:
-            dc = await in_q.get()
-            if dc is None:
-                break
+        async for dc in self.items():
             if dc.extra_data.get('relation'):
                 if type(dc.content) is ManifestList:
                     self.relate_manifest_list(dc)
@@ -346,8 +317,7 @@ class InterrelateContent(Stage):
                 configured_dc.content.config_blob = dc.content
                 configured_dc.content.save()
 
-            await out_q.put(dc)
-        await out_q.put(None)
+            await self.put(dc)
 
     def relate_blob(self, dc):
         """
