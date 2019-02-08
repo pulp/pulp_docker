@@ -133,7 +133,7 @@ class TestDownloadManifestsStep(unittest.TestCase):
                 os='linux',
                 arch='arm')]
         self.assertEqual(step.parent.available_manifests[0].manifests, expected_man)
-        self.assertEqual(mock_manifest.call_count, 3)
+        self.assertEqual(mock_manifest.call_count, 2)
         self.assertEqual(step.parent.index_repository.get_manifest.call_count, 3)
         self.assertEqual(len(step.parent.save_tags_step.tagged_manifests), 1)
 

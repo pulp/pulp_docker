@@ -279,8 +279,10 @@ class DownloadManifestsStep(publish_step.PluginStep):
                 # for compatibility with older clients, try to fetch schema1 in case it is available
                 # we set the headers to False in order to get the conversion to schema1
                 manifests = self.parent.index_repository.get_manifest(tag, headers=False, tag=True)
-                manifest, digest, _ = manifests[0]
-                self._process_manifest(manifest, digest, available_blobs, tag=tag)
+                manifest, digest, content_type = manifests[0]
+                if content_type in (constants.MEDIATYPE_MANIFEST_S1,
+                                    constants.MEDIATYPE_SIGNED_MANIFEST_S1):
+                    self._process_manifest(manifest, digest, available_blobs, tag=tag)
             except IOError as e:
                 if str(e) != 'Not Found':
                     raise
