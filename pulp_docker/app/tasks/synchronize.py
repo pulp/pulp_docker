@@ -2,7 +2,12 @@ from gettext import gettext as _
 import logging
 
 from pulpcore.plugin.models import Repository
-from pulpcore.plugin.stages import ArtifactDownloader, DeclarativeVersion, ArtifactSaver
+from pulpcore.plugin.stages import (
+    ArtifactDownloader,
+    ArtifactSaver,
+    DeclarativeVersion,
+    RemoteArtifactSaver,
+)
 
 from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage
 from pulp_docker.app.models import DockerRemote, ManifestTag, ManifestListTag
@@ -70,6 +75,7 @@ class DockerDeclarativeVersion(DeclarativeVersion):
             ArtifactSaver(),
             ProcessContentStage(self.remote),
             SerialContentSave(),
+            RemoteArtifactSaver(),
             # Out: Finished Tags, Finished ManifestLists, Finished ImageManifests,
             #      Pending ImageManifests, Pending ManifestBlobs
 
@@ -80,6 +86,7 @@ class DockerDeclarativeVersion(DeclarativeVersion):
             ArtifactSaver(),
             ProcessContentStage(self.remote),
             SerialContentSave(),
+            RemoteArtifactSaver(),
             # Out: No-op (Finished Tags, ManifestLists, ImageManifests)
             # Out: Finished ImageManifests, Finished ManifestBlobs, Pending ManifestBlobs
 
@@ -88,6 +95,7 @@ class DockerDeclarativeVersion(DeclarativeVersion):
             ArtifactDownloader(),
             ArtifactSaver(),
             SerialContentSave(),
+            RemoteArtifactSaver(),
             # Out: Finished content, Tags, ManifestLists, ImageManifests, ManifestBlobs
 
             # In: Tags, ManifestLists, ImageManifests, ManifestBlobs (downloaded, processed, and
