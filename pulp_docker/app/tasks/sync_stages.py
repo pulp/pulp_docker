@@ -1,6 +1,8 @@
-from urllib.parse import urljoin
 import json
 import logging
+
+from gettext import gettext as _
+from urllib.parse import urljoin
 
 from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact
@@ -134,13 +136,14 @@ class ProcessContentStage(Stage):
                     assert content_data.get('schemaVersion') == 1
             elif type(dc.content) is ImageManifest:
                 for layer in content_data.get("layers"):
+                    if not self._include_layer(layer):
+                        continue
                     blob_dc = await self.create_pending_blob(layer)
                     blob_dc.extra_data['relation'] = dc
                     await self.put(blob_dc)
-
-                config_layer = content_data.get('config')
-                if config_layer:
-                    config_blob_dc = await self.create_pending_blob(config_layer)
+                layer = content_data.get('config')
+                if layer and self._include_layer(layer):
+                    config_blob_dc = await self.create_pending_blob(layer)
                     config_blob_dc.extra_data['config_relation'] = dc
                     await self.put(config_blob_dc)
                 dc.extra_data['processed'] = True
@@ -213,15 +216,16 @@ class ProcessContentStage(Stage):
         )
         man_dc = DeclarativeContent(content=manifest, d_artifacts=[da])
         for layer in manifest_data.get('layers'):
+            if not self._include_layer(layer):
+                continue
             blob_dc = await self.create_pending_blob(layer)
             blob_dc.extra_data['relation'] = man_dc
             await self.put(blob_dc)
-        config_layer = manifest_data.get('config')
-        if config_layer:
-            config_blob_dc = await self.create_pending_blob(config_layer)
+        layer = manifest_data.get('config')
+        if layer and self._include_layer(layer):
+            config_blob_dc = await self.create_pending_blob(layer)
             config_blob_dc.extra_data['config_relation'] = man_dc
             await self.put(config_blob_dc)
-
         man_dc.extra_data['relation'] = tag_dc
         tag_dc.extra_data['processed'] = True
         man_dc.extra_data['processed'] = True
@@ -292,6 +296,24 @@ class ProcessContentStage(Stage):
             d_artifacts=[da],
         )
         return blob_dc
+
+    def _include_layer(self, layer):
+        """
+        Decide whether to include a layer.
+
+        Args:
+            layer (dict): Layer reference.
+
+        Returns:
+            bool: True when the layer should be included.
+
+        """
+        foreign_excluded = (not self.remote.include_foreign_layers)
+        is_foreign = (layer.get('mediaType') == MEDIA_TYPE.FOREIGN_BLOB)
+        if is_foreign and foreign_excluded:
+            log.debug(_('Foreign Layer: %(d)s EXCLUDED'), dict(d=layer))
+            return False
+        return True
 
 
 class InterrelateContent(Stage):
