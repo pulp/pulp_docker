@@ -223,9 +223,15 @@ class DockerPublisher(Publisher):
 class DockerRemote(Remote):
     """
     A Remote for DockerContent.
+
+    Fields:
+        upstream_name (models.CharField): The name of the image at the remote.
+        include_foreign_layers (models.BooleanField): Foreign layers in the remote
+            are included. They are not included by default.
     """
 
     upstream_name = models.CharField(max_length=255, db_index=True)
+    include_foreign_layers = models.BooleanField(default=False)
 
     TYPE = 'docker'
 
