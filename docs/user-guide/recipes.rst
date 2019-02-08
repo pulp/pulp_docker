@@ -42,12 +42,13 @@ The pulp-docker plugin supports synchronizing from upstream repositories as of
 version 0.2.1. As of version 2.0.0, it can synchronize with either Docker v1 or
 v2 registries.
 
-.. note::
+.. warning::
 
-    ``registry-1.docker.io`` is a Docker V2 Registry API. For V1 API
-    ``index.docker.io`` should be used, along with ``--enable-v1 true`` and
-    ``--enable-v2 false``. Please note however that V1 content is deprecated
-    and Docker may remove it at any time.
+    ``index.docker.io`` is a legacy registry and should be used only for V1 content, along with
+    ``--enable-v1 true`` and ``--enable-v2 false``. Please note however that V1 content is
+    deprecated and Docker may remove it at any time.
+    For V2 content use ``registry-1.docker.io``.
+
 
 ::
 
