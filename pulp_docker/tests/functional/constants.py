@@ -2,7 +2,6 @@
 from urllib.parse import urljoin
 
 from pulp_smash.constants import PULP_FIXTURES_BASE_URL
-from pulp_smash.pulp3.constants import DOWNLOAD_POLICIES  # noqa:F401
 from pulp_smash.pulp3.constants import (
     BASE_PUBLISHER_PATH,
     BASE_REMOTE_PATH,
