@@ -14,7 +14,10 @@ from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # n
 
 
 # Read the instructions provided below for the steps needed to enable this test (see: FIXME's).
-@unittest.skip("FIXME: plugin writer action required")
+@unittest.skip(
+    "FIXME: plugin writer action required"
+    " docker plugin doesn't support push or uploads yet."
+)
 class ContentUnitTestCase(unittest.TestCase):
     """CRUD content unit.
 

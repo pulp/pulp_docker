@@ -1,5 +1,6 @@
 # coding=utf-8
 """Utilities for tests for the docker plugin."""
+import requests
 from functools import partial
 from unittest import SkipTest
 
@@ -10,7 +11,6 @@ from pulp_smash.pulp3.constants import (
 from pulp_smash.pulp3.utils import (
     gen_remote,
     gen_repo,
-    gen_publisher,
     get_content,
     require_pulp_3,
     require_pulp_plugins,
@@ -20,8 +20,9 @@ from pulp_smash.pulp3.utils import (
 from pulp_docker.tests.functional.constants import (
     DOCKER_CONTENT_NAME,
     DOCKER_CONTENT_PATH,
-    DOCKER_FIXTURE_URL,
     DOCKER_REMOTE_PATH,
+    DOCKER_UPSTREAM_NAME,
+    DOCKER_V2_FEED_URL,
 )
 
 
@@ -32,45 +33,47 @@ def set_up_module():
 
 
 def gen_docker_remote(**kwargs):
-    """Return a semi-random dict for use in creating a docker Remote.
-
-    :param url: The URL of an external content source.
-    """
-    remote = gen_remote(DOCKER_FIXTURE_URL)
-    docker_extra_fields = {
-        'upstream_name': 'busybox',
+    """Generate dict with common remote properties."""
+    return gen_remote(
+        kwargs.pop('url', DOCKER_V2_FEED_URL),
+        upstream_name=kwargs.pop('upstream_name', DOCKER_UPSTREAM_NAME),
         **kwargs
-    }
-    remote.update(**docker_extra_fields)
-    return remote
+    )
 
 
-def gen_docker_publisher(**kwargs):
-    """Return a semi-random dict for use in creating a Remote.
+def get_docker_hub_remote_blobsums(upstream_name=DOCKER_UPSTREAM_NAME):
+    """Get remote blobsum list from dockerhub registry."""
+    token_url = (
+        'https://auth.docker.io/token'
+        '?service=registry.docker.io'
+        '&scope=repository:library/{0}:pull'
+    ).format(upstream_name)
+    token_response = requests.get(token_url)
+    token_response.raise_for_status()
+    token = token_response.json()['token']
 
-    :param url: The URL of an external content source.
-    """
-    publisher = gen_publisher()
-    # FIXME: Add any fields specific to a plugin_teplate publisher here
-    docker_extra_fields = {
-        **kwargs
-    }
-    publisher.update(**docker_extra_fields)
-    return publisher
+    blob_url = (
+        '{0}/v2/library/{1}/manifests/latest'
+    ).format(DOCKER_V2_FEED_URL, upstream_name)
+    response = requests.get(
+        blob_url,
+        headers={'Authorization': 'Bearer ' + token}
+    )
+    response.raise_for_status()
+    return response.json()['fsLayers']
 
 
-def get_docker_image_paths(repo):
-    """Return the relative path of content units present in a docker repository.
+def get_docker_image_paths(repo, version_href=None):
+    """Return the relative path of content units present in a file repository.
 
     :param repo: A dict of information about the repository.
+    :param version_href: The repository version to read.
     :returns: A list with the paths of units present in a given repository.
     """
-    # FIXME: The "relative_path" is only valid for the file plugin.
-    # It's just an example -- this needs to be replaced with an implementation that works
-    # for repositories of this content type.
     return [
-        content_unit['relative_path']
-        for content_unit in get_content(repo)[DOCKER_CONTENT_NAME]
+        content_unit['_artifact']
+        for content_unit
+        in get_content(repo, version_href)[DOCKER_CONTENT_NAME]
     ]
 
 
@@ -84,7 +87,7 @@ def gen_docker_image_attrs(artifact):
     return {'_artifact': artifact['_href']}
 
 
-def populate_pulp(cfg, url=DOCKER_FIXTURE_URL):
+def populate_pulp(cfg, url=DOCKER_V2_FEED_URL):
     """Add docker contents to Pulp.
 
     :param pulp_smash.config.PulpSmashConfig: Information about a Pulp application.
@@ -96,7 +99,13 @@ def populate_pulp(cfg, url=DOCKER_FIXTURE_URL):
     remote = {}
     repo = {}
     try:
-        remote.update(client.post(DOCKER_REMOTE_PATH, gen_docker_remote(url)))
+        remote.update(
+            client.post(
+                DOCKER_REMOTE_PATH,
+                gen_remote(url, upstream_name=DOCKER_UPSTREAM_NAME)
+
+            )
+        )
         repo.update(client.post(REPO_PATH, gen_repo()))
         sync(cfg, remote, repo)
     finally:
