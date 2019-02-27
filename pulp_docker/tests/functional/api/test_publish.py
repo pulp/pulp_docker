@@ -9,6 +9,7 @@ from requests.exceptions import HTTPError
 from pulp_smash import api, config
 from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import (
+    gen_publisher,
     gen_repo,
     get_content,
     get_versions,
@@ -16,10 +17,7 @@ from pulp_smash.pulp3.utils import (
     sync,
 )
 
-from pulp_docker.tests.functional.utils import (
-    gen_docker_remote,
-    gen_docker_publisher,
-)
+from pulp_docker.tests.functional.utils import gen_docker_remote
 from pulp_docker.tests.functional.constants import (
     DOCKER_CONTENT_NAME,
     DOCKER_REMOTE_PATH,
@@ -28,8 +26,6 @@ from pulp_docker.tests.functional.constants import (
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
 
-# Implement sync and publish support before enabling this test.
-@unittest.skip("FIXME: plugin writer action required")
 class PublishAnyRepoVersionTestCase(unittest.TestCase):
     """Test whether a particular repository version can be published.
 
@@ -67,7 +63,7 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
 
         sync(self.cfg, remote, repo)
 
-        publisher = self.client.post(DOCKER_PUBLISHER_PATH, gen_docker_publisher())
+        publisher = self.client.post(DOCKER_PUBLISHER_PATH, gen_publisher())
         self.addCleanup(self.client.delete, publisher['_href'])
 
         # Step 1

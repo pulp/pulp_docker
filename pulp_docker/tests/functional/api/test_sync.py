@@ -4,25 +4,17 @@ import unittest
 
 from pulp_smash import api, cli, config, exceptions
 from pulp_smash.pulp3.constants import MEDIA_PATH, REPO_PATH
-from pulp_smash.pulp3.utils import (
-    gen_repo,
-    get_content_summary,
-    get_added_content_summary,
-    sync,
-)
+from pulp_smash.pulp3.utils import gen_repo, sync
 
-from pulp_docker.tests.functional.constants import (
-    DOCKER_FIXTURE_SUMMARY,
-    DOCKER_REMOTE_PATH
-)
+from pulp_docker.tests.functional.constants import DOCKER_REMOTE_PATH
 from pulp_docker.tests.functional.utils import gen_docker_remote
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
 
-# Implement sync support before enabling this test.
-@unittest.skip("FIXME: plugin writer action required")
 class BasicSyncTestCase(unittest.TestCase):
     """Sync repositories with the docker plugin."""
+
+    maxDiff = None
 
     @classmethod
     def setUpClass(cls):
@@ -49,27 +41,20 @@ class BasicSyncTestCase(unittest.TestCase):
         repo = self.client.post(REPO_PATH, gen_repo())
         self.addCleanup(self.client.delete, repo['_href'])
 
-        body = gen_docker_remote()
-        remote = self.client.post(DOCKER_REMOTE_PATH, body)
+        remote = self.client.post(DOCKER_REMOTE_PATH, gen_docker_remote())
         self.addCleanup(self.client.delete, remote['_href'])
 
         # Sync the repository.
         self.assertIsNone(repo['_latest_version_href'])
         sync(self.cfg, remote, repo)
         repo = self.client.get(repo['_href'])
-
         self.assertIsNotNone(repo['_latest_version_href'])
-        self.assertEqual(get_content_summary(repo), DOCKER_FIXTURE_SUMMARY)
-        self.assertEqual(get_added_content_summary(repo), DOCKER_FIXTURE_SUMMARY)
 
         # Sync the repository again.
         latest_version_href = repo['_latest_version_href']
         sync(self.cfg, remote, repo)
         repo = self.client.get(repo['_href'])
-
         self.assertNotEqual(latest_version_href, repo['_latest_version_href'])
-        self.assertEqual(get_content_summary(repo), DOCKER_FIXTURE_SUMMARY)
-        self.assertEqual(get_added_content_summary(repo), 0)
 
     def test_file_decriptors(self):
         """Test whether file descriptors are closed properly.
@@ -119,8 +104,10 @@ class SyncInvalidURLTestCase(unittest.TestCase):
         repo = client.post(REPO_PATH, gen_repo())
         self.addCleanup(client.delete, repo['_href'])
 
-        body = gen_docker_remote(url="http://i-am-an-invalid-url.com/invalid/")
-        remote = client.post(DOCKER_REMOTE_PATH, body)
+        remote = client.post(
+            DOCKER_REMOTE_PATH,
+            gen_docker_remote(url="http://i-am-an-invalid-url.com/invalid/")
+        )
         self.addCleanup(client.delete, remote['_href'])
 
         with self.assertRaises(exceptions.TaskReportError):

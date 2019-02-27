@@ -3,57 +3,28 @@ from urllib.parse import urljoin
 
 from pulp_smash.constants import PULP_FIXTURES_BASE_URL
 from pulp_smash.pulp3.constants import (
+    BASE_PATH,
     BASE_PUBLISHER_PATH,
     BASE_REMOTE_PATH,
     CONTENT_PATH
 )
 
 # FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
-DOCKER_CONTENT_NAME = 'docker.unit'
-
-# FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
 DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
+
+DOCKER_CONTENT_NAME = 'docker.manifest'
+
+DOCKER_DISTRIBUTION_PATH = urljoin(BASE_PATH, 'docker-distributions/')
 
 DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/docker/')
 
 DOCKER_PUBLISHER_PATH = urljoin(BASE_PUBLISHER_PATH, 'docker/docker/')
 
-
-# FIXME: replace this with your own fixture repository URL and metadata
-DOCKER_FIXTURE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'docker/')
-
-# FIXME: replace this with the actual number of content units in your test fixture
-DOCKER_FIXTURE_COUNT = 3
-
-DOCKER_FIXTURE_SUMMARY = {
-    DOCKER_CONTENT_NAME: DOCKER_FIXTURE_COUNT
-}
-
-# FIXME: replace this iwth your own fixture repository URL and metadata
-DOCKER_LARGE_FIXTURE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'docker_large/')
-
-# FIXME: replace this with the actual number of content units in your test fixture
-DOCKER_LARGE_FIXTURE_COUNT = 25
-
 DOCKER_IMAGE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'docker/busybox:latest.tar')
 """The URL to a Docker image as created by ``docker save``."""
 
-DOCKER_UPSTREAM_NAME_NOLIST = 'library/busybox'
-"""The name of a Docker repository without a manifest list.
-
-:data:`DOCKER_UPSTREAM_NAME` should be used when possible. However, this
-constant is useful for backward compatibility. If Pulp is asked to sync a
-repository, and:
-
-* Pulp older than 2.14 is under test.
-* The repository is configured to sync schema v2 content.
-* The upstream repository has a manifest list.
-
-…then Pulp will break when syncing. See `Pulp #2384
-<https://pulp.plan.io/issues/2384>`_.
-"""
-
-DOCKER_UPSTREAM_NAME = 'dmage/manifest-list-test'
+# hello-world is the smalest docker image available on docker hub 1.84kB
+DOCKER_UPSTREAM_NAME = 'hello-world'
 """The name of a Docker repository.
 
 This repository has several desireable properties:

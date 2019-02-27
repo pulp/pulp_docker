@@ -6,10 +6,10 @@ from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.constants import REPO_PATH
-from pulp_smash.pulp3.utils import gen_repo
+from pulp_smash.pulp3.utils import gen_repo, gen_publisher
 
 from pulp_docker.tests.functional.constants import DOCKER_PUBLISHER_PATH
-from pulp_docker.tests.functional.utils import gen_docker_publisher, skip_if
+from pulp_docker.tests.functional.utils import skip_if
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
 
@@ -34,7 +34,7 @@ class CRUDPublishersTestCase(unittest.TestCase):
 
     def test_01_create_publisher(self):
         """Create a publisher."""
-        body = gen_docker_publisher()
+        body = gen_publisher()
         type(self).publisher = self.client.post(DOCKER_PUBLISHER_PATH, body)
         for key, val in body.items():
             with self.subTest(key=key):
@@ -47,7 +47,7 @@ class CRUDPublishersTestCase(unittest.TestCase):
         See: `Pulp Smash #1055
         <https://github.com/PulpQE/pulp-smash/issues/1055>`_.
         """
-        body = gen_docker_publisher()
+        body = gen_publisher()
         body['name'] = self.publisher['name']
         with self.assertRaises(HTTPError):
             self.client.post(DOCKER_PUBLISHER_PATH, body)
@@ -74,7 +74,7 @@ class CRUDPublishersTestCase(unittest.TestCase):
     @skip_if(bool, 'publisher', False)
     def test_03_partially_update(self):
         """Update a publisher using HTTP PATCH."""
-        body = gen_docker_publisher()
+        body = gen_publisher()
         self.client.patch(self.publisher['_href'], body)
         type(self).publisher = self.client.get(self.publisher['_href'])
         for key, val in body.items():
@@ -84,7 +84,7 @@ class CRUDPublishersTestCase(unittest.TestCase):
     @skip_if(bool, 'publisher', False)
     def test_04_fully_update(self):
         """Update a publisher using HTTP PUT."""
-        body = gen_docker_publisher()
+        body = gen_publisher()
         self.client.put(self.publisher['_href'], body)
         type(self).publisher = self.client.get(self.publisher['_href'])
         for key, val in body.items():

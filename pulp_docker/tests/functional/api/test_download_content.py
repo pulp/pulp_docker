@@ -1,14 +1,13 @@
 # coding=utf-8
 """Tests that verify download of content served by Pulp."""
-import hashlib
 import unittest
-from random import choice
-from urllib.parse import urljoin
 
-from pulp_smash import api, config, utils
-from pulp_smash.pulp3.constants import DISTRIBUTION_PATH, REPO_PATH
+from pulp_smash import api, config
+from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import (
+    get_content,
     gen_distribution,
+    gen_publisher,
     gen_repo,
     publish,
     sync,
@@ -16,20 +15,17 @@ from pulp_smash.pulp3.utils import (
 
 from pulp_docker.tests.functional.utils import (
     gen_docker_remote,
-    gen_docker_publisher,
-    get_docker_image_paths,
+    get_docker_hub_remote_blobsums
 )
+
 from pulp_docker.tests.functional.constants import (
-    DOCKER_FIXTURE_URL,
+    DOCKER_DISTRIBUTION_PATH,
     DOCKER_REMOTE_PATH,
     DOCKER_PUBLISHER_PATH,
 )
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
 
-# Implement tests.functional.utils.get_docker_content_unit_paths(),
-# as well as sync and publish support before enabling this test.
-@unittest.skip("FIXME: plugin writer action required")
 class DownloadContentTestCase(unittest.TestCase):
     """Verify whether content served by pulp can be downloaded."""
 
@@ -52,7 +48,8 @@ class DownloadContentTestCase(unittest.TestCase):
         1. Create, populate, publish, and distribute a repository.
         2. Select a random content unit in the distribution. Download that
            content unit from Pulp, and verify that the content unit has the
-           same checksum when fetched directly from Pulp-Fixtures.
+           same checksum when fetched directly from Remote.
+           NOTE: content unit for docker is `image` or `Layer`
 
         This test targets the following issues:
 
@@ -73,7 +70,7 @@ class DownloadContentTestCase(unittest.TestCase):
         repo = client.get(repo['_href'])
 
         # Create a publisher.
-        publisher = client.post(DOCKER_PUBLISHER_PATH, gen_docker_publisher())
+        publisher = client.post(DOCKER_PUBLISHER_PATH, gen_publisher())
         self.addCleanup(client.delete, publisher['_href'])
 
         # Create a publication.
@@ -83,21 +80,22 @@ class DownloadContentTestCase(unittest.TestCase):
         # Create a distribution.
         body = gen_distribution()
         body['publication'] = publication['_href']
-        distribution = client.post(DISTRIBUTION_PATH, body)
+        distribution = client.post(DOCKER_DISTRIBUTION_PATH, body)
         self.addCleanup(client.delete, distribution['_href'])
 
-        # Pick a content unit, and download it from both Pulp Fixtures…
-        unit_path = choice(get_docker_image_paths(repo))
-        fixtures_hash = hashlib.sha256(
-            utils.http_get(urljoin(DOCKER_FIXTURE_URL, unit_path))
-        ).hexdigest()
+        # Get local checksums for content synced from remote registy
+        checksums = [
+            content['digest'] for content
+            in get_content(repo)['docker.manifest-blob']
+        ]
 
-        # …and Pulp.
-        client.response_handler = api.safe_handler
-
-        unit_url = cfg.get_hosts('api')[0].roles['api']['scheme']
-        unit_url += '://' + distribution['base_url'] + '/'
-        unit_url = urljoin(unit_url, unit_path)
-
-        pulp_hash = hashlib.sha256(client.get(unit_url).content).hexdigest()
-        self.assertEqual(fixtures_hash, pulp_hash)
+        # Assert that at least one layer is synced from remote:latest
+        # and the checksum matched with remote
+        self.assertTrue(
+            any(
+                [
+                    result['blobSum'] in checksums
+                    for result in get_docker_hub_remote_blobsums()
+                ]
+            )
+        )
