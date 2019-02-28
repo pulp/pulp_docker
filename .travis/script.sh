@@ -12,7 +12,7 @@ pulp-manager makemigrations docker
 pulp-manager migrate --noinput
 
 # Run unit tests.
-(cd ../pulp && coverage run manage.py test pulp_docker.tests.unit)
+(cd ../pulpcore && coverage run manage.py test pulp_docker.tests.unit)
 
 # Run functional tests.
 pulp-manager reset-admin-password --password admin
