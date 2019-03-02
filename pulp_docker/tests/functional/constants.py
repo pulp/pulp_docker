@@ -12,7 +12,7 @@ from pulp_smash.pulp3.constants import (
 # FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
 DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
 
-DOCKER_CONTENT_NAME = 'docker.manifest'
+DOCKER_CONTENT_NAME = 'docker.manifest-blob'
 
 DOCKER_DISTRIBUTION_PATH = urljoin(BASE_PATH, 'docker-distributions/')
 
@@ -50,6 +50,9 @@ One can get a high-level view of the content in this repository by executing:
     https://registry.hub.docker.com/v2/repositories/$this_constant/tags \
     | python -m json.tool
 """
+
+DOCKER_UPSTREAM_TAG = ":linux"
+"""Alternative tag for the DOCKER_UPSTREAM_NAME image."""
 
 DOCKER_V1_FEED_URL = 'https://index.docker.io'
 """The URL to a V1 Docker registry.
