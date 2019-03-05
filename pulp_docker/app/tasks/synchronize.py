@@ -7,9 +7,14 @@ from pulpcore.plugin.stages import (
     ArtifactSaver,
     DeclarativeVersion,
     RemoteArtifactSaver,
+    ResolveContentFutures,
+    QueryExistingArtifacts,
+    QueryExistingContents,
+    ContentSaver,
+    RemoveDuplicates,
 )
 
-from .sync_stages import InterrelateContent, ProcessContentStage, TagListStage
+from .sync_stages1 import InterrelateContent, DockerFirstStage
 from pulp_docker.app.models import DockerRemote, ManifestTag, ManifestListTag
 from pulp_docker.app.tasks.dedupe_save import SerialContentSave
 
@@ -37,7 +42,10 @@ def synchronize(remote_pk, repository_pk):
         raise ValueError(_('A remote must have a url specified to synchronize.'))
     remove_duplicate_tags = [{'model': ManifestTag, 'field_names': ['name']},
                              {'model': ManifestListTag, 'field_names': ['name']}]
-    dv = DockerDeclarativeVersion(repository, remote, remove_duplicates=remove_duplicate_tags)
+    log.info(_('Synchronizing: repository={r} remote={p}').format(
+        r=repository.name, p=remote.name))
+    first_stage = DockerFirstStage(remote)
+    dv = DockerDeclarativeVersion(first_stage, repository, remove_duplicates=remove_duplicate_tags)
     dv.create()
 
 
@@ -45,13 +53,6 @@ class DockerDeclarativeVersion(DeclarativeVersion):
     """
     Subclassed Declarative version creates a custom pipeline for Docker sync.
     """
-
-    def __init__(self, repository, remote, mirror=True, remove_duplicates=None):
-        """Initialize the class."""
-        self.repository = repository
-        self.remote = remote
-        self.mirror = mirror
-        self.remove_duplicates = remove_duplicates or []
 
     def pipeline_stages(self, new_version):
         """
@@ -66,41 +67,19 @@ class DockerDeclarativeVersion(DeclarativeVersion):
         Returns:
             list: List of :class:`~pulpcore.plugin.stages.Stage` instances
 
-        """
-        return [
-            TagListStage(self.remote),
-
-            # In: Pending Tags (not downloaded yet)
+         """
+        pipeline = [
+            self.first_stage,
+            QueryExistingArtifacts(),
             ArtifactDownloader(),
             ArtifactSaver(),
-            ProcessContentStage(self.remote),
-            SerialContentSave(),
+            QueryExistingContents(),
+            ContentSaver(),
             RemoteArtifactSaver(),
-            # Out: Finished Tags, Finished ManifestLists, Finished ImageManifests,
-            #      Pending ImageManifests, Pending ManifestBlobs
-
-
-            # In: Pending ImageManifests, Pending Blobs
-            # In: Finished content (no-op)
-            ArtifactDownloader(),
-            ArtifactSaver(),
-            ProcessContentStage(self.remote),
-            SerialContentSave(),
-            RemoteArtifactSaver(),
-            # Out: No-op (Finished Tags, ManifestLists, ImageManifests)
-            # Out: Finished ImageManifests, Finished ManifestBlobs, Pending ManifestBlobs
-
-            # In: Pending Blobs
-            # In: Finished content (no-op)
-            ArtifactDownloader(),
-            ArtifactSaver(),
-            SerialContentSave(),
-            RemoteArtifactSaver(),
-            # Out: Finished content, Tags, ManifestLists, ImageManifests, ManifestBlobs
-
-            # In: Tags, ManifestLists, ImageManifests, ManifestBlobs (downloaded, processed, and
-            #     saved)
-            # Requires that all content (and related content in dc.extra_data) is already saved.
-            InterrelateContent(),
-            # Out: Content that has been related to other Content.
+            ResolveContentFutures(),
+            #InterrelateContent(),
         ]
+        for dupe_query_dict in self.remove_duplicates:
+            pipeline.append(RemoveDuplicates(new_version, **dupe_query_dict))
+
+        return pipeline
