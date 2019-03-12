@@ -33,7 +33,7 @@ class SerialContentSave(Stage):
             if not self.settled(dc):
                 await self.put(dc)
             # already saved
-            elif dc.content.pk is not None:
+            elif not dc.content._state.adding:
                 await self.put(dc)
             else:
                 self.save_and_dedupe_content(dc)
@@ -54,7 +54,7 @@ class SerialContentSave(Stage):
         except IntegrityError:
             existing_content = model_type.objects.get(**unit_key)
             dc.content = existing_content
-            assert dc.content.pk is not None
+            assert not dc.content._state.adding
 
         self.create_content_artifacts(dc)
 
@@ -114,6 +114,6 @@ class SerialContentSave(Stage):
         """
         settled_dc = True
         for da in dc.d_artifacts:
-            if da.artifact.pk is None:
+            if da.artifact._state.adding:
                 settled_dc = False
         return settled_dc
