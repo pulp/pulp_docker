@@ -8,7 +8,11 @@ images, similar to the ``pulp_docker`` plugin for Pulp 2.
 All REST API examples below use `httpie <https://httpie.org/doc>`__ to
 perform the requests.
 
-.. code-block::
+``$ sudo dnf install httpie``
+
+To avoid having to pass auth information for each request add the following to ``~/.netrc`` file.
+
+.. code-block:: text
 
     machine localhost
     login admin
@@ -184,10 +188,36 @@ Check status of a task
 
 ``$ http GET http://localhost:8000/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
 
-Perform a docker pull from Pulp
--------------------------------
+Perform a pull from Pulp
+------------------------
+
+Podman 
+^^^^^^
+
+``$ podman pull localhost:8080/foo``
+
+If SSL has not been setup for your Pulp, configure podman to work with the insecure registry:
+
+Edit the file ``/etc/containers/registries.conf.`` and add::
+
+    [registries.insecure]
+    registries = ['localhost:8080']
+
+More info:
+https://www.projectatomic.io/blog/2018/05/podman-tls/ 
+
+Docker 
+^^^^^^
+
+``$ docker pull localhost:8080/foo``
 
 If SSL has not been setup for your Pulp, configure docker to work with the insecure registry:
-https://docs.docker.com/registry/insecure/#deploy-a-plain-http-registry
 
-``$ docker pull localhost:8000/foo``
+Edit the file ``/etc/docker/daemon.json`` and add::
+
+    {
+        "insecure-registries" : ["localhost:8080"]
+    }
+
+More info:
+https://docs.docker.com/registry/insecure/#deploy-a-plain-http-registry
