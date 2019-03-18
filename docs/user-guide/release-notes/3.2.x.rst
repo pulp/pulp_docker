@@ -1,6 +1,15 @@
 3.2 Release Notes
 =================
 
+3.2.3
+-----
+
+Bug Fixes:
+**********
+
+See the full list of :fixedbugs_pulp_docker:`3.2.3`.
+
+
 3.2.2
 -----
 
