@@ -2,6 +2,7 @@ import logging
 import os
 
 from aiohttp import web, web_exceptions
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from gettext import gettext as _
 from multidict import MultiDict
@@ -199,7 +200,8 @@ class Registry:
         except ObjectDoesNotExist:
             raise ArtifactNotFound(tag.name)
         else:
-            return await Registry._dispatch(artifact.file.name, response_headers)
+            return await Registry._dispatch(os.path.join(settings.MEDIA_ROOT, artifact.file.name),
+                                            response_headers)
 
     @staticmethod
     async def get_by_digest(request):
@@ -220,6 +222,8 @@ class Registry:
         else:
             artifact = ca.artifact
             if artifact:
-                return await Registry._dispatch(artifact.file.name, headers)
+                return await Registry._dispatch(os.path.join(settings.MEDIA_ROOT,
+                                                             artifact.file.name),
+                                                headers)
             else:
                 raise ArtifactNotFound(path)
