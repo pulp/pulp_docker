@@ -177,7 +177,7 @@ class ManifestTag(Content):
     name = models.CharField(max_length=255, db_index=True)
 
     manifest = models.ForeignKey(
-        ImageManifest, null=True, related_name='manifest_tags', on_delete=models.CASCADE)
+        ImageManifest, related_name='manifest_tags', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = (
@@ -202,7 +202,7 @@ class ManifestListTag(Content):
     name = models.CharField(max_length=255, db_index=True)
 
     manifest_list = models.ForeignKey(
-        ManifestList, null=True, related_name='manifest_list_tags', on_delete=models.CASCADE)
+        ManifestList, related_name='manifest_list_tags', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = (

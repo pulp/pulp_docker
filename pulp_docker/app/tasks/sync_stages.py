@@ -93,6 +93,7 @@ class DockerFirstStage(Stage):
                             await self.put(list_dc)
                             list_dc_counter += 1
                             tag_dc.extra_data['list_relation'] = list_dc
+                            tag_dc.content.manifest_list = list_dc.content
                             for manifest_data in content_data.get('manifests'):
                                 man_dc = self.create_and_process_manifest(list_dc, manifest_data)
                                 future_manifests.append(man_dc.get_or_create_future())
@@ -210,6 +211,13 @@ class DockerFirstStage(Stage):
             extra_data={'headers': V2_ACCEPT_HEADERS}
         )
         list_dc = DeclarativeContent(content=manifest_list, d_artifacts=[da])
+        try:
+            list_dc.content.save()
+        except IntegrityError:
+
+            existing_list = ManifestList.objects.get(digest=manifest_list.digest)
+            list_dc.content = existing_list
+            pass
 
         return list_dc
 
@@ -412,8 +420,8 @@ class InterrelateContent(Stage):
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestListTag
         """
         related_dc = dc.extra_data.get('list_relation')
-        assert dc.content.manifest_list is None
-        dc.content.manifest_list = related_dc.content
+        #assert dc.content.manifest_list is None
+        #dc.content.manifest_list = related_dc.content
         try:
             dc.content.save()
         except IntegrityError:
