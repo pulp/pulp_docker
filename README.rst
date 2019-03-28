@@ -116,7 +116,7 @@ Create a new remote ``bar``
         ...
     }
 
-``$ export REMOTE_HREF=$(http :8000/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "dockerhub/busybox") | ._href')``
+``$ export REMOTE_HREF=$(http :8000/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')``
 
 
 Sync repository ``foo`` using Remote ``bar``
