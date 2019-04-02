@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from django.db import models
 
 from pulpcore.plugin.download import DownloaderFactory
-from pulpcore.plugin.models import BaseDistribution, Content, Remote, Publisher
+from pulpcore.plugin.models import BaseDistribution, Content, Remote
 
 from . import downloaders
 
@@ -208,16 +208,6 @@ class ManifestListTag(Content):
         unique_together = (
             ('name', 'manifest_list'),
         )
-
-
-class DockerPublisher(Publisher):
-    """
-    A Publisher for DockerContent.
-
-    Define any additional fields for your new publisher if needed.
-    """
-
-    TYPE = 'docker'
 
 
 class DockerRemote(Remote):

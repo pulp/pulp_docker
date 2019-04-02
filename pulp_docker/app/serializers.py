@@ -10,7 +10,6 @@ from pulpcore.plugin.serializers import (
     BaseDistributionSerializer,
     DetailRelatedField,
     IdentityField,
-    PublisherSerializer,
     RemoteSerializer,
     SingleArtifactContentSerializer,
 )
@@ -172,25 +171,6 @@ class DockerRemoteSerializer(RemoteSerializer):
     class Meta:
         fields = RemoteSerializer.Meta.fields + ('upstream_name',)
         model = models.DockerRemote
-
-
-class DockerPublisherSerializer(PublisherSerializer):
-    """
-    A Serializer for DockerPublisher.
-
-    Add any new fields if defined on DockerPublisher.
-    Similar to the example above, in DockerContentSerializer.
-    Additional validators can be added to the parent validators list
-
-    For example::
-
-    class Meta:
-        validators = platform.PublisherSerializer.Meta.validators + [myValidator1, myValidator2]
-    """
-
-    class Meta:
-        fields = PublisherSerializer.Meta.fields
-        model = models.DockerPublisher
 
 
 class DockerDistributionSerializer(BaseDistributionSerializer):

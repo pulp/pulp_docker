@@ -13,13 +13,14 @@ from pulpcore.plugin.serializers import (
     RepositoryPublishURLSerializer,
     RepositorySyncURLSerializer,
 )
+
+from pulpcore.plugin.models import RepositoryVersion, Publication
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     ContentViewSet,
     NamedModelViewSet,
     RemoteViewSet,
-    OperationPostponedResponse,
-    PublisherViewSet)
+    OperationPostponedResponse,)
 from rest_framework.decorators import detail_route
 from rest_framework import mixins
 
@@ -148,30 +149,24 @@ class DockerRemoteViewSet(RemoteViewSet):
         return OperationPostponedResponse(result, request)
 
 
-class DockerPublisherViewSet(PublisherViewSet):
+class DockerPublicationViewSet(NamedModelViewSet, mixins.CreateModelMixin):
     """
-    A ViewSet for DockerPublisher.
+    A ViewSet for Docker Publication.
     """
 
-    endpoint_name = 'docker'
-    queryset = models.DockerPublisher.objects.all()
-    serializer_class = serializers.DockerPublisherSerializer
+    endpoint_name = 'docker/publish'
+    queryset = Publication.objects.all()
+    serializer_class = RepositoryPublishURLSerializer
 
-    # This decorator is necessary since a publish operation is asyncrounous and returns
-    # the id and href of the publish task.
     @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to publish content",
+        operation_description="Trigger an asynchronous task to create a docker publication",
         responses={202: AsyncOperationResponseSerializer}
     )
-    @detail_route(methods=('post',), serializer_class=RepositoryPublishURLSerializer)
-    def publish(self, request, pk):
+    def create(self, request):
         """
-        Publishes a repository.
+        Queues a task that publishes a new Docker Publication.
 
-        Either the ``repository`` or the ``repository_version`` fields can
-        be provided but not both at the same time.
         """
-        publisher = self.get_object()
         serializer = RepositoryPublishURLSerializer(
             data=request.data,
             context={'request': request}
@@ -179,13 +174,15 @@ class DockerPublisherViewSet(PublisherViewSet):
         serializer.is_valid(raise_exception=True)
         repository_version = serializer.validated_data.get('repository_version')
 
+        # Safe because version OR repository is enforced by serializer.
+        if not repository_version:
+            repository = serializer.validated_data.get('repository')
+            repository_version = RepositoryVersion.latest(repository)
+
         result = enqueue_with_reservation(
             tasks.publish,
-            [repository_version.repository, publisher],
-            kwargs={
-                'publisher_pk': str(publisher.pk),
-                'repository_version_pk': str(repository_version.pk)
-            }
+            [repository_version.repository],
+            kwargs={'repository_version_pk': str(repository_version.pk)}
         )
         return OperationPostponedResponse(result, request)
 

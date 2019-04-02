@@ -9,9 +9,7 @@ from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import (
     get_content,
     gen_distribution,
-    gen_publisher,
     gen_repo,
-    publish,
     sync,
 )
 
@@ -24,7 +22,7 @@ from pulp_docker.tests.functional.constants import (
     DOCKER_CONTENT_NAME,
     DOCKER_DISTRIBUTION_PATH,
     DOCKER_REMOTE_PATH,
-    DOCKER_PUBLISHER_PATH,
+    DOCKER_PUBLICATION_PATH,
     DOCKER_UPSTREAM_NAME,
     DOCKER_UPSTREAM_TAG,
 )
@@ -41,9 +39,8 @@ class PullContentTestCase(unittest.TestCase):
         1. Create a repository.
         2. Create a remote pointing to external registry.
         3. Sync the repository using the remote and re-read the repo data.
-        4. Create a docker publisher.
-        5. Use the publisher to create a publication.
-        6. Create a docker distribution to serve the publication.
+        4. Create a publication.
+        5. Create a docker distribution to serve the publication.
 
         This tests targets the following issue:
 
@@ -74,26 +71,15 @@ class PullContentTestCase(unittest.TestCase):
             cls.repo = cls.client.get(_repo['_href'])
 
             # Step 4
-            cls.publisher = cls.client.post(
-                DOCKER_PUBLISHER_PATH, gen_publisher()
-            )
-            cls.teardown_cleanups.append(
-                (cls.client.delete, cls.publisher['_href'])
-            )
+            cls.publication = cls.client.using_handler(api.task_handler).post(
+                DOCKER_PUBLICATION_PATH, {"repository": _repo['_href']})
 
             # Step 5.
-            cls.publication = publish(cls.cfg, cls.publisher, cls.repo)
-            cls.teardown_cleanups.append(
-                (cls.client.delete, cls.publication['_href'])
-            )
-
-            # Step 6.
-            response_dict = cls.client.post(
+            response_dict = cls.client.using_handler(api.task_handler).post(
                 DOCKER_DISTRIBUTION_PATH,
                 gen_distribution(publication=cls.publication['_href'])
             )
-            dist_task = cls.client.get(response_dict['task'])
-            distribution_href = dist_task['created_resources'][0]
+            distribution_href = response_dict['_href']
             cls.distribution = cls.client.get(distribution_href)
             cls.teardown_cleanups.append(
                 (cls.client.delete, cls.distribution['_href'])
