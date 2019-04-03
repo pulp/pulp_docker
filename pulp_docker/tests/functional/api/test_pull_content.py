@@ -88,10 +88,13 @@ class PullContentTestCase(unittest.TestCase):
             )
 
             # Step 6.
-            cls.distribution = cls.client.post(
+            response_dict = cls.client.post(
                 DOCKER_DISTRIBUTION_PATH,
                 gen_distribution(publication=cls.publication['_href'])
             )
+            dist_task = cls.client.get(response_dict['task'])
+            distribution_href = dist_task['created_resources'][0]
+            cls.distribution = cls.client.get(distribution_href)
             cls.teardown_cleanups.append(
                 (cls.client.delete, cls.distribution['_href'])
             )

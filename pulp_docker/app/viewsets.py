@@ -191,7 +191,6 @@ class DockerPublisherViewSet(PublisherViewSet):
 
 
 class DockerDistributionViewSet(NamedModelViewSet,
-                                mixins.CreateModelMixin,
                                 mixins.UpdateModelMixin,
                                 mixins.RetrieveModelMixin,
                                 mixins.ListModelMixin,
@@ -203,3 +202,59 @@ class DockerDistributionViewSet(NamedModelViewSet,
     endpoint_name = 'docker-distributions'
     queryset = models.DockerDistribution.objects.all()
     serializer_class = serializers.DockerDistributionSerializer
+
+    @swagger_auto_schema(operation_description="Trigger an asynchronous create task",
+                         responses={202: AsyncOperationResponseSerializer})
+    def create(self, request, *args, **kwargs):
+        """
+        Dispatches a task with reservation for creating a docker distribution.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        async_result = enqueue_with_reservation(
+            tasks.distribution.create,
+            "/api/v3/docker-distributions/",
+            kwargs={'data': request.data}
+        )
+        return OperationPostponedResponse(async_result, request)
+
+    @swagger_auto_schema(operation_description="Trigger an asynchronous update task",
+                         responses={202: AsyncOperationResponseSerializer})
+    def update(self, request, pk, *args, **kwargs):
+        """
+        Dispatches a task with reservation for updating a docker distribution.
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        async_result = enqueue_with_reservation(
+            tasks.distribution.update,
+            "/api/v3/docker-distributions/",
+            args=(pk,),
+            kwargs={'data': request.data, 'partial': partial}
+        )
+        return OperationPostponedResponse(async_result, request)
+
+    @swagger_auto_schema(operation_description="Trigger an asynchronous partial update task",
+                         responses={202: AsyncOperationResponseSerializer})
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Dispatches a task with reservation for partially updating a docker distribution.
+        """
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    @swagger_auto_schema(operation_description="Trigger an asynchronous delete task",
+                         responses={202: AsyncOperationResponseSerializer})
+    def delete(self, request, pk, *args, **kwargs):
+        """
+        Dispatches a task with reservation for deleting a docker distribution.
+        """
+        self.get_object()
+        async_result = enqueue_with_reservation(
+            tasks.distribution.delete,
+            "/api/v3/docker-distributions/",
+            args=(pk,)
+        )
+        return OperationPostponedResponse(async_result, request)
