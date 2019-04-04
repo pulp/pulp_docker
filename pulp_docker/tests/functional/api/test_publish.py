@@ -2,18 +2,13 @@
 """Tests that publish docker plugin repositories."""
 import unittest
 from random import choice
-from urllib.parse import urljoin
-
-from requests.exceptions import HTTPError
 
 from pulp_smash import api, config
 from pulp_smash.pulp3.constants import REPO_PATH
 from pulp_smash.pulp3.utils import (
-    gen_publisher,
     gen_repo,
     get_content,
     get_versions,
-    publish,
     sync,
 )
 
@@ -21,7 +16,7 @@ from pulp_docker.tests.functional.utils import gen_docker_remote
 from pulp_docker.tests.functional.constants import (
     DOCKER_CONTENT_NAME,
     DOCKER_REMOTE_PATH,
-    DOCKER_PUBLISHER_PATH,
+    DOCKER_PUBLICATION_PATH,
 )
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
@@ -51,8 +46,6 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
         4. Create a publication by supplying the non-latest ``repository_version``.
         5. Assert that the publication ``repository_version`` attribute points
            to the supplied repository version.
-        6. Assert that an exception is raised when providing two different
-           repository versions to be published at same time.
         """
         body = gen_docker_remote()
         remote = self.client.post(DOCKER_REMOTE_PATH, body)
@@ -62,9 +55,6 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
         self.addCleanup(self.client.delete, repo['_href'])
 
         sync(self.cfg, remote, repo)
-
-        publisher = self.client.post(DOCKER_PUBLISHER_PATH, gen_publisher())
-        self.addCleanup(self.client.delete, publisher['_href'])
 
         # Step 1
         repo = self.client.get(repo['_href'])
@@ -77,21 +67,14 @@ class PublishAnyRepoVersionTestCase(unittest.TestCase):
         non_latest = choice(version_hrefs[:-1])
 
         # Step 2
-        publication = publish(self.cfg, publisher, repo)
-
+        publication1 = self.client.using_handler(api.task_handler).post(
+            DOCKER_PUBLICATION_PATH, {"repository": repo["_href"]})
         # Step 3
-        self.assertEqual(publication['repository_version'], version_hrefs[-1])
+        self.assertEqual(publication1['repository_version'], version_hrefs[-1])
 
         # Step 4
-        publication = publish(self.cfg, publisher, repo, non_latest)
+        publication2 = self.client.using_handler(api.task_handler).post(
+            DOCKER_PUBLICATION_PATH, {"repository_version": non_latest})
 
         # Step 5
-        self.assertEqual(publication['repository_version'], non_latest)
-
-        # Step 6
-        with self.assertRaises(HTTPError):
-            body = {
-                'repository': repo['_href'],
-                'repository_version': non_latest
-            }
-            self.client.post(urljoin(publisher['_href'], 'publish/'), body)
+        self.assertEqual(publication2['repository_version'], non_latest)

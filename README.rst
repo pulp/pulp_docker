@@ -177,25 +177,11 @@ Look at the new Repository Version created
         "number": 1
     }
 
-Create a ``docker`` Publisher ``baz``
-----------------------------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/publishers/docker/docker/ name=baz``
+Publish a Repository Version and create a Publication
+-----------------------------------------------------
 
-.. code:: json
-
-    {
-        "_href": "/pulp/api/v3/publishers/docker/8ce1b34c-56c3-4ced-81b8-81e83b174fbc/",
-        ...
-    }
-
-``$ export PUBLISHER_HREF=$(http :8000/pulp/api/v3/publishers/docker/docker/ | jq -r '.results[] | select(.name == "baz") | ._href')``
-
-
-Use the ``bar`` Publisher to create a Publication
--------------------------------------------------
-
-``$ http POST ':8000'$PUBLISHER_HREF'publish/' repository=$REPO_HREF``
+``$ http POST :8000/pulp/api/v3/docker/publish/ repository=$REPO_HREF``
 
 .. code:: json
 
@@ -203,7 +189,7 @@ Use the ``bar`` Publisher to create a Publication
         "task": "/pulp/api/v3/tasks/fd4cbecd-6c6a-4197-9cbe-4e45b0516309/"
     }
 
-``$ export PUBLICATION_HREF=$(http :8000/pulp/api/v3/publications/ | jq -r --arg PUBLISHER_HREF "$PUBLISHER_HREF" '.results[] | select(.publisher==$PUBLISHER_HREF) | ._href')``
+``$ export PUBLICATION_HREF=$(http :8000/pulp/api/v3/publications/ | jq -r '.results[0] | ._href')``
 
 Add a Docker Distribution to serve your publication
 ---------------------------------------------------
