@@ -242,3 +242,24 @@ Edit the file ``/etc/docker/daemon.json`` and add::
 
 More info:
 https://docs.docker.com/registry/insecure/#deploy-a-plain-http-registry
+
+Release Notes 4.0
+-----------------
+
+pulp-docker 4.0 is currently in Beta. Backwards incompatible changes might be made until Beta is over.
+
+4.0.0b2
+^^^^^^^
+
+- Compatibility with pulpcore-plugin-0.1.0rc1
+- Performance improvements and bug fixes
+- Add support for syncing repo with foreign layers
+- Change sync pipeline to use Futures to handle nested content
+- Make Docker distributions asyncronous
+- Add support to create publication directly
+
+4.0.0b1
+^^^^^^^
+
+Add support for basic sync of a docker repo form a V2Registry
+Add support for docker/podman pull from a docker distbution served by Pulp
