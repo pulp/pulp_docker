@@ -51,7 +51,7 @@ sudo bash -c 'cat << EOF > /etc/containers/registries.conf
 registries = ["docker.io", "registry.fedoraproject.org", "quay.io", "registry.access.redhat.com", "registry.centos.org"]
 
 [registries.insecure]
-registries = ["localhost:8080"]
+registries = ["localhost:24816"]
 
 [registries.block]
 registries = []
