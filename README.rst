@@ -55,7 +55,7 @@ Install ``pulp_docker`` from source
    source ~/pulpvenv/bin/activate
    cd pulp_docker
    pip install -e .
-   django-admin runserver
+   django-admin runserver 24817
 
 
 Install ``pulp_docker`` From PyPI
@@ -66,7 +66,7 @@ Install ``pulp_docker`` From PyPI
    sudo -u pulp -i
    source ~/pulpvenv/bin/activate
    pip install pulp-docker
-   django-admin runserver
+   django-admin runserver 24817
 
 
 Make and Run Migrations
@@ -83,8 +83,8 @@ Run Services
 
 .. code-block:: bash
 
-   django-admin runserver
-   gunicorn pulpcore.content:server --bind 'localhost:8080' --worker-class 'aiohttp.GunicornWebWorker' -w 2
+   django-admin runserver 24817
+   gunicorn pulpcore.content:server --bind 'localhost:24816' --worker-class 'aiohttp.GunicornWebWorker' -w 2
    sudo systemctl restart pulp-resource-manager
    sudo systemctl restart pulp-worker@1
    sudo systemctl restart pulp-worker@2
@@ -93,7 +93,7 @@ Run Services
 Create a repository ``foo``
 ---------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/repositories/ name=foo``
+``$ http POST http://localhost:24817/pulp/api/v3/repositories/ name=foo``
 
 .. code:: json
 
@@ -102,12 +102,12 @@ Create a repository ``foo``
         ...
     }
 
-``$ export REPO_HREF=$(http :8000/pulp/api/v3/repositories/ | jq -r '.results[] | select(.name == "foo") | ._href')``
+``$ export REPO_HREF=$(http :24817/pulp/api/v3/repositories/ | jq -r '.results[] | select(.name == "foo") | ._href')``
 
 Create a new remote ``bar``
 ---------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/remotes/docker/docker/ name='library/busybox' upstream_name='busybox' url='https://registry-1.docker.io'``
+``$ http POST http://localhost:24817/pulp/api/v3/remotes/docker/docker/ name='library/busybox' upstream_name='busybox' url='https://registry-1.docker.io'``
 
 .. code:: json
 
@@ -116,18 +116,18 @@ Create a new remote ``bar``
         ...
     }
 
-``$ export REMOTE_HREF=$(http :8000/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')``
+``$ export REMOTE_HREF=$(http :24817/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')``
 
 
 Sync repository ``foo`` using Remote ``bar``
 ----------------------------------------------
 
-``$ http POST ':8000'$REMOTE_HREF'sync/' repository=$REPO_HREF``
+``$ http POST ':24817'$REMOTE_HREF'sync/' repository=$REPO_HREF``
 
 Look at the new Repository Version created
 ------------------------------------------
 
-``$ http GET ':8000'$REPO_HREF'versions/1/'``
+``$ http GET ':24817'$REPO_HREF'versions/1/'``
 
 .. code:: json
 
@@ -181,7 +181,7 @@ Look at the new Repository Version created
 Publish a Repository Version and create a Publication
 -----------------------------------------------------
 
-``$ http POST :8000/pulp/api/v3/docker/publish/ repository=$REPO_HREF``
+``$ http POST :24817/pulp/api/v3/docker/publish/ repository=$REPO_HREF``
 
 .. code:: json
 
@@ -189,12 +189,12 @@ Publish a Repository Version and create a Publication
         "task": "/pulp/api/v3/tasks/fd4cbecd-6c6a-4197-9cbe-4e45b0516309/"
     }
 
-``$ export PUBLICATION_HREF=$(http :8000/pulp/api/v3/publications/ | jq -r '.results[0] | ._href')``
+``$ export PUBLICATION_HREF=$(http :24817/pulp/api/v3/publications/ | jq -r '.results[0] | ._href')``
 
 Add a Docker Distribution to serve your publication
 ---------------------------------------------------
 
-``$ http POST http://localhost:8000/pulp/api/v3/docker-distributions/ name='baz' base_path='foo' publication=$PUBLICATION_HREF``
+``$ http POST http://localhost:24817/pulp/api/v3/docker-distributions/ name='baz' base_path='foo' publication=$PUBLICATION_HREF``
 
 
 .. code:: json
@@ -207,7 +207,7 @@ Add a Docker Distribution to serve your publication
 Check status of a task
 ----------------------
 
-``$ http GET http://localhost:8000/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
+``$ http GET http://localhost:24817/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
 
 Perform a pull from Pulp
 ------------------------
@@ -215,14 +215,14 @@ Perform a pull from Pulp
 Podman 
 ^^^^^^
 
-``$ podman pull localhost:8080/foo``
+``$ podman pull localhost:24816/foo``
 
 If SSL has not been setup for your Pulp, configure podman to work with the insecure registry:
 
 Edit the file ``/etc/containers/registries.conf.`` and add::
 
     [registries.insecure]
-    registries = ['localhost:8080']
+    registries = ['localhost:24816']
 
 More info:
 https://www.projectatomic.io/blog/2018/05/podman-tls/ 
@@ -230,14 +230,14 @@ https://www.projectatomic.io/blog/2018/05/podman-tls/
 Docker 
 ^^^^^^
 
-``$ docker pull localhost:8080/foo``
+``$ docker pull localhost:24816/foo``
 
 If SSL has not been setup for your Pulp, configure docker to work with the insecure registry:
 
 Edit the file ``/etc/docker/daemon.json`` and add::
 
     {
-        "insecure-registries" : ["localhost:8080"]
+        "insecure-registries" : ["localhost:24816"]
     }
 
 More info:
