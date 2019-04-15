@@ -46,10 +46,11 @@ class DockerFirstStage(Stage):
         total_blobs = []
 
         with ProgressBar(message='Downloading tag list', total=1) as pb:
-            relative_url = '/v2/{name}/tags/list'.format(name=self.remote.namespaced_upstream_name)
+            repo_name = self.remote.namespaced_upstream_name
+            relative_url = '/v2/{name}/tags/list'.format(name=repo_name)
             tag_list_url = urljoin(self.remote.url, relative_url)
             list_downloader = self.remote.get_downloader(tag_list_url)
-            await list_downloader.run()
+            await list_downloader.run(extra_data={'repo_name': repo_name})
 
             with open(list_downloader.path) as tags_raw:
                 tags_dict = json.loads(tags_raw.read())
