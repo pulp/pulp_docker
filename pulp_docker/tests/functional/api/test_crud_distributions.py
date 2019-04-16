@@ -46,7 +46,7 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
         See: `Pulp Smash #1055
         <https://github.com/PulpQE/pulp-smash/issues/1055>`_.
         """
-        if not selectors.bug_is_fixed(4600, self.cfg):
+        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         body = gen_distribution()
         body['name'] = self.distribution['name']
@@ -67,7 +67,7 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
 
         Permutate field list to ensure different combinations on result.
         """
-        if not selectors.bug_is_fixed(4599, self.cfg):
+        if not selectors.bug_is_fixed(4599, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         fields = ('_href', 'base_path', 'base_url', '_created')
         for field_pair in permutations(fields, 2):
@@ -84,7 +84,7 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
     @skip_if(bool, 'distribution', False)
     def test_02_read_distribution_without_specific_fields(self):
         """Read a distribution by its href excluding specific fields."""
-        if not selectors.bug_is_fixed(4599, self.cfg):
+        if not selectors.bug_is_fixed(4599, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         # requests doesn't allow the use of != in parameters.
         url = '{}?fields!=base_path,base_url'.format(
@@ -182,28 +182,28 @@ class DistributionBasePathTestCase(unittest.TestCase):
 
     def test_spaces(self):
         """Test that spaces can not be part of ``base_path``."""
-        if not selectors.bug_is_fixed(4600, self.cfg):
+        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path=utils.uuid4().replace('-', ' '))
         self.try_update_distribution(base_path=utils.uuid4().replace('-', ' '))
 
     def test_begin_slash(self):
         """Test that slash cannot be in the begin of ``base_path``."""
-        if not selectors.bug_is_fixed(4600, self.cfg):
+        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path='/' + utils.uuid4())
         self.try_update_distribution(base_path='/' + utils.uuid4())
 
     def test_end_slash(self):
         """Test that slash cannot be in the end of ``base_path``."""
-        if not selectors.bug_is_fixed(4600, self.cfg):
+        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path=utils.uuid4() + '/')
         self.try_update_distribution(base_path=utils.uuid4() + '/')
 
     def test_unique_base_path(self):
         """Test that ``base_path`` can not be duplicated."""
-        if not selectors.bug_is_fixed(4600, self.cfg):
+        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path=self.distribution['base_path'])
 
