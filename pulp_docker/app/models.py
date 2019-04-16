@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from django.db import models
 
 from pulpcore.plugin.download import DownloaderFactory
-from pulpcore.plugin.models import BaseDistribution, Content, Remote
+from pulpcore.plugin.models import BaseDistribution, Content, Remote, RepositoryVersion
 
 from . import downloaders
 
@@ -287,5 +287,18 @@ class DockerDistribution(BaseDistribution):
     A docker distribution defines how a publication is distributed by Pulp's webserver.
     """
 
+    repository_version = models.ForeignKey(RepositoryVersion, null=True, on_delete=models.CASCADE)
+
     class Meta:
         default_related_name = 'docker_distributions'
+
+    def get_repository_version(self):
+        """
+        Returns the repository version that is supposed to be served by this DockerDistribution.
+        """
+        if self.repository:
+            return RepositoryVersion.latest(self.repository)
+        elif self.repository_version:
+            return self.repository_version
+        else:
+            return None

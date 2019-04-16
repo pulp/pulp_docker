@@ -10,6 +10,7 @@ from pulpcore.plugin.serializers import (
     BaseDistributionSerializer,
     DetailRelatedField,
     IdentityField,
+    NestedRelatedField,
     RemoteSerializer,
     SingleArtifactContentSerializer,
 )
@@ -182,8 +183,7 @@ class DockerDistributionSerializer(BaseDistributionSerializer):
         view_name='docker-distributions-detail'
     )
     base_path = serializers.CharField(
-        help_text=_('The base (relative) path component of the published url. Avoid paths that \
-                    overlap with other distribution base paths (e.g. "foo" and "foo/bar")'),
+        help_text=_('The base (relative) path that identifies the registry path.'),
         validators=[validators.MaxLengthValidator(
             models.DockerDistribution._meta.get_field('base_path').max_length,
             message=_('Distribution base_path length must be less than {} characters').format(
@@ -197,7 +197,68 @@ class DockerDistributionSerializer(BaseDistributionSerializer):
         help_text=_('The Registry hostame:port/name/ to use with docker pull command defined by '
                     'this distribution.')
     )
+    repository_version = NestedRelatedField(
+        help_text=_('A URI of the repository version to be served by the Docker Distribution.'),
+        required=False,
+        label=_('Repository Version'),
+        queryset=models.RepositoryVersion.objects.all(),
+        view_name='versions-detail',
+        lookup_field='number',
+        parent_lookup_kwargs={'repository_pk': 'repository__pk'},
+    )
+
+    def validate(self, data):
+        """
+        Validate the parameters for creating or updating Docker Distribution.
+
+        This method makes sure that only repository or a repository version is associated with a
+        Docker Distribution. It also validates that the base_path is a relative path.
+
+        Args:
+            data (dict): Dictionary of parameter value to validate
+
+        Returns:
+            Dict of validated data
+
+        Raises:
+            ValidationError if any of the validations fail.
+
+        """
+        super().validate(data)
+        if 'repository' in data:
+            repository = data['repository']
+        elif self.instance:
+            repository = self.instance.repository
+        else:
+            repository = None
+
+        if 'repository_version' in data:
+            repository_version = data['repository_version']
+        elif self.instance:
+            repository_version = self.instance.repository_version
+        else:
+            repository_version = None
+
+        if repository and repository_version:
+            raise serializers.ValidationError({'repository': _("Repository can't be set if "
+                                                               "repository_version is set also.")})
+        if 'publication' in data and data['publication']:
+            raise serializers.ValidationError({'publication': _("DockerDistributions don't serve "
+                                                                "publications. A repository or "
+                                                                "repository version should be "
+                                                                "specified.")})
+        if 'publisher' in data and data['publisher']:
+            raise serializers.ValidationError({'publication': _("DockerDistributions don't work "
+                                                                "with publishers. A repository or "
+                                                                "a repository version should be "
+                                                                "specified.")})
+        if 'base_path' in data and data['base_path']:
+            self._validate_relative_path(data['base_path'])
+
+        return data
 
     class Meta:
         model = models.DockerDistribution
-        fields = BaseDistributionSerializer.Meta.fields + ('base_path', 'registry_path')
+        fields = BaseDistributionSerializer.Meta.fields + ('base_path',
+                                                           'registry_path',
+                                                           'repository_version')

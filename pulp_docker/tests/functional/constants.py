@@ -14,7 +14,6 @@ DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
 DOCKER_CONTENT_NAME = 'docker.manifest-blob'
 
 DOCKER_DISTRIBUTION_PATH = urljoin(BASE_PATH, 'docker-distributions/')
-DOCKER_PUBLICATION_PATH = urljoin(BASE_PATH, 'docker/publish/')
 
 DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/docker/')
 
