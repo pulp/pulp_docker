@@ -48,6 +48,7 @@ class TokenAuthHttpDownloader(HttpDownloader):
         headers = {}
         if extra_data is not None:
             headers = extra_data.get('headers', headers)
+            repo_name = extra_data.get('repo_name', None)
         this_token = self.token['token']
         auth_headers = self.auth_header(this_token)
         headers.update(auth_headers)
@@ -63,7 +64,7 @@ class TokenAuthHttpDownloader(HttpDownloader):
                        self.token['token'] == this_token:
 
                         self.token['token'] = None
-                        await self.update_token(response_auth_header, this_token)
+                        await self.update_token(response_auth_header, this_token, repo_name)
                     return await self._run(handle_401=False)
                 else:
                     raise
@@ -75,7 +76,7 @@ class TokenAuthHttpDownloader(HttpDownloader):
             self.session.close()
         return to_return
 
-    async def update_token(self, response_auth_header, used_token):
+    async def update_token(self, response_auth_header, used_token, repo_name):
         """
         Update the Bearer token to be used with all requests.
         """
@@ -95,6 +96,10 @@ class TokenAuthHttpDownloader(HttpDownloader):
                 token_base_url = auth_query_dict.pop('realm')
             except KeyError:
                 raise IOError(_("No realm specified for token auth challenge."))
+
+            # self defense strategy in cases when registry does not provide the scope
+            if 'scope' not in auth_query_dict:
+                auth_query_dict['scope'] = 'repository:{0}:pull'.format(repo_name)
 
             # Construct a url with query parameters containing token auth challenge info
             parsed_url = parse.urlparse(token_base_url)
