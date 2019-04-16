@@ -3,7 +3,7 @@ import json
 import logging
 
 from gettext import gettext as _
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, urlunparse
 
 from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressBar
@@ -56,6 +56,9 @@ class DockerFirstStage(Stage):
                 tags_dict = json.loads(tags_raw.read())
                 tag_list = tags_dict['tags']
 
+            # check for the presence of the pagination link header
+            link = list_downloader.response_headers.get('Link')
+            await self.handle_pagination(link, repo_name, tag_list)
             pb.increment()
 
         with ProgressBar(message='Creating Download requests for Tags', total=len(tag_list)) as pb:
@@ -141,6 +144,22 @@ class DockerFirstStage(Stage):
         pb_parsed_blobs.state = 'completed'
         pb_parsed_blobs.total = pb_parsed_blobs.done
         pb_parsed_blobs.save()
+
+    async def handle_pagination(self, link, repo_name, tag_list):
+        """
+        Handle registries that have pagination enabled.
+        """
+        while link:
+            # according RFC5988 URI-reference can be relative or absolute
+            _, _, path, params, query, fragm = urlparse(link.split(';')[0].strip('>, <'))
+            rel_link = urlunparse(('', '', path, params, query, fragm))
+            link = urljoin(self.remote.url, rel_link)
+            list_downloader = self.remote.get_downloader(url=link)
+            await list_downloader.run(extra_data={'repo_name': repo_name})
+            with open(list_downloader.path) as tags_raw:
+                tags_dict = json.loads(tags_raw.read())
+                tag_list.extend(tags_dict['tags'])
+            link = list_downloader.response_headers.get('Link')
 
     def handle_blobs(self, man, content_data, total_blobs):
         """
