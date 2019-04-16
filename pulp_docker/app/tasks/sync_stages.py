@@ -61,7 +61,8 @@ class DockerFirstStage(Stage):
             await self.handle_pagination(link, repo_name, tag_list)
             pb.increment()
 
-        with ProgressBar(message='Creating Download requests for Tags', total=len(tag_list)) as pb:
+        msg = 'Creating Download requests for v2 Tags'
+        with ProgressBar(message=msg, total=len(tag_list)) as pb:
             for tag_name in tag_list:
                 relative_url = '/v2/{name}/manifests/{tag}'.format(
                     name=self.remote.namespaced_upstream_name,
@@ -72,7 +73,7 @@ class DockerFirstStage(Stage):
                 to_download.append(downloader.run(extra_data={'headers': V2_ACCEPT_HEADERS}))
                 pb.increment()
 
-        pb_parsed_tags = ProgressBar(message='Parsing SchemaV2 Tags', state='running')
+        pb_parsed_tags = ProgressBar(message='Processing v2 Tags', state='running')
         pb_parsed_ml_tags = ProgressBar(message='Parsing Manifest List Tags', state='running')
         pb_parsed_m_tags = ProgressBar(message='Parsing Manifests Tags', state='running')
         global pb_parsed_blobs
@@ -85,38 +86,35 @@ class DockerFirstStage(Stage):
                 raw = content_file.read()
             content_data = json.loads(raw)
             mediatype = content_data.get('mediaType')
-            if mediatype:
-                tag.artifact_attributes['file'] = tag.path
-                saved_artifact = Artifact(**tag.artifact_attributes)
-                try:
-                    saved_artifact.save()
-                except IntegrityError:
-                    del tag.artifact_attributes['file']
-                    saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
-                tag_dc = self.create_tag(mediatype, saved_artifact, tag.url)
-                if type(tag_dc.content) is ManifestListTag:
-                    list_dc = self.create_tagged_manifest_list(
-                        tag_dc, content_data)
-                    await self.put(list_dc)
-                    pb_parsed_ml_tags.increment()
-                    tag_dc.extra_data['list_relation'] = list_dc
-                    for manifest_data in content_data.get('manifests'):
-                        man_dc = self.create_manifest(list_dc, manifest_data)
-                        future_manifests.append(man_dc.get_or_create_future())
-                        man_dcs[man_dc.content.digest] = man_dc
-                        await self.put(man_dc)
-                        pb_parsed_man.increment()
-                elif type(tag_dc.content) is ManifestTag:
-                    man_dc = self.create_tagged_manifest(tag_dc, content_data)
+            tag.artifact_attributes['file'] = tag.path
+            saved_artifact = Artifact(**tag.artifact_attributes)
+            try:
+                saved_artifact.save()
+            except IntegrityError:
+                del tag.artifact_attributes['file']
+                saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
+            tag_dc = self.create_tag(mediatype, saved_artifact, tag.url)
+
+            if type(tag_dc.content) is ManifestListTag:
+                list_dc = self.create_tagged_manifest_list(
+                    tag_dc, content_data)
+                await self.put(list_dc)
+                pb_parsed_ml_tags.increment()
+                tag_dc.extra_data['list_relation'] = list_dc
+                for manifest_data in content_data.get('manifests'):
+                    man_dc = self.create_manifest(list_dc, manifest_data)
+                    future_manifests.append(man_dc.get_or_create_future())
+                    man_dcs[man_dc.content.digest] = man_dc
                     await self.put(man_dc)
-                    pb_parsed_m_tags.increment()
-                    tag_dc.extra_data['man_relation'] = man_dc
-                    self.handle_blobs(man_dc, content_data, total_blobs)
-                await self.put(tag_dc)
-                pb_parsed_tags.increment()
-            else:
-                # in case it is a schema1 continue to the next tag
-                continue
+                    pb_parsed_man.increment()
+            elif type(tag_dc.content) is ManifestTag:
+                man_dc = self.create_tagged_manifest(tag_dc, content_data)
+                await self.put(man_dc)
+                pb_parsed_m_tags.increment()
+                tag_dc.extra_data['man_relation'] = man_dc
+                self.handle_blobs(man_dc, content_data, total_blobs)
+            await self.put(tag_dc)
+            pb_parsed_tags.increment()
 
         pb_parsed_tags.state = 'completed'
         pb_parsed_tags.total = pb_parsed_tags.done
@@ -165,18 +163,19 @@ class DockerFirstStage(Stage):
         """
         Handle blobs.
         """
-        for layer in content_data.get("layers"):
+        for layer in (content_data.get("layers") or content_data.get("fsLayers")):
             if not self._include_layer(layer):
                 continue
             blob_dc = self.create_blob(man, layer)
             blob_dc.extra_data['blob_relation'] = man
             total_blobs.append(blob_dc)
             pb_parsed_blobs.increment()
-        layer = content_data.get('config')
-        blob_dc = self.create_blob(man, layer)
-        blob_dc.extra_data['config_relation'] = man
-        pb_parsed_blobs.increment()
-        total_blobs.append(blob_dc)
+        layer = content_data.get('config', None)
+        if layer:
+            blob_dc = self.create_blob(man, layer)
+            blob_dc.extra_data['config_relation'] = man
+            pb_parsed_blobs.increment()
+            total_blobs.append(blob_dc)
 
     def create_tag(self, mediatype, saved_artifact, url):
         """
@@ -199,7 +198,7 @@ class DockerFirstStage(Stage):
         url = urljoin(self.remote.url, relative_url)
         if mediatype == MEDIA_TYPE.MANIFEST_LIST:
             tag = ManifestListTag(name=tag_name)
-        elif mediatype == MEDIA_TYPE.MANIFEST_V2:
+        else:
             tag = ManifestTag(name=tag_name)
         da = DeclarativeArtifact(
             artifact=saved_artifact,
@@ -253,7 +252,7 @@ class DockerFirstStage(Stage):
         manifest = ImageManifest(
             digest=digest,
             schema_version=manifest_data['schemaVersion'],
-            media_type=manifest_data['mediaType'],
+            media_type=manifest_data.get('mediaType', MEDIA_TYPE.MANIFEST_V1)
         )
         relative_url = '/v2/{name}/manifests/{digest}'.format(
             name=self.remote.namespaced_upstream_name,
@@ -293,7 +292,7 @@ class DockerFirstStage(Stage):
         )
         manifest = ImageManifest(
             digest=manifest_data['digest'],
-            schema_version=2,
+            schema_version=2 if manifest_data['mediaType'] == MEDIA_TYPE.MANIFEST_V2 else 1,
             media_type=manifest_data['mediaType'],
         )
         man_dc = DeclarativeContent(
@@ -313,21 +312,21 @@ class DockerFirstStage(Stage):
             blob_data (dict): Data about a blob
 
         """
-        digest = blob_data['digest']
+        digest = blob_data.get('digest') or blob_data.get('blobSum')
         blob_artifact = Artifact(sha256=digest[len("sha256:"):])
         blob = ManifestBlob(
             digest=digest,
-            media_type=blob_data['mediaType'],
+            media_type=blob_data.get('mediaType', MEDIA_TYPE.REGULAR_BLOB),
         )
         relative_url = '/v2/{name}/blobs/{digest}'.format(
             name=self.remote.namespaced_upstream_name,
-            digest=blob_data['digest'],
+            digest=digest,
         )
         blob_url = urljoin(self.remote.url, relative_url)
         da = DeclarativeArtifact(
             artifact=blob_artifact,
             url=blob_url,
-            relative_path=blob_data['digest'],
+            relative_path=digest,
             remote=self.remote,
             extra_data={'headers': V2_ACCEPT_HEADERS}
         )
@@ -350,7 +349,7 @@ class DockerFirstStage(Stage):
 
         """
         foreign_excluded = (not self.remote.include_foreign_layers)
-        is_foreign = (layer.get('mediaType') == MEDIA_TYPE.FOREIGN_BLOB)
+        is_foreign = (layer.get('mediaType', MEDIA_TYPE.REGULAR_BLOB) == MEDIA_TYPE.FOREIGN_BLOB)
         if is_foreign and foreign_excluded:
             log.debug(_('Foreign Layer: %(d)s EXCLUDED'), dict(d=layer))
             return False
