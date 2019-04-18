@@ -178,24 +178,16 @@ Look at the new Repository Version created
     }
 
 
-Publish a Repository Version and create a Publication
------------------------------------------------------
+Add a Docker Distribution to serve the latest Repository Version
+----------------------------------------------------------------
 
-``$ http POST :24817/pulp/api/v3/docker/publish/ repository=$REPO_HREF``
+The Docker Distribution will serve the latest version of a Repository if the repository is
+specified during creation/update of a Docker Distribution. The Docker Distribution will serve
+a specific repository version if repository_version is provided when creating a Docker
+Distribution. Either repository or repository_version can be set on a Docker Distribution, but not
+both.
 
-.. code:: json
-
-    {
-        "task": "/pulp/api/v3/tasks/fd4cbecd-6c6a-4197-9cbe-4e45b0516309/"
-    }
-
-``$ export PUBLICATION_HREF=$(http :24817/pulp/api/v3/publications/ | jq -r '.results[0] | ._href')``
-
-Add a Docker Distribution to serve your publication
----------------------------------------------------
-
-``$ http POST http://localhost:24817/pulp/api/v3/docker-distributions/ name='baz' base_path='foo' publication=$PUBLICATION_HREF``
-
+``$ http POST http://localhost:24817/pulp/api/v3/docker-distributions/ name='baz' base_path='foo' repository=$REPO_HREF``
 
 .. code:: json
 

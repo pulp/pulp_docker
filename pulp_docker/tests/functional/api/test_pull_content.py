@@ -22,7 +22,6 @@ from pulp_docker.tests.functional.constants import (
     DOCKER_CONTENT_NAME,
     DOCKER_DISTRIBUTION_PATH,
     DOCKER_REMOTE_PATH,
-    DOCKER_PUBLICATION_PATH,
     DOCKER_UPSTREAM_NAME,
     DOCKER_UPSTREAM_TAG,
 )
@@ -39,8 +38,8 @@ class PullContentTestCase(unittest.TestCase):
         1. Create a repository.
         2. Create a remote pointing to external registry.
         3. Sync the repository using the remote and re-read the repo data.
-        4. Create a publication.
-        5. Create a docker distribution to serve the publication.
+        4. Create a docker distribution to serve the repository
+        5. Create another docker distribution to the serve the repository version
 
         This tests targets the following issue:
 
@@ -70,19 +69,26 @@ class PullContentTestCase(unittest.TestCase):
             sync(cls.cfg, cls.remote, _repo)
             cls.repo = cls.client.get(_repo['_href'])
 
-            # Step 4
-            cls.publication = cls.client.using_handler(api.task_handler).post(
-                DOCKER_PUBLICATION_PATH, {"repository": _repo['_href']})
+            # Step 4.
+            response_dict = cls.client.using_handler(api.task_handler).post(
+                DOCKER_DISTRIBUTION_PATH,
+                gen_distribution(repository=cls.repo['_href'])
+            )
+            distribution_href = response_dict['_href']
+            cls.distribution_with_repo = cls.client.get(distribution_href)
+            cls.teardown_cleanups.append(
+                (cls.client.delete, cls.distribution_with_repo['_href'])
+            )
 
             # Step 5.
             response_dict = cls.client.using_handler(api.task_handler).post(
                 DOCKER_DISTRIBUTION_PATH,
-                gen_distribution(publication=cls.publication['_href'])
+                gen_distribution(repository_version=cls.repo['_latest_version_href'])
             )
             distribution_href = response_dict['_href']
-            cls.distribution = cls.client.get(distribution_href)
+            cls.distribution_with_repo_version = cls.client.get(distribution_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution['_href'])
+                (cls.client.delete, cls.distribution_with_repo_version['_href'])
             )
 
             # remove callback if everything goes well
@@ -119,7 +125,7 @@ class PullContentTestCase(unittest.TestCase):
             'Cannot find a matching layer on remote registry.'
         )
 
-    def test_pull_image(self):
+    def test_pull_image_from_repository(self):
         """Verify that a client can pull the image from Pulp.
 
         1. Using the RegistryClient pull the image from Pulp.
@@ -134,7 +140,7 @@ class PullContentTestCase(unittest.TestCase):
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution['base_path']
+            self.distribution_with_repo['base_path']
         )
 
         registry.pull(local_url)
@@ -142,13 +148,44 @@ class PullContentTestCase(unittest.TestCase):
         local_image = registry.inspect(local_url)
 
         registry.pull(DOCKER_UPSTREAM_NAME)
-        self.teardown_cleanups.append((registry.rmi, DOCKER_UPSTREAM_NAME))
         remote_image = registry.inspect(DOCKER_UPSTREAM_NAME)
 
         self.assertEqual(
-            local_image[0]['Digest'],
-            remote_image[0]['Digest']
+            local_image[0]['Id'],
+            remote_image[0]['Id']
         )
+        registry.rmi(DOCKER_UPSTREAM_NAME)
+
+    def test_pull_image_from_repository_version(self):
+        """Verify that a client can pull the image from Pulp.
+
+        1. Using the RegistryClient pull the image from Pulp.
+        2. Pull the same image from remote registry.
+        3. Verify both images has the same checksum.
+        4. Ensure image is deleted after the test.
+        """
+        registry = cli.RegistryClient(self.cfg)
+        registry.raise_if_unsupported(
+            unittest.SkipTest, 'Test requires podman/docker'
+        )
+
+        local_url = urljoin(
+            self.cfg.get_content_host_base_url(),
+            self.distribution_with_repo_version['base_path']
+        )
+
+        registry.pull(local_url)
+        self.teardown_cleanups.append((registry.rmi, local_url))
+        local_image = registry.inspect(local_url)
+
+        registry.pull(DOCKER_UPSTREAM_NAME)
+        remote_image = registry.inspect(DOCKER_UPSTREAM_NAME)
+
+        self.assertEqual(
+            local_image[0]['Id'],
+            remote_image[0]['Id']
+        )
+        registry.rmi(DOCKER_UPSTREAM_NAME)
 
     def test_pull_image_with_tag(self):
         """Verify that a client can pull the image from Pulp with a tag.
@@ -165,7 +202,7 @@ class PullContentTestCase(unittest.TestCase):
 
         local_url = urljoin(
             self.cfg.get_content_host_base_url(),
-            self.distribution['base_path']
+            self.distribution_with_repo['base_path']
         ) + DOCKER_UPSTREAM_TAG
 
         registry.pull(local_url)
@@ -181,15 +218,15 @@ class PullContentTestCase(unittest.TestCase):
         )
 
         self.assertEqual(
-            local_image[0]['Digest'],
-            remote_image[0]['Digest']
+            local_image[0]['Id'],
+            remote_image[0]['Id']
         )
 
-    def test_pull_inexistent_image(self):
-        """Verify that a client cannot pull inexistent image from Pulp.
+    def test_pull_nonexistent_image(self):
+        """Verify that a client cannot pull nonexistent image from Pulp.
 
-        1. Using the RegistryClient try to pull inexistent image from Pulp.
-        2. Assert that error is occured and nothing has been pulled.
+        1. Using the RegistryClient try to pull nonexistent image from Pulp.
+        2. Assert that error is occurred and nothing has been pulled.
         """
         registry = cli.RegistryClient(self.cfg)
         registry.raise_if_unsupported(

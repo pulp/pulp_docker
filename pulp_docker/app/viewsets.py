@@ -10,11 +10,9 @@ from drf_yasg.utils import swagger_auto_schema
 
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
-    RepositoryPublishURLSerializer,
     RepositorySyncURLSerializer,
 )
 
-from pulpcore.plugin.models import RepositoryVersion, Publication
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     ContentViewSet,
@@ -145,44 +143,6 @@ class DockerRemoteViewSet(RemoteViewSet):
                 'remote_pk': remote.pk,
                 'repository_pk': repository.pk
             }
-        )
-        return OperationPostponedResponse(result, request)
-
-
-class DockerPublicationViewSet(NamedModelViewSet, mixins.CreateModelMixin):
-    """
-    A ViewSet for Docker Publication.
-    """
-
-    endpoint_name = 'docker/publish'
-    queryset = Publication.objects.all()
-    serializer_class = RepositoryPublishURLSerializer
-
-    @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to create a docker publication",
-        responses={202: AsyncOperationResponseSerializer}
-    )
-    def create(self, request):
-        """
-        Queues a task that publishes a new Docker Publication.
-
-        """
-        serializer = RepositoryPublishURLSerializer(
-            data=request.data,
-            context={'request': request}
-        )
-        serializer.is_valid(raise_exception=True)
-        repository_version = serializer.validated_data.get('repository_version')
-
-        # Safe because version OR repository is enforced by serializer.
-        if not repository_version:
-            repository = serializer.validated_data.get('repository')
-            repository_version = RepositoryVersion.latest(repository)
-
-        result = enqueue_with_reservation(
-            tasks.publish,
-            [repository_version.repository],
-            kwargs={'repository_version_pk': str(repository_version.pk)}
         )
         return OperationPostponedResponse(result, request)
 

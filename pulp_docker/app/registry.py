@@ -122,7 +122,8 @@ class Registry:
         path = request.match_info['path']
         distribution = await Registry.match_distribution(path)
         tags = {'name': path, 'tags': set()}
-        for c in distribution.publication.repository_version.content:
+        repository_version = distribution.get_repository_version()
+        for c in repository_version.content:
             c = c.cast()
             if isinstance(c, ManifestTag) or isinstance(c, ManifestListTag):
                 tags['tags'].add(c.name)
@@ -149,11 +150,12 @@ class Registry:
         path = request.match_info['path']
         tag_name = request.match_info['tag_name']
         distribution = await Registry.match_distribution(path)
+        repository_version = distribution.get_repository_version()
         accepted_media_types = await Registry.get_accepted_media_types(request)
         if MEDIA_TYPE.MANIFEST_LIST in accepted_media_types:
             try:
                 tag = ManifestListTag.objects.get(
-                    pk__in=distribution.publication.repository_version.content,
+                    pk__in=repository_version.content,
                     name=tag_name
                 )
             # If there is no manifest list tag, try again with manifest tag.
@@ -166,7 +168,7 @@ class Registry:
         if MEDIA_TYPE.MANIFEST_V2 in accepted_media_types:
             try:
                 tag = ManifestTag.objects.get(
-                    pk__in=distribution.publication.repository_version.content,
+                    pk__in=repository_version.content,
                     name=tag_name
                 )
             except ObjectDoesNotExist:
@@ -211,11 +213,11 @@ class Registry:
         path = request.match_info['path']
         digest = "sha256:{digest}".format(digest=request.match_info['digest'])
         distribution = await Registry.match_distribution(path)
+        repository_version = distribution.get_repository_version()
         log.info(digest)
         try:
-            ca = ContentArtifact.objects.get(
-                content__in=distribution.publication.repository_version.content,
-                relative_path=digest)
+            ca = ContentArtifact.objects.get(content__in=repository_version.content,
+                                             relative_path=digest)
             headers = {'Content-Type': ca.content.cast().media_type}
         except ObjectDoesNotExist:
             raise PathNotResolved(path)
