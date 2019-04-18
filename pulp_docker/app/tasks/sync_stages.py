@@ -6,7 +6,7 @@ from gettext import gettext as _
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from django.db import IntegrityError
-from pulpcore.plugin.models import Artifact, ProgressBar
+from pulpcore.plugin.models import Artifact, ProgressBar, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 
 from pulp_docker.app.models import (ImageManifest, MEDIA_TYPE, ManifestBlob, ManifestTag,
@@ -34,6 +34,7 @@ class DockerFirstStage(Stage):
         """Initialize the stage."""
         super().__init__()
         self.remote = remote
+        self.deferred_download = (self.remote.policy != Remote.IMMEDIATE)
 
     async def run(self):
         """
@@ -49,7 +50,7 @@ class DockerFirstStage(Stage):
             repo_name = self.remote.namespaced_upstream_name
             relative_url = '/v2/{name}/tags/list'.format(name=repo_name)
             tag_list_url = urljoin(self.remote.url, relative_url)
-            list_downloader = self.remote.get_downloader(tag_list_url)
+            list_downloader = self.remote.get_downloader(url=tag_list_url)
             await list_downloader.run(extra_data={'repo_name': repo_name})
 
             with open(list_downloader.path) as tags_raw:
@@ -328,7 +329,8 @@ class DockerFirstStage(Stage):
             url=blob_url,
             relative_path=digest,
             remote=self.remote,
-            extra_data={'headers': V2_ACCEPT_HEADERS}
+            extra_data={'headers': V2_ACCEPT_HEADERS},
+            deferred_download=self.deferred_download
         )
         blob_dc = DeclarativeContent(
             content=blob,

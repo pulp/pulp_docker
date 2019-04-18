@@ -252,12 +252,22 @@ class DockerRemote(Remote):
             )
             return self._download_factory
 
-    def get_downloader(self, url, **kwargs):
+    def get_downloader(self, remote_artifact=None, url=None, **kwargs):
         """
-        Get a downloader for this url.
+        Get a downloader from either a RemoteArtifact or URL that is configured with this Remote.
+
+        This method accepts either `remote_artifact` or `url` but not both. At least one is
+        required. If neither or both are passed a ValueError is raised.
 
         Args:
-            url (str): URL to fetch from.
+            remote_artifact (:class:`~pulpcore.app.models.RemoteArtifact`): The RemoteArtifact to
+                download.
+            url (str): The URL to download.
+            kwargs (dict): This accepts the parameters of
+                :class:`~pulpcore.plugin.download.BaseDownloader`.
+
+        Raises:
+            ValueError: If neither remote_artifact and url are passed, or if both are passed.
 
         Returns:
             subclass of :class:`~pulpcore.plugin.download.BaseDownloader`: A downloader that
@@ -265,7 +275,7 @@ class DockerRemote(Remote):
 
         """
         kwargs['remote'] = self
-        return self.download_factory.build(url, **kwargs)
+        return super().get_downloader(remote_artifact=remote_artifact, url=url, **kwargs)
 
     @property
     def namespaced_upstream_name(self):
