@@ -240,6 +240,16 @@ Release Notes 4.0
 
 pulp-docker 4.0 is currently in Beta. Backwards incompatible changes might be made until Beta is over.
 
+4.0.0b3
+^^^^^^^
+
+- Enable sync from gcr and quay registries
+- Enable support to handle pagination for tags/list endpoint during sync
+- Enable support to manage a docker image that has manifest schema v2s1
+- Enable docker distribution to serve directly latest repository version
+
+`Comprehensive list of changes and bugfixes for beta 3 <https://github.com/pulp/pulp_docker/compare/4.0.0b2...4.0.0b3>`_.
+
 4.0.0b2
 ^^^^^^^
 
@@ -253,5 +263,5 @@ pulp-docker 4.0 is currently in Beta. Backwards incompatible changes might be ma
 4.0.0b1
 ^^^^^^^
 
-Add support for basic sync of a docker repo form a V2Registry
-Add support for docker/podman pull from a docker distbution served by Pulp
+- Add support for basic sync of a docker repo form a V2Registry
+- Add support for docker/podman pull from a docker distbution served by Pulp
