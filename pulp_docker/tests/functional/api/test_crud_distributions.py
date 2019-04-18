@@ -46,8 +46,6 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
         See: `Pulp Smash #1055
         <https://github.com/PulpQE/pulp-smash/issues/1055>`_.
         """
-        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
-            raise unittest.SkipTest('Issue 4599 is not resolved')
         body = gen_distribution()
         body['name'] = self.distribution['name']
         with self.assertRaises(HTTPError):
@@ -182,29 +180,21 @@ class DistributionBasePathTestCase(unittest.TestCase):
 
     def test_spaces(self):
         """Test that spaces can not be part of ``base_path``."""
-        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
-            raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path=utils.uuid4().replace('-', ' '))
         self.try_update_distribution(base_path=utils.uuid4().replace('-', ' '))
 
     def test_begin_slash(self):
         """Test that slash cannot be in the begin of ``base_path``."""
-        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
-            raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path='/' + utils.uuid4())
         self.try_update_distribution(base_path='/' + utils.uuid4())
 
     def test_end_slash(self):
         """Test that slash cannot be in the end of ``base_path``."""
-        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
-            raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path=utils.uuid4() + '/')
         self.try_update_distribution(base_path=utils.uuid4() + '/')
 
     def test_unique_base_path(self):
         """Test that ``base_path`` can not be duplicated."""
-        if not selectors.bug_is_fixed(4600, self.cfg.pulp_version):
-            raise unittest.SkipTest('Issue 4599 is not resolved')
         self.try_create_distribution(base_path=self.distribution['base_path'])
 
     def try_create_distribution(self, **kwargs):
