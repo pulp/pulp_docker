@@ -182,6 +182,15 @@ class DockerDistributionSerializer(BaseDistributionSerializer):
     _href = IdentityField(
         view_name='docker-distributions-detail'
     )
+    name = serializers.CharField(
+        help_text=_('A unique distribution name. Ex, `rawhide` and `stable`.'),
+        validators=[validators.MaxLengthValidator(
+            models.DockerDistribution._meta.get_field('name').max_length,
+            message=_('DockerDistribution name length must be less than {} characters').format(
+                models.DockerDistribution._meta.get_field('name').max_length
+            )),
+            UniqueValidator(queryset=models.DockerDistribution.objects.all())]
+    )
     base_path = serializers.CharField(
         help_text=_('The base (relative) path that identifies the registry path.'),
         validators=[validators.MaxLengthValidator(
