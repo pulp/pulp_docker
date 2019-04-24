@@ -107,7 +107,15 @@ Create a repository ``foo``
 Create a new remote ``bar``
 ---------------------------
 
-``$ http POST http://localhost:24817/pulp/api/v3/remotes/docker/docker/ name='library/busybox' upstream_name='busybox' url='https://registry-1.docker.io'``
+Docker remotes can be configured with a ``policy``. The default value is ``immediate``. All
+manifests and blobs are downloaded and saved during a sync with the ``immediate`` policy. When a
+remote with an ``on_demand`` policy is used to sync a repository, only tags and manifests are
+downloaded. Blobs are only downloaded when they are requested for the first time by a client.
+The ``streamed`` policy does not ever save any blobs and simply streams them to the client
+with every request. ``on_demand`` and ``streamed`` policies can provide significant disk space
+savings.
+
+``$ http POST http://localhost:24817/pulp/api/v3/remotes/docker/docker/ name='library/busybox' upstream_name='busybox' url='https://registry-1.docker.io' policy='on_demand'``
 
 .. code:: json
 
