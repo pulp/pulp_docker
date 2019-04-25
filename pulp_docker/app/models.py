@@ -14,6 +14,7 @@ logger = getLogger(__name__)
 
 MEDIA_TYPE = SimpleNamespace(
     MANIFEST_V1='application/vnd.docker.distribution.manifest.v1+json',
+    MANIFEST_V1_SIGNED='application/vnd.docker.distribution.manifest.v1+prettyjws',
     MANIFEST_V2='application/vnd.docker.distribution.manifest.v2+json',
     MANIFEST_LIST='application/vnd.docker.distribution.manifest.list.v2+json',
     CONFIG_BLOB='application/vnd.docker.container.image.v1+json',
