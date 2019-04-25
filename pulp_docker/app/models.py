@@ -223,6 +223,7 @@ class DockerRemote(Remote):
 
     upstream_name = models.CharField(max_length=255, db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
+    whitelist_tags = models.TextField(default='')
 
     TYPE = 'docker'
 

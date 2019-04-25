@@ -60,6 +60,9 @@ class DockerFirstStage(Stage):
             # check for the presence of the pagination link header
             link = list_downloader.response_headers.get('Link')
             await self.handle_pagination(link, repo_name, tag_list)
+            whitelist_tags = self.remote.whitelist_tags
+            if whitelist_tags:
+                tag_list = list(set(tag_list) & set(whitelist_tags.split(',')))
             pb.increment()
 
         msg = 'Creating Download requests for v2 Tags'
