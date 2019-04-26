@@ -126,6 +126,12 @@ savings.
 
 ``$ export REMOTE_HREF=$(http :24817/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')``
 
+Whitelist tags when syncing content
+-----------------------------------
+
+Docker remotes can be configured to whitelist tags with the option ``whitelist_tags``.
+Specify comma separated values of the tags to include on sync. If not provided, sync will download all available tags.
+Old tags already present in the local repo are not removed automatically.
 
 Sync repository ``foo`` using Remote ``bar``
 ----------------------------------------------

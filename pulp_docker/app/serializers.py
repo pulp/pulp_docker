@@ -168,9 +168,13 @@ class DockerRemoteSerializer(RemoteSerializer):
         allow_blank=False,
         help_text=_("Name of the upstream repository")
     )
+    whitelist_tags = serializers.CharField(
+        required=False,
+        help_text=_("Whitelist tags to sync")
+    )
 
     class Meta:
-        fields = RemoteSerializer.Meta.fields + ('upstream_name',)
+        fields = RemoteSerializer.Meta.fields + ('upstream_name', 'whitelist_tags',)
         model = models.DockerRemote
 
 
