@@ -184,18 +184,28 @@ class Registry:
             try:
                 tag = ManifestTag.objects.get(
                     pk__in=repository_version.content,
-                    name=tag_name
+                    name=tag_name,
+                    manifest__schema_version=2
                 )
             except ObjectDoesNotExist:
-                raise PathNotResolved(tag_name)
+                pass
             else:
                 response_headers = {'Content-Type': MEDIA_TYPE.MANIFEST_V2}
                 return await Registry.dispatch_tag(tag, response_headers)
 
-        else:
+        try:
+            tag = ManifestTag.objects.get(
+                pk__in=repository_version.content,
+                name=tag_name,
+                manifest__schema_version=1
+            )
+        except ObjectDoesNotExist:
             # This is where we could eventually support on-the-fly conversion to schema 1.
             log.warn("Client does not accept Docker V2 Schema 2 and is not currently supported.")
-            raise PathNotResolved(path)
+            raise PathNotResolved(tag_name)
+        else:
+            response_headers = {'Content-Type': MEDIA_TYPE.MANIFEST_V1_SIGNED}
+            return await Registry.dispatch_tag(tag, response_headers)
 
     @staticmethod
     async def dispatch_tag(tag, response_headers):
