@@ -1,6 +1,12 @@
 3.2 Release Notes
 =================
 
+3.2.4
+-----
+
+Docker V1 content support is deprecated! Switch to V2 content is advised.
+
+
 3.2.3
 -----
 

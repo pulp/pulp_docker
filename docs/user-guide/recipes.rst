@@ -38,11 +38,18 @@ Full documentation for /etc/crane.conf can be found in the Crane `README`_.
 Sync
 ----
 
-The pulp-docker plugin supports synchronizing from upstream repositories as of
-version 0.2.1. As of version 2.0.0, it can synchronize with either Docker v1 or
-v2 registries.
+The pulp-docker plugin supports synchronizing from docker V2 API compatible registries.
 
+<<<<<<< HEAD
 .. note::
+=======
+.. warning::
+
+    ``index.docker.io`` is a legacy registry and should be used only for V1 content, along with
+    ``--enable-v1 true`` and ``--enable-v2 false``. Please note however that V1 content is
+    DEPRECATED and support may removed it at any time.
+    It is advived to use instead ``registry-1.docker.io`` for V2 content!
+>>>>>>> 49446be... Deprecate docker v1 support
 
     ``registry-1.docker.io`` is a Docker V2 Registry API. For V1 API
     ``index.docker.io`` should be used, along with ``--enable-v1 true`` and
@@ -97,46 +104,6 @@ v2 registries.
 
 
 Once this is complete, the data in the remote repository is now in your local Pulp instance.
-
-As mentioned, it is still possible to synchronize Docker v1 content if you use
-the old feed URL and enable/disable v1/v2::
-
-    $ pulp-admin docker repo create --repo-id=v1synctest --feed=https://index.docker.io --upstream-name=busybox --enable-v1 true --enable-v2 false
-    Repository [v1synctest] successfully created
-
-    $ pulp-admin docker repo sync run --repo-id v1synctest
-    +----------------------------------------------------------------------+
-                     Synchronizing Repository [v1synctest]
-    +----------------------------------------------------------------------+
-
-    This command may be exited via ctrl+c without affecting the request.
-
-
-    Retrieving v1 metadata
-    [-]
-    ... completed
-
-    Copying units already in pulp
-    [-]
-    ... completed
-
-    Downloading remote files
-    [==================================================] 100%
-    53 of 53 items
-    ... completed
-
-    Saving v1 images and tags
-    [-]
-    ... completed
-
-
-    Task Succeeded
-
-
-
-
-    Task Succeeded
-
 
 Whitelist Tags to Sync
 ----------------------
