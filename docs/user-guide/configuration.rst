@@ -16,7 +16,7 @@ The importer supports the settings documented in Pulp's `importer config docs`_.
 The following docker specific properties are supported:
 
 ``enable_v1``
-  Enables the docker v1 protocol. Defaults to False when not specified.
+  Enables the docker v1 protocol. Defaults to False when not specified. DEPRECATED.
 
 ``enable_v2``
   Enables the docker v2 protocol. Defaults to True when not specified.
