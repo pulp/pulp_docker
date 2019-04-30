@@ -82,7 +82,7 @@ class SyncStep(publish_step.PluginStep):
             _logger.debug(_('v2 API found'))
             self.add_v2_steps(repo, conduit, config)
         if v1_found:
-            _logger.debug(_('v1 API found'))
+            _logger.debug(_('v1 API found. Sync from a v1 API registry is deprecated.'))
             self.add_v1_steps(repo, config)
         if not any((v1_found, v2_found)):
             raise PulpCodedException(error_code=error_codes.DKR1008, registry=url)
@@ -126,6 +126,7 @@ class SyncStep(publish_step.PluginStep):
         :param config:      config object for the sync
         :type  config:      pulp.plugins.config.PluginCallConfiguration
         """
+        _logger.warning("Sync from a V1 API registry is DEPRECATED!")
         self.add_child(v1_sync.GetMetadataStep())
         # save this step so its "units_to_download" attribute can be accessed later
         self.v1_step_get_local_units = publish_step.GetLocalUnitsStep(

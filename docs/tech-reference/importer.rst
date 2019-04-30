@@ -10,7 +10,7 @@ The following options are available to the docker importer configuration.
 
 ``enable_v1``
  Boolean to control whether to attempt using registry API v1 during
- synchronization. Default is False.
+ synchronization. Default is False. DEPRECATED.
 
 ``enable_v2``
  Boolean to control whether to attempt using registry API v2 during
