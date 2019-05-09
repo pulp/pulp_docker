@@ -1,3 +1,5 @@
+import re
+
 from logging import getLogger
 from types import SimpleNamespace
 
@@ -248,8 +250,8 @@ class DockerRemote(Remote):
             self._download_factory = DownloaderFactory(
                 self,
                 downloader_overrides={
-                    'http': downloaders.TokenAuthHttpDownloader,
-                    'https': downloaders.TokenAuthHttpDownloader,
+                    'http': downloaders.RegistryAuthHttpDownloader,
+                    'https': downloaders.RegistryAuthHttpDownloader,
                 }
             )
             return self._download_factory
@@ -287,8 +289,9 @@ class DockerRemote(Remote):
         For upstream repositories that do not have a namespace, the convention is to use 'library'
         as the namespace.
         """
-        # TODO File issue: only for dockerhub??? This doesn't work against a Pulp2+crane repo
-        if '/' not in self.upstream_name:
+        # Docker's registry aligns non-namespaced images to the library namespace.
+        docker_registry = re.search(r'registry[-,\w]*.docker.io', self.url, re.IGNORECASE)
+        if '/' not in self.upstream_name and docker_registry:
             return 'library/{name}'.format(name=self.upstream_name)
         else:
             return self.upstream_name
