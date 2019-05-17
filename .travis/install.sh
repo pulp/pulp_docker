@@ -40,43 +40,15 @@ if [ -n "$PULP_SMASH_PR_NUMBER" ]; then
   pip install -e ./pulp-smash
 fi
 
-# Install Podman client
-sudo add-apt-repository -y ppa:projectatomic/ppa
-sudo apt-get update -y
-sudo apt-get install -y podman
-
-# Configure podman for insecure registry
-sudo bash -c 'cat << EOF > /etc/containers/registries.conf
-[registries.search]
-registries = ["docker.io", "registry.fedoraproject.org", "quay.io", "registry.access.redhat.com", "registry.centos.org"]
-
-[registries.insecure]
-registries = ["localhost:24816"]
-
-[registries.block]
-registries = []
-EOF'
-
-# podman on Travis is asking manual creation of one more file
-sudo bash -c 'cat << EOF > /etc/containers/policy.json
+# Configure docker for insecure registry
+sudo bash -c 'cat << EOF > /etc/docker/daemon.json
 {
-    "default": [
-        {
-            "type": "insecureAcceptAnything"
-        }
-    ],
-    "transports":
-        {
-            "docker-daemon":
-                {
-                    "": [{"type":"insecureAcceptAnything"}]
-                }
-        }
+    "insecure-registries" : ["localhost:24816"]
 }
 EOF'
 
 # outputs podman info
-sudo podman info
+sudo systemctl restart docker
 
 cd pulp_docker
 pip install -e .
