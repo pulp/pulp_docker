@@ -3,7 +3,7 @@ from urllib.parse import urljoin
 
 from pulp_smash.constants import PULP_FIXTURES_BASE_URL
 from pulp_smash.pulp3.constants import (
-    BASE_PATH,
+    BASE_DISTRIBUTION_PATH,
     BASE_REMOTE_PATH,
     CONTENT_PATH
 )
@@ -13,7 +13,7 @@ DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
 
 DOCKER_CONTENT_NAME = 'docker.manifest-blob'
 
-DOCKER_DISTRIBUTION_PATH = urljoin(BASE_PATH, 'docker-distributions/')
+DOCKER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'docker/docker/')
 
 DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/docker/')
 

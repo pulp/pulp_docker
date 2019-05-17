@@ -1,20 +1,16 @@
 # coding=utf-8
 """Tests that CRUD distributions."""
-from urllib.parse import urljoin
 import unittest
 
 from itertools import permutations
 from requests.exceptions import HTTPError
 
 from pulp_smash import api, config, selectors, utils
-from pulp_smash.pulp3.constants import BASE_PATH
 from pulp_smash.pulp3.utils import gen_distribution
 
+from pulp_docker.tests.functional.constants import DOCKER_DISTRIBUTION_PATH
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 from pulp_docker.tests.functional.utils import skip_if
-
-
-DOCKER_DISTRIBUTION_PATH = urljoin(BASE_PATH, 'docker-distributions/')
 
 
 class CRUDDockerDistributionsTestCase(unittest.TestCase):
