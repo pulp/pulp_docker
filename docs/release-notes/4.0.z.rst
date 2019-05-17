@@ -5,6 +5,16 @@ Pulp Docker 4.0 Release Notes
 Pulp Docker 4.0 is the first release to support Pulp 3, and it is currently in Beta. Backwards
 incompatible are expected until Beta is over.
 
+4.0.0b4
+^^^^^^^
+
+- Enable sync from registries that use basic auth or have private repos
+- Enable on_demand or streamed sync
+- Enable whitelist tags specification when syncing
+- Compatibility with pulpcore-plugin-0.1.0rc2
+
+`Comprehensive list of changes and bugfixes for beta 4 <https://github.com/pulp/pulp_docker/compare/4.0.0b3...4.0.0b4>`_.
+
 4.0.0b3
 ^^^^^^^
 
