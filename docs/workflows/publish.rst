@@ -13,14 +13,9 @@ a specific repository version if repository_version is provided when creating a 
 Distribution. Either repository or repository_version can be set on a Docker Distribution, but not
 both.
 
-.. note::
-
-    This workflow is different than other plugins and does not use pulpcore's Distribution docs.
-
-
 Create the distribution, referencing a repository or repository version::
 
-    $ http POST http://localhost:8000/pulp/api/v3/docker-distributions/ name='baz' base_path='foo' publication=$PUBLICATION_HREF
+    $ http POST http://localhost:8000/pulp/api/v3/distributions/docker/docker/ name='baz' base_path='foo' repository=$REPOSITORY_HREF
 
 Response:
 
