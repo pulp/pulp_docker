@@ -47,6 +47,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
             handle_401(bool): If true, catch 401, request a new token and retry.
         """
         headers = {}
+        repo_name = None
         if extra_data is not None:
             headers = extra_data.get('headers', headers)
             repo_name = extra_data.get('repo_name', None)
