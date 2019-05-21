@@ -15,7 +15,7 @@ both.
 
 Create the distribution, referencing a repository or repository version::
 
-    $ http POST http://localhost:8000/pulp/api/v3/distributions/docker/docker/ name='baz' base_path='foo' repository=$REPOSITORY_HREF
+    $ http POST http://localhost:24817/pulp/api/v3/distributions/docker/docker/ name='baz' base_path='foo' repository=$REPOSITORY_HREF
 
 Response:
 
@@ -31,7 +31,7 @@ Reference: `Docker Distribution Usage <../restapi.html#tag/distributions>`_
 Check status of a task
 ----------------------
 
-``$ http GET http://localhost:8000/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
+``$ http GET http://localhost:24817/pulp/api/v3/tasks/82e64412-47f8-4dd4-aa55-9de89a6c549b/``
 
 Perform a pull from Pulp
 ------------------------

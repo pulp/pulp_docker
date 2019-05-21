@@ -9,7 +9,7 @@ Create a repository ``foo``
 
 Start by creating a new repository named "foo"::
 
-    $ http POST http://localhost:8000/pulp/api/v3/repositories/ name=foo
+    $ http POST http://localhost:24817/pulp/api/v3/repositories/ name=foo
 
 Response:
 
@@ -22,7 +22,7 @@ Response:
 
 Save this url as an environment variable::
 
-    $ export REPO_HREF=$(http :8000/pulp/api/v3/repositories/ | jq -r '.results[] | select(.name == "foo") | ._href')
+    $ export REPO_HREF=$(http :24817/pulp/api/v3/repositories/ | jq -r '.results[] | select(.name == "foo") | ._href')
 
 Reference (pulpcore): `Repository API Usage
 <https://docs.pulpproject.org/en/3.0/nightly/restapi.html#tag/repositories>`_
@@ -55,7 +55,7 @@ Create the remote by POST to the remotes endpoint::
 
 Save this url as an environment variable::
 
-    $ export REMOTE_HREF=$(http :8000/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')
+    $ export REMOTE_HREF=$(http :24817/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')
 
 Reference: `Docker Remote Usage <../restapi.html#tag/remotes>`_
 
@@ -66,7 +66,7 @@ Use the remote object to kick off a synchronize task by specifying the repositor
 sync with. You are telling pulp to fetch content from the remote and add to the repository::
 
 
-    $ http POST ':8000'$REMOTE_HREF'sync/' repository=$REPO_HREF`` mirror=False
+    $ http POST ':24817'$REMOTE_HREF'sync/' repository=$REPO_HREF`` mirror=False
 
 Response::
 
@@ -86,7 +86,7 @@ Look at the new Repository Version created
 
 Every time content is added or removed from a repository, a new repository version is created::
 
-    $ http GET ':8000'$REPO_HREF'versions/1/'
+    $ http GET ':24817'$REPO_HREF'versions/1/'
 
 Response:
 
