@@ -1,6 +1,30 @@
 3.2 Release Notes
 =================
 
+3.2.4
+-----
+
+Docker V1 content support is deprecated! Switch to V2 content is advised.
+
+
+3.2.3
+-----
+
+Bug Fixes:
+**********
+
+See the full list of :fixedbugs_pulp_docker:`3.2.3`.
+
+
+3.2.2
+-----
+
+Bug Fixes:
+**********
+
+See the full list of :fixedbugs_pulp_docker:`3.2.2`.
+
+
 3.2.1
 -----
 
