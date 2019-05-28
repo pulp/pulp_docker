@@ -63,7 +63,7 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
         """
         if not selectors.bug_is_fixed(4599, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
-        fields = ('_href', 'base_path', 'base_url', '_created')
+        fields = ('base_path', 'name')
         for field_pair in permutations(fields, 2):
             # ex: field_pair = ('_href', 'base_url)
             with self.subTest(field_pair=field_pair):
@@ -81,13 +81,13 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
         if not selectors.bug_is_fixed(4599, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         # requests doesn't allow the use of != in parameters.
-        url = '{}?fields!=base_path,base_url'.format(
+        url = '{}?fields!=base_path,name'.format(
             self.distribution['_href']
         )
         distribution = self.client.get(url)
         response_fields = distribution.keys()
         self.assertNotIn('base_path', response_fields)
-        self.assertNotIn('base_url', response_fields)
+        self.assertNotIn('name', response_fields)
 
     @skip_if(bool, 'distribution', False)
     def test_02_read_distributions(self):
