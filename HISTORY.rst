@@ -1,10 +1,3 @@
-=============================
-Pulp Docker 4.0 Release Notes
-=============================
-
-Pulp Docker 4.0 is the first release to support Pulp 3, and it is currently in Beta. Backwards
-incompatible are expected until Beta is over.
-
 4.0.0b4
 ^^^^^^^
 
