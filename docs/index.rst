@@ -31,7 +31,8 @@ Container Workflows
    installation
    workflows/index
    restapi/index
-   release-notes/index
+   changes
+   contributing
 
 
 Indices and tables
