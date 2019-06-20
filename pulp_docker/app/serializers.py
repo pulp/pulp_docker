@@ -14,71 +14,25 @@ from pulpcore.plugin.serializers import (
 from . import models
 
 
-class ManifestListTagSerializer(SingleArtifactContentSerializer):
-    """
-    Serializer for ManifestListTags.
-    """
-
-    name = serializers.CharField(help_text="Tag name")
-    manifest_list = DetailRelatedField(
-        many=False,
-        help_text="Manifest List that is tagged",
-        view_name='docker-manifest-lists-detail',
-        queryset=models.ManifestList.objects.all()
-    )
-
-    class Meta:
-        fields = SingleArtifactContentSerializer.Meta.fields + (
-            'name',
-            'manifest_list',
-        )
-        model = models.ManifestListTag
-
-
 class ManifestTagSerializer(SingleArtifactContentSerializer):
     """
     Serializer for ManifestTags.
     """
 
     name = serializers.CharField(help_text="Tag name")
-    manifest = DetailRelatedField(
+    tagged_manifest = DetailRelatedField(
         many=False,
         help_text="Manifest that is tagged",
         view_name='docker-manifests-detail',
-        queryset=models.ImageManifest.objects.all()
+        queryset=models.Manifest.objects.all()
     )
 
     class Meta:
         fields = SingleArtifactContentSerializer.Meta.fields + (
             'name',
-            'manifest',
+            'tagged_manifest',
         )
         model = models.ManifestTag
-
-
-class ManifestListSerializer(SingleArtifactContentSerializer):
-    """
-    Serializer for ManifestLists.
-    """
-
-    digest = serializers.CharField(help_text="sha256 of the ManifestList file")
-    schema_version = serializers.IntegerField(help_text="Docker schema version")
-    media_type = serializers.CharField(help_text="Docker media type of the file")
-    manifests = DetailRelatedField(
-        many=True,
-        help_text="Manifests that are referenced by this Manifest List",
-        view_name='docker-manifests-detail',
-        queryset=models.ImageManifest.objects.all()
-    )
-
-    class Meta:
-        fields = SingleArtifactContentSerializer.Meta.fields + (
-            'digest',
-            'schema_version',
-            'media_type',
-            'manifests',
-        )
-        model = models.ManifestList
 
 
 class ManifestSerializer(SingleArtifactContentSerializer):
@@ -89,6 +43,12 @@ class ManifestSerializer(SingleArtifactContentSerializer):
     digest = serializers.CharField(help_text="sha256 of the Manifest file")
     schema_version = serializers.IntegerField(help_text="Docker schema version")
     media_type = serializers.CharField(help_text="Docker media type of the file")
+    listed_manifests = DetailRelatedField(
+        many=True,
+        help_text="Manifests that are referenced by this Manifest List",
+        view_name='docker-manifests-detail',
+        queryset=models.Manifest.objects.all()
+    )
     blobs = DetailRelatedField(
         many=True,
         help_text="Blobs that are referenced by this Manifest",
@@ -107,10 +67,11 @@ class ManifestSerializer(SingleArtifactContentSerializer):
             'digest',
             'schema_version',
             'media_type',
-            'blobs',
+            'listed_manifests',
             'config_blob',
+            'blobs',
         )
-        model = models.ImageManifest
+        model = models.Manifest
 
 
 class BlobSerializer(SingleArtifactContentSerializer):
