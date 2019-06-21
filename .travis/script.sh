@@ -34,9 +34,9 @@ if [ "$TEST" = 'docs' ]; then
   make html
   cd ..
 
-    if [ -x $POST_DOCS_TEST ]; then
-        $POST_DOCS_TEST
-    fi
+  if [ -x $POST_DOCS_TEST ]; then
+      $POST_DOCS_TEST
+  fi
   exit
 fi
 
@@ -54,15 +54,16 @@ if [ "$TEST" = 'bindings' ]; then
   fi
 
   ./generate.sh pulpcore python
-  ./generate.sh pulp_docker python
   pip install ./pulpcore-client
+  ./generate.sh pulp_docker python
   pip install ./pulp_docker-client
+
   python $TRAVIS_BUILD_DIR/.travis/test_bindings.py
   exit
 fi
 
 # Run unit tests.
-django-admin test ./pulp_docker/tests/unit/
+coverage run $(which django-admin) test ./pulp_docker/tests/unit/
 
 # Run functional tests, and upload coverage report to codecov.
 show_logs_and_return_non_zero() {
@@ -88,6 +89,8 @@ wait_for_pulp 20
 # Run functional tests
 pytest -v -r sx --color=yes --pyargs pulpcore.tests.functional || show_logs_and_return_non_zero
 pytest -v -r sx --color=yes --pyargs pulp_docker.tests.functional || show_logs_and_return_non_zero
+
+
 
 if [ -x $POST_SCRIPT ]; then
     $POST_SCRIPT
