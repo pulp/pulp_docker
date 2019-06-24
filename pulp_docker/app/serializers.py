@@ -166,6 +166,7 @@ class DockerRemoteSerializer(RemoteSerializer):
     )
     whitelist_tags = serializers.CharField(
         required=False,
+        allow_null=True,
         help_text=_("Whitelist tags to sync")
     )
 
