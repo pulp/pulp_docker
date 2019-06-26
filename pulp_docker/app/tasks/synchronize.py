@@ -15,7 +15,7 @@ from pulpcore.plugin.stages import (
 )
 
 from .sync_stages import InterrelateContent, DockerFirstStage
-from pulp_docker.app.models import DockerRemote, ManifestTag, ManifestListTag
+from pulp_docker.app.models import DockerRemote, ManifestTag
 
 
 log = logging.getLogger(__name__)
@@ -39,8 +39,7 @@ def synchronize(remote_pk, repository_pk):
     repository = Repository.objects.get(pk=repository_pk)
     if not remote.url:
         raise ValueError(_('A remote must have a url specified to synchronize.'))
-    remove_duplicate_tags = [{'model': ManifestTag, 'field_names': ['name']},
-                             {'model': ManifestListTag, 'field_names': ['name']}]
+    remove_duplicate_tags = [{'model': ManifestTag, 'field_names': ['name']}]
     log.info(_('Synchronizing: repository={r} remote={p}').format(
         r=repository.name, p=remote.name))
     first_stage = DockerFirstStage(remote)

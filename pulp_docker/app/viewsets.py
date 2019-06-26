@@ -16,6 +16,7 @@ from pulpcore.plugin.serializers import (
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
+    ContentFilter,
     ContentViewSet,
     RemoteViewSet,
     OperationPostponedResponse,)
@@ -24,21 +25,16 @@ from rest_framework.decorators import detail_route
 from . import models, serializers, tasks
 
 
-class ManifestListTagViewSet(ContentViewSet):
+class ManifestTagFilter(ContentFilter):
     """
-    ViewSet for ManifestListTag.
+    FilterSet for Tags.
     """
 
-    endpoint_name = 'manifest-list-tags'
-    queryset = models.ManifestListTag.objects.all()
-    serializer_class = serializers.ManifestListTagSerializer
-
-    @transaction.atomic
-    def create(self, request):
-        """
-        Create a new ManifestListTag from a request.
-        """
-        raise NotImplementedError()
+    class Meta:
+        model = models.ManifestTag
+        fields = [
+            'name',
+        ]
 
 
 class ManifestTagViewSet(ContentViewSet):
@@ -49,28 +45,12 @@ class ManifestTagViewSet(ContentViewSet):
     endpoint_name = 'manifest-tags'
     queryset = models.ManifestTag.objects.all()
     serializer_class = serializers.ManifestTagSerializer
+    filterset_class = ManifestTagFilter
 
     @transaction.atomic
     def create(self, request):
         """
         Create a new ManifestTag from a request.
-        """
-        raise NotImplementedError()
-
-
-class ManifestListViewSet(ContentViewSet):
-    """
-    ViewSet for ManifestList.
-    """
-
-    endpoint_name = 'manifest-lists'
-    queryset = models.ManifestList.objects.all()
-    serializer_class = serializers.ManifestListSerializer
-
-    @transaction.atomic
-    def create(self, request):
-        """
-        Create a new ManifestList from a request.
         """
         raise NotImplementedError()
 
@@ -81,7 +61,7 @@ class ManifestViewSet(ContentViewSet):
     """
 
     endpoint_name = 'manifests'
-    queryset = models.ImageManifest.objects.all()
+    queryset = models.Manifest.objects.all()
     serializer_class = serializers.ManifestSerializer
 
     @transaction.atomic
@@ -92,6 +72,18 @@ class ManifestViewSet(ContentViewSet):
         raise NotImplementedError()
 
 
+class BlobFilter(ContentFilter):
+    """
+    FilterSet for Blobs.
+    """
+
+    class Meta:
+        model = models.ManifestBlob
+        fields = [
+            'digest',
+        ]
+
+
 class BlobViewSet(ContentViewSet):
     """
     ViewSet for ManifestBlobs.
@@ -100,6 +92,7 @@ class BlobViewSet(ContentViewSet):
     endpoint_name = 'blobs'
     queryset = models.ManifestBlob.objects.all()
     serializer_class = serializers.BlobSerializer
+    filterset_class = BlobFilter
 
     @transaction.atomic
     def create(self, request):

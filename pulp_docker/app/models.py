@@ -54,7 +54,7 @@ class ManifestBlob(Content):
         unique_together = ('digest',)
 
 
-class ImageManifest(Content):
+class Manifest(Content):
     """
     A docker manifest.
 
@@ -64,6 +64,12 @@ class ImageManifest(Content):
         digest (models.CharField): The manifest digest.
         schema_version (models.IntegerField): The docker schema version.
         media_type (models.CharField): The manifest media type.
+
+    Relations:
+        blobs (models.ManyToManyField): Many-to-many relationship with ManifestBlob.
+        config_blob (models.ForeignKey): Blob that contains configuration for this Manifest.
+        listed_manifests (models.ManyToManyField): Many-to-many relationship with Manifest. This
+            field is used only for a manifest-list type Manifests.
     """
 
     TYPE = 'manifest'
@@ -75,42 +81,20 @@ class ImageManifest(Content):
         choices=(
             (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1),
             (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V2),
+            (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.MANIFEST_LIST),
         ))
 
     blobs = models.ManyToManyField(ManifestBlob, through='BlobManifestBlob')
     config_blob = models.ForeignKey(ManifestBlob, related_name='config_blob',
-                                    null=True, on_delete=models.CASCADE)  # through table?
+                                    null=True, on_delete=models.CASCADE)
 
-    class Meta:
-        unique_together = ('digest',)
-
-
-class ManifestList(Content):
-    """
-    A manifest list.
-
-    This content has one artifact.
-
-    Fields:
-        digest (models.CharField): The manifest digest.
-        schema_version (models.IntegerField): The docker schema version.
-        media_type (models.CharField): The manifest media type.
-
-    Relations:
-        manifests (models.ManyToManyField): Many-to-many relationship with Manifest.
-    """
-
-    TYPE = 'manifest-list'
-
-    digest = models.CharField(max_length=255)
-    schema_version = models.IntegerField()
-    media_type = models.CharField(
-        max_length=60,
-        choices=(
-            (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.MANIFEST_LIST),
-        ))
-
-    manifests = models.ManyToManyField(ImageManifest, through='ManifestListManifest')
+    # Order matters for through fields, (source, target)
+    listed_manifests = models.ManyToManyField(
+        "self",
+        through='ManifestListManifest',
+        symmetrical=False,
+        through_fields=('image_manifest', 'manifest_list')
+    )
 
     class Meta:
         unique_together = ('digest',)
@@ -122,7 +106,7 @@ class BlobManifestBlob(models.Model):
     """
 
     manifest = models.ForeignKey(
-        ImageManifest, related_name='blob_manifests', on_delete=models.CASCADE)
+        Manifest, related_name='blob_manifests', on_delete=models.CASCADE)
     manifest_blob = models.ForeignKey(
         ManifestBlob, related_name='manifest_blobs', on_delete=models.CASCADE)
 
@@ -154,13 +138,13 @@ class ManifestListManifest(models.Model):
     features = models.TextField(default='', blank=True)
     variant = models.CharField(max_length=255)
 
-    manifest = models.ForeignKey(
-        ImageManifest, related_name='manifests', on_delete=models.CASCADE)
+    image_manifest = models.ForeignKey(
+        Manifest, related_name='image_manifests', on_delete=models.CASCADE)
     manifest_list = models.ForeignKey(
-        ManifestList, related_name='manifest_lists', on_delete=models.CASCADE)
+        Manifest, related_name='manifest_lists', on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ('manifest', 'manifest_list')
+        unique_together = ('image_manifest', 'manifest_list')
 
 
 class ManifestTag(Content):
@@ -171,7 +155,7 @@ class ManifestTag(Content):
         name (models.CharField): The tag name.
 
     Relations:
-        manifest (models.ForeignKey): A referenced Manifest.
+        tagged_manifest (models.ForeignKey): A referenced Manifest.
 
     """
 
@@ -179,37 +163,12 @@ class ManifestTag(Content):
 
     name = models.CharField(max_length=255, db_index=True)
 
-    manifest = models.ForeignKey(
-        ImageManifest, null=True, related_name='manifest_tags', on_delete=models.CASCADE)
+    tagged_manifest = models.ForeignKey(
+        Manifest, null=True, related_name='tagged_manifests', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = (
-            ('name', 'manifest'),
-        )
-
-
-class ManifestListTag(Content):
-    """
-    A tagged Manifest List.
-
-    Fields:
-        name (models.CharField): The tag name.
-
-    Relations:
-        manifest_list (models.ForeignKey): A referenced Manifest List.
-
-    """
-
-    TYPE = 'manifest-list-tag'
-
-    name = models.CharField(max_length=255, db_index=True)
-
-    manifest_list = models.ForeignKey(
-        ManifestList, null=True, related_name='manifest_list_tags', on_delete=models.CASCADE)
-
-    class Meta:
-        unique_together = (
-            ('name', 'manifest_list'),
+            ('name', 'tagged_manifest'),
         )
 
 

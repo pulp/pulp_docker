@@ -9,9 +9,8 @@ from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressBar, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 
-from pulp_docker.app.models import (ImageManifest, MEDIA_TYPE, ManifestBlob, ManifestTag,
-                                    ManifestList, ManifestListTag, BlobManifestBlob,
-                                    ManifestListManifest)
+from pulp_docker.app.models import (Manifest, MEDIA_TYPE, ManifestBlob, ManifestTag,
+                                    BlobManifestBlob, ManifestListManifest)
 
 
 log = logging.getLogger(__name__)
@@ -65,31 +64,23 @@ class DockerFirstStage(Stage):
                 tag_list = list(set(tag_list) & set(whitelist_tags.split(',')))
             pb.increment()
 
-        msg = 'Creating Download requests for v2 Tags'
-        with ProgressBar(message=msg, total=len(tag_list)) as pb:
-            for tag_name in tag_list:
-                relative_url = '/v2/{name}/manifests/{tag}'.format(
-                    name=self.remote.namespaced_upstream_name,
-                    tag=tag_name,
-                )
-                url = urljoin(self.remote.url, relative_url)
-                downloader = self.remote.get_downloader(url=url)
-                to_download.append(downloader.run(extra_data={'headers': V2_ACCEPT_HEADERS}))
-                pb.increment()
+        for tag_name in tag_list:
+            relative_url = '/v2/{name}/manifests/{tag}'.format(
+                name=self.remote.namespaced_upstream_name,
+                tag=tag_name,
+            )
+            url = urljoin(self.remote.url, relative_url)
+            downloader = self.remote.get_downloader(url=url)
+            to_download.append(downloader.run(extra_data={'headers': V2_ACCEPT_HEADERS}))
 
-        pb_parsed_tags = ProgressBar(message='Processing v2 Tags', state='running')
-        pb_parsed_ml_tags = ProgressBar(message='Parsing Manifest List Tags', state='running')
-        pb_parsed_m_tags = ProgressBar(message='Parsing Manifests Tags', state='running')
-        global pb_parsed_blobs
-        pb_parsed_blobs = ProgressBar(message='Parsing Blobs', state='running')
-        pb_parsed_man = ProgressBar(message='Parsing Manifests', state='running')
+        pb_parsed_tags = ProgressBar(message='Processing Tags', state='running')
 
         for download_tag in asyncio.as_completed(to_download):
             tag = await download_tag
             with open(tag.path) as content_file:
                 raw = content_file.read()
             content_data = json.loads(raw)
-            mediatype = content_data.get('mediaType')
+            media_type = content_data.get('mediaType')
             tag.artifact_attributes['file'] = tag.path
             saved_artifact = Artifact(**tag.artifact_attributes)
             try:
@@ -97,24 +88,21 @@ class DockerFirstStage(Stage):
             except IntegrityError:
                 del tag.artifact_attributes['file']
                 saved_artifact = Artifact.objects.get(**tag.artifact_attributes)
-            tag_dc = self.create_tag(mediatype, saved_artifact, tag.url)
+            tag_dc = self.create_tag(saved_artifact, tag.url)
 
-            if type(tag_dc.content) is ManifestListTag:
+            if media_type == MEDIA_TYPE.MANIFEST_LIST:
                 list_dc = self.create_tagged_manifest_list(
                     tag_dc, content_data)
                 await self.put(list_dc)
-                pb_parsed_ml_tags.increment()
-                tag_dc.extra_data['list_relation'] = list_dc
+                tag_dc.extra_data['man_relation'] = list_dc
                 for manifest_data in content_data.get('manifests'):
                     man_dc = self.create_manifest(list_dc, manifest_data)
                     future_manifests.append(man_dc.get_or_create_future())
                     man_dcs[man_dc.content.digest] = man_dc
                     await self.put(man_dc)
-                    pb_parsed_man.increment()
-            elif type(tag_dc.content) is ManifestTag:
+            else:
                 man_dc = self.create_tagged_manifest(tag_dc, content_data)
                 await self.put(man_dc)
-                pb_parsed_m_tags.increment()
                 tag_dc.extra_data['man_relation'] = man_dc
                 self.handle_blobs(man_dc, content_data, total_blobs)
             await self.put(tag_dc)
@@ -123,15 +111,6 @@ class DockerFirstStage(Stage):
         pb_parsed_tags.state = 'completed'
         pb_parsed_tags.total = pb_parsed_tags.done
         pb_parsed_tags.save()
-        pb_parsed_ml_tags.state = 'completed'
-        pb_parsed_ml_tags.total = pb_parsed_ml_tags.done
-        pb_parsed_ml_tags.save()
-        pb_parsed_m_tags.state = 'completed'
-        pb_parsed_m_tags.total = pb_parsed_m_tags.done
-        pb_parsed_m_tags.save()
-        pb_parsed_man.state = 'completed'
-        pb_parsed_man.total = pb_parsed_man.done
-        pb_parsed_man.save()
 
         for manifest_future in asyncio.as_completed(future_manifests):
             man = await manifest_future
@@ -142,10 +121,6 @@ class DockerFirstStage(Stage):
             self.handle_blobs(man_dc, content_data, total_blobs)
         for blob in total_blobs:
             await self.put(blob)
-
-        pb_parsed_blobs.state = 'completed'
-        pb_parsed_blobs.total = pb_parsed_blobs.done
-        pb_parsed_blobs.save()
 
     async def handle_pagination(self, link, repo_name, tag_list):
         """
@@ -173,15 +148,13 @@ class DockerFirstStage(Stage):
             blob_dc = self.create_blob(man, layer)
             blob_dc.extra_data['blob_relation'] = man
             total_blobs.append(blob_dc)
-            pb_parsed_blobs.increment()
         layer = content_data.get('config', None)
         if layer:
             blob_dc = self.create_blob(man, layer)
             blob_dc.extra_data['config_relation'] = man
-            pb_parsed_blobs.increment()
             total_blobs.append(blob_dc)
 
-    def create_tag(self, mediatype, saved_artifact, url):
+    def create_tag(self, saved_artifact, url):
         """
         Create `DeclarativeContent` for each tag.
 
@@ -200,10 +173,7 @@ class DockerFirstStage(Stage):
             tag=tag_name,
         )
         url = urljoin(self.remote.url, relative_url)
-        if mediatype == MEDIA_TYPE.MANIFEST_LIST:
-            tag = ManifestListTag(name=tag_name)
-        else:
-            tag = ManifestTag(name=tag_name)
+        tag = ManifestTag(name=tag_name)
         da = DeclarativeArtifact(
             artifact=saved_artifact,
             url=url,
@@ -228,7 +198,7 @@ class DockerFirstStage(Stage):
             digest=digest,
         )
         url = urljoin(self.remote.url, relative_url)
-        manifest_list = ManifestList(
+        manifest_list = Manifest(
             digest=digest,
             schema_version=manifest_list_data['schemaVersion'],
             media_type=manifest_list_data['mediaType'],
@@ -253,7 +223,7 @@ class DockerFirstStage(Stage):
             manifest_data (dict): Data about a single new ImageManifest.
         """
         digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
-        manifest = ImageManifest(
+        manifest = Manifest(
             digest=digest,
             schema_version=manifest_data['schemaVersion'],
             media_type=manifest_data.get('mediaType', MEDIA_TYPE.MANIFEST_V1)
@@ -294,7 +264,7 @@ class DockerFirstStage(Stage):
             remote=self.remote,
             extra_data={'headers': V2_ACCEPT_HEADERS}
         )
-        manifest = ImageManifest(
+        manifest = Manifest(
             digest=manifest_data['digest'],
             schema_version=2 if manifest_data['mediaType'] == MEDIA_TYPE.MANIFEST_V2 else 1,
             media_type=manifest_data['mediaType'],
@@ -378,10 +348,8 @@ class InterrelateContent(Stage):
                 self.relate_blob(dc)
             elif dc.extra_data.get('config_relation'):
                 self.relate_config_blob(dc)
-            elif dc.extra_data.get('list_relation'):
-                self.relate_manifest_list(dc)
             elif dc.extra_data.get('man_relation'):
-                self.relate_manifest(dc)
+                self.relate_manifest_tag(dc)
 
             await self.put(dc)
 
@@ -410,7 +378,7 @@ class InterrelateContent(Stage):
         except IntegrityError:
             pass
 
-    def relate_manifest(self, dc):
+    def relate_manifest_tag(self, dc):
         """
         Relate an ImageManifest to a Tag.
 
@@ -418,13 +386,12 @@ class InterrelateContent(Stage):
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestTag
         """
         related_dc = dc.extra_data.get('man_relation')
-        assert dc.content.manifest is None
-        dc.content.manifest = related_dc.content
+        dc.content.tagged_manifest = related_dc.content
         try:
             dc.content.save()
         except IntegrityError:
             existing_tag = ManifestTag.objects.get(name=dc.content.name,
-                                                   manifest=related_dc.content)
+                                                   tagged_manifest=related_dc.content)
             dc.content = existing_tag
 
     def relate_manifest_to_list(self, dc):
@@ -435,27 +402,8 @@ class InterrelateContent(Stage):
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ImageManifest
         """
         related_dc = dc.extra_data.get('relation')
-        thru = ManifestListManifest(manifest_list=related_dc.content, manifest=dc.content)
+        thru = ManifestListManifest(manifest_list=dc.content, image_manifest=related_dc.content)
         try:
             thru.save()
         except IntegrityError:
-            pass
-
-    def relate_manifest_list(self, dc):
-        """
-        Relate a ManifestList to a Tag.
-
-        Args:
-            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestListTag
-        """
-        related_dc = dc.extra_data.get('list_relation')
-        assert dc.content.manifest_list is None
-        dc.content.manifest_list = related_dc.content
-        try:
-            dc.content.save()
-        except IntegrityError:
-
-            existing_tag = ManifestListTag.objects.get(name=dc.content.name,
-                                                       manifest_list=related_dc.content)
-            dc.content = existing_tag
             pass

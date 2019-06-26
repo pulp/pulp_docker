@@ -8,7 +8,7 @@ from multidict import MultiDict
 
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
-from pulp_docker.app.models import DockerDistribution, ManifestTag, ManifestListTag, MEDIA_TYPE
+from pulp_docker.app.models import DockerDistribution, ManifestTag, MEDIA_TYPE
 
 
 log = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ class Registry(Handler):
         repository_version = distribution.get_repository_version()
         for c in repository_version.content:
             c = c.cast()
-            if isinstance(c, ManifestTag) or isinstance(c, ManifestListTag):
+            if isinstance(c, ManifestTag):
                 tags['tags'].add(c.name)
         tags['tags'] = list(tags['tags'])
         return web.json_response(tags)
@@ -131,45 +131,34 @@ class Registry(Handler):
         distribution = self._match_distribution(path)
         repository_version = distribution.get_repository_version()
         accepted_media_types = await Registry.get_accepted_media_types(request)
-        if MEDIA_TYPE.MANIFEST_LIST in accepted_media_types:
-            try:
-                tag = ManifestListTag.objects.get(
-                    pk__in=repository_version.content,
-                    name=tag_name
-                )
-            # If there is no manifest list tag, try again with manifest tag.
-            except ObjectDoesNotExist:
-                pass
-            else:
-                response_headers = {'Content-Type': MEDIA_TYPE.MANIFEST_LIST}
-                return await Registry.dispatch_tag(tag, response_headers)
-
-        if MEDIA_TYPE.MANIFEST_V2 in accepted_media_types:
-            try:
-                tag = ManifestTag.objects.get(
-                    pk__in=repository_version.content,
-                    name=tag_name,
-                    manifest__schema_version=2
-                )
-            except ObjectDoesNotExist:
-                pass
-            else:
-                response_headers = {'Content-Type': MEDIA_TYPE.MANIFEST_V2}
-                return await Registry.dispatch_tag(tag, response_headers)
 
         try:
             tag = ManifestTag.objects.get(
                 pk__in=repository_version.content,
                 name=tag_name,
-                manifest__schema_version=1
             )
         except ObjectDoesNotExist:
-            # This is where we could eventually support on-the-fly conversion to schema 1.
-            log.warn("Client does not accept Docker V2 Schema 2 and is not currently supported.")
             raise PathNotResolved(tag_name)
+
+        if tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V1:
+            return_media_type = MEDIA_TYPE.MANIFEST_V1_SIGNED
+
+        elif tag.tagged_manifest.media_type in accepted_media_types:
+            return_media_type = tag.tagged_manifest.media_type
         else:
-            response_headers = {'Content-Type': MEDIA_TYPE.MANIFEST_V1_SIGNED}
-            return await Registry.dispatch_tag(tag, response_headers)
+            # This is where we could eventually support on-the-fly conversion to schema 1.
+            log.warn(
+                "The requested tag `{name}` is of type {media_type}, but the client only accepts "
+                "{accepted_media_types}.".format(
+                    name=tag.name,
+                    media_type=tag.tagged_manifest.media_type,
+                    accepted_media_types=accepted_media_types
+                )
+            )
+            raise PathNotResolved(tag_name)
+
+        response_headers = {'Content-Type': return_media_type}
+        return await Registry.dispatch_tag(tag, response_headers)
 
     @staticmethod
     async def dispatch_tag(tag, response_headers):
