@@ -104,7 +104,3 @@ venv.bak/
 .vscode/
 .idea/
 
-
-
-# Migrations, remove before release
-pulp_docker/app/migrations
