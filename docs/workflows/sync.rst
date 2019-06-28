@@ -1,8 +1,11 @@
+.. _sync-workflow:
+
 Synchronize a Repository
 ========================
 
 Users can populate their repositories with content from an external source like Docker Hub by syncing
 their repository.
+
 
 Create a repository ``foo``
 ---------------------------
@@ -27,6 +30,8 @@ Save this url as an environment variable::
 Reference (pulpcore): `Repository API Usage
 <https://docs.pulpproject.org/en/3.0/nightly/restapi.html#tag/repositories>`_
 
+
+.. _create-remote:
 
 Create a Remote
 ---------------
@@ -57,6 +62,13 @@ Save this url as an environment variable::
 
     $ export REMOTE_HREF=$(http :24817/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')
 
+
+.. _filtered-sync-workflow:
+
+.. note::
+    Use `whitelist_tags` when only a subset of tags are needed to be synced from the remote source.
+
+
 Reference: `Docker Remote Usage <../restapi.html#tag/remotes>`_
 
 Sync repository ``foo`` using Remote ``bar``
@@ -80,6 +92,9 @@ synchroinze task completes, it creates a new version, which is specified in ``cr
     $  http $BASE_ADDR/pulp/api/v3/tasks/3896447a-2799-4818-a3e5-df8552aeb903/
 
 Reference: `Docker sync Usage <../restapi.html#operation/remotes_docker_docker_sync>`_
+
+
+.. _versioned-repo-created:
 
 Look at the new Repository Version created
 ------------------------------------------
