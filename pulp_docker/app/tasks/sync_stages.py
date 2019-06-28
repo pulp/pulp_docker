@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import json
+import hashlib
 import logging
 
 from gettext import gettext as _
@@ -77,9 +79,9 @@ class DockerFirstStage(Stage):
 
         for download_tag in asyncio.as_completed(to_download):
             tag = await download_tag
-            with open(tag.path) as content_file:
-                raw = content_file.read()
-            content_data = json.loads(raw)
+            with open(tag.path, 'rb') as content_file:
+                raw_data = content_file.read()
+            content_data = json.loads(raw_data)
             media_type = content_data.get('mediaType')
             tag.artifact_attributes['file'] = tag.path
             saved_artifact = Artifact(**tag.artifact_attributes)
@@ -101,7 +103,7 @@ class DockerFirstStage(Stage):
                     man_dcs[man_dc.content.digest] = man_dc
                     await self.put(man_dc)
             else:
-                man_dc = self.create_tagged_manifest(tag_dc, content_data)
+                man_dc = self.create_tagged_manifest(tag_dc, content_data, raw_data)
                 await self.put(man_dc)
                 tag_dc.extra_data['man_relation'] = man_dc
                 self.handle_blobs(man_dc, content_data, total_blobs)
@@ -214,19 +216,25 @@ class DockerFirstStage(Stage):
 
         return list_dc
 
-    def create_tagged_manifest(self, tag_dc, manifest_data):
+    def create_tagged_manifest(self, tag_dc, manifest_data, raw_data):
         """
         Create an Image Manifest.
 
         Args:
             tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
             manifest_data (dict): Data about a single new ImageManifest.
+            raw_data: (str): The raw JSON representation of the ImageManifest.
         """
-        digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
+        media_type = manifest_data.get('mediaType', MEDIA_TYPE.MANIFEST_V1)
+        if media_type == MEDIA_TYPE.MANIFEST_V2:
+            digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
+        else:
+
+            digest = self._calculate_digest(raw_data)
         manifest = Manifest(
             digest=digest,
             schema_version=manifest_data['schemaVersion'],
-            media_type=manifest_data.get('mediaType', MEDIA_TYPE.MANIFEST_V1)
+            media_type=media_type
         )
         relative_url = '/v2/{name}/manifests/{digest}'.format(
             name=self.remote.namespaced_upstream_name,
@@ -329,6 +337,77 @@ class DockerFirstStage(Stage):
             log.debug(_('Foreign Layer: %(d)s EXCLUDED'), dict(d=layer))
             return False
         return True
+
+    def _calculate_digest(self, manifest):
+        """
+        Calculate the requested digest of the ImageManifest, given in JSON.
+
+        Args:
+            manifest (str):  The raw JSON representation of the Manifest.
+
+        Returns:
+            str: The digest of the given ImageManifest
+
+        """
+        decoded_manifest = json.loads(manifest)
+        if 'signatures' in decoded_manifest:
+            # This manifest contains signatures. Unfortunately, the Docker manifest digest
+            # is calculated on the unsigned version of the Manifest so we need to remove the
+            # signatures. To do this, we will look at the 'protected' key within the first
+            # signature. This key indexes a (malformed) base64 encoded JSON dictionary that
+            # tells us how many bytes of the manifest we need to keep before the signature
+            # appears in the original JSON and what the original ending to the manifest was after
+            # the signature block. We will strip out the bytes after this cutoff point, add back the
+            # original ending, and then calculate the sha256 sum of the transformed JSON to get the
+            # digest.
+            protected = decoded_manifest['signatures'][0]['protected']
+            # Add back the missing padding to the protected block so that it is valid base64.
+            protected = self._pad_unpadded_b64(protected)
+            # Now let's decode the base64 and load it as a dictionary so we can get the length
+            protected = base64.b64decode(protected)
+            protected = json.loads(protected)
+            # This is the length of the signed portion of the Manifest, except for a trailing
+            # newline and closing curly brace.
+            signed_length = protected['formatLength']
+            # The formatTail key indexes a base64 encoded string that represents the end of the
+            # original Manifest before signatures. We will need to add this string back to the
+            # trimmed Manifest to get the correct digest. We'll do this as a one liner since it is
+            # a very similar process to what we've just done above to get the protected block
+            # decoded.
+            signed_tail = base64.b64decode(self._pad_unpadded_b64(protected['formatTail']))
+            # Now we can reconstruct the original Manifest that the digest should be based on.
+            manifest = manifest[:signed_length] + signed_tail
+
+        return "sha256:{digest}".format(digest=hashlib.sha256(manifest).hexdigest())
+
+    def _pad_unpadded_b64(self, unpadded_b64):
+        """
+        Fix bad padding.
+
+        Docker has not included the required padding at the end of the base64 encoded
+        'protected' block, or in some encased base64 within it. This function adds the correct
+        number of ='s signs to the unpadded base64 text so that it can be decoded with Python's
+        base64 library.
+
+        Args:
+            unpadded_b64 (str): The unpadded base64 text.
+
+        Returns:
+            str: The same base64 text with the appropriate number of ='s symbols.
+
+        """
+        # The Pulp team has not observed any newlines or spaces within the base64 from Docker, but
+        # Docker's own code does this same operation so it seemed prudent to include it here.
+        # See lines 167 to 168 here:
+        # https://github.com/docker/libtrust/blob/9cbd2a1374f46905c68a4eb3694a130610adc62a/util.go
+        unpadded_b64 = unpadded_b64.replace('\n', '').replace(' ', '')
+        # It is illegal base64 for the remainder to be 1 when the length of the block is
+        # divided by 4.
+        if len(unpadded_b64) % 4 == 1:
+            raise ValueError(_('Invalid base64: {t}').format(t=unpadded_b64))
+        # Add back the missing padding characters, based on the length of the encoded string
+        paddings = {0: '', 2: '==', 3: '='}
+        return unpadded_b64 + paddings[len(unpadded_b64) % 4]
 
 
 class InterrelateContent(Stage):
