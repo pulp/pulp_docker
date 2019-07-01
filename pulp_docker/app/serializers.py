@@ -4,6 +4,7 @@ from django.conf import settings
 
 from rest_framework import serializers
 
+from pulpcore.plugin.models import Remote
 from pulpcore.plugin.serializers import (
     DetailRelatedField,
     RemoteSerializer,
@@ -129,6 +130,12 @@ class DockerRemoteSerializer(RemoteSerializer):
         required=False,
         allow_null=True,
         help_text=_("Whitelist tags to sync")
+    )
+
+    policy = serializers.ChoiceField(
+        help_text="The policy to use when downloading content.",
+        choices=Remote.POLICY_CHOICES,
+        default=Remote.IMMEDIATE
     )
 
     class Meta:

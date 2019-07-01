@@ -79,6 +79,7 @@ class Registry(Handler):
         full_headers = MultiDict()
 
         full_headers['Content-Type'] = headers['Content-Type']
+        full_headers['Docker-Content-Digest'] = headers['Docker-Content-Digest']
         full_headers['Docker-Distribution-API-Version'] = 'registry/2.0'
         full_headers['Content-Length'] = os.path.getsize(path)
         full_headers['Content-Disposition'] = 'attachment; filename={n}'.format(
@@ -157,7 +158,8 @@ class Registry(Handler):
             )
             raise PathNotResolved(tag_name)
 
-        response_headers = {'Content-Type': return_media_type}
+        response_headers = {'Content-Type': return_media_type,
+                            'Docker-Content-Digest': tag.tagged_manifest.digest}
         return await Registry.dispatch_tag(tag, response_headers)
 
     @staticmethod
@@ -195,7 +197,8 @@ class Registry(Handler):
         try:
             ca = ContentArtifact.objects.get(content__in=repository_version.content,
                                              relative_path=digest)
-            headers = {'Content-Type': ca.content.cast().media_type}
+            headers = {'Content-Type': ca.content.cast().media_type,
+                       'Docker-Content-Digest': ca.content.cast().digest}
         except ObjectDoesNotExist:
             raise PathNotResolved(path)
         else:
