@@ -242,8 +242,8 @@ class PullContentTestCase(unittest.TestCase):
             registry.pull(local_url)
 
 
-class PullLazyContentTestCase(unittest.TestCase):
-    """Verify whether images lazily-served by Pulp can be pulled."""
+class PullOnDemandContentTestCase(unittest.TestCase):
+    """Verify whether on-demand served images by Pulp can be pulled."""
 
     @classmethod
     def setUpClass(cls):
@@ -343,7 +343,7 @@ class PullLazyContentTestCase(unittest.TestCase):
         )
 
     def test_pull_image_from_repository(self):
-        """Verify that a client can pull the image from Pulp (lazy).
+        """Verify that a client can pull the image from Pulp (on-demand).
 
         1. Using the RegistryClient pull the image from Pulp.
         2. Pull the same image from remote registry.
@@ -379,7 +379,7 @@ class PullLazyContentTestCase(unittest.TestCase):
         registry.rmi(DOCKER_UPSTREAM_NAME)
 
     def test_pull_image_from_repository_version(self):
-        """Verify that a client can pull the image from Pulp (lazy).
+        """Verify that a client can pull the image from Pulp (on-demand).
 
         1. Using the RegistryClient pull the image from Pulp.
         2. Pull the same image from remote registry.
@@ -410,7 +410,7 @@ class PullLazyContentTestCase(unittest.TestCase):
         registry.rmi(DOCKER_UPSTREAM_NAME)
 
     def test_pull_image_with_tag(self):
-        """Verify that a client can pull the image from Pulp with a tag (lazy).
+        """Verify that a client can pull the image from Pulp with a tag (on-demand).
 
         1. Using the RegistryClient pull the image from Pulp specifying a tag.
         2. Pull the same image and same tag from remote registry.
