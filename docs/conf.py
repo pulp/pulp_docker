@@ -49,8 +49,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Pulp docker Support'
-copyright = u''
+project = u'Pulp Docker Support'
+copyright = u'2012-2019, Pulp Team'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
