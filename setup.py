@@ -3,7 +3,7 @@
 from setuptools import find_packages, setup
 
 requirements = [
-    'pulpcore-plugin~=0.1rc2',
+    'pulpcore-plugin~=0.1rc3',
 ]
 
 
@@ -12,7 +12,7 @@ with open('README.rst') as f:
 
 setup(
     name='pulp-docker',
-    version='4.0.0b5.dev',
+    version='4.0.0b5',
     description='pulp-docker plugin for the Pulp Project',
     long_description=long_description,
     license='GPLv2+',
