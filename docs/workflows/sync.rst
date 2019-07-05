@@ -87,7 +87,7 @@ Response::
     }
 
 You can follow the progress of the task with a GET request to the task href. Notice that when the
-synchroinze task completes, it creates a new version, which is specified in ``created_resources``::
+synchronize task completes, it creates a new version, which is specified in ``created_resources``::
 
     $  http $BASE_ADDR/pulp/api/v3/tasks/3896447a-2799-4818-a3e5-df8552aeb903/
 
