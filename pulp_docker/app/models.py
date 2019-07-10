@@ -41,14 +41,16 @@ class ManifestBlob(Content):
 
     TYPE = 'manifest-blob'
 
+    BLOB_CHOICES = (
+        (MEDIA_TYPE.CONFIG_BLOB, MEDIA_TYPE.CONFIG_BLOB),
+        (MEDIA_TYPE.REGULAR_BLOB, MEDIA_TYPE.REGULAR_BLOB),
+        (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB),
+    )
     digest = models.CharField(max_length=255)
     media_type = models.CharField(
         max_length=80,
-        choices=(
-            (MEDIA_TYPE.CONFIG_BLOB, MEDIA_TYPE.CONFIG_BLOB),
-            (MEDIA_TYPE.REGULAR_BLOB, MEDIA_TYPE.REGULAR_BLOB),
-            (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB),
-        ))
+        choices=BLOB_CHOICES
+    )
 
     class Meta:
         unique_together = ('digest',)
@@ -74,15 +76,16 @@ class Manifest(Content):
 
     TYPE = 'manifest'
 
+    MANIFEST_CHOICES = (
+        (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1),
+        (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V2),
+        (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.MANIFEST_LIST),
+    )
     digest = models.CharField(max_length=255)
     schema_version = models.IntegerField()
     media_type = models.CharField(
         max_length=60,
-        choices=(
-            (MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V1),
-            (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V2),
-            (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.MANIFEST_LIST),
-        ))
+        choices=MANIFEST_CHOICES)
 
     blobs = models.ManyToManyField(ManifestBlob, through='BlobManifestBlob')
     config_blob = models.ForeignKey(ManifestBlob, related_name='config_blob',
