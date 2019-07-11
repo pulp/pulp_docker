@@ -5,6 +5,7 @@ Check `Plugin Writer's Guide`_ for more details.
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
 
+from django_filters import ChoiceFilter, CharFilter
 from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 
@@ -30,10 +31,33 @@ class ManifestTagFilter(ContentFilter):
     FilterSet for Tags.
     """
 
+    media_type = CharFilter(
+        field_name='tagged_manifest__media_type',
+        lookup_expr='contains',
+    )
+    digest = CharFilter(field_name='tagged_manifest__digest')
+
     class Meta:
         model = models.ManifestTag
         fields = [
             'name',
+            'media_type',
+            'digest',
+        ]
+
+
+class ManifestFilter(ContentFilter):
+    """
+    FilterSet for Manifests.
+    """
+
+    media_type = ChoiceFilter(choices=models.Manifest.MANIFEST_CHOICES)
+
+    class Meta:
+        model = models.Manifest
+        fields = [
+            'media_type',
+            'digest',
         ]
 
 
@@ -63,6 +87,7 @@ class ManifestViewSet(ContentViewSet):
     endpoint_name = 'manifests'
     queryset = models.Manifest.objects.all()
     serializer_class = serializers.ManifestSerializer
+    filterset_class = ManifestFilter
 
     @transaction.atomic
     def create(self, request):
@@ -77,10 +102,13 @@ class BlobFilter(ContentFilter):
     FilterSet for Blobs.
     """
 
+    media_type = ChoiceFilter(choices=models.ManifestBlob.BLOB_CHOICES)
+
     class Meta:
         model = models.ManifestBlob
         fields = [
             'digest',
+            'media_type',
         ]
 
 
