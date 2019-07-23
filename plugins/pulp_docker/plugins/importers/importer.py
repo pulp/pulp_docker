@@ -1,13 +1,11 @@
 from gettext import gettext as _
 from collections import defaultdict
-from itertools import groupby
 import logging
 
 from pulp.common.config import read_json_config
 from pulp.plugins.importer import Importer
 from pulp.server.controllers import repository
 from pulp.server.db.model.criteria import UnitAssociationCriteria
-from pulp.server.db.model import RepositoryContentUnit
 from pulp.server.managers.repo import unit_association
 import pulp.server.managers.factory as manager_factory
 from pulp.server.exceptions import PulpCodedValidationException
