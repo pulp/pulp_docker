@@ -415,6 +415,10 @@ class DockerImporter(Importer):
         This call will not result in the units being deleted from Pulp itself, except for Tags
         because they are repository specific.
 
+        The actual removal is "top down", tags are removed before manifests, which are removed
+        before blobs. This is done so that if the task is interrupted, we leave orphaned content
+        rather than broken content.
+
         :param repo:   metadata describing the repository
         :type  repo:   pulp.plugins.model.Repository
         :param units:  list of objects describing the units to import in
@@ -432,40 +436,46 @@ class DockerImporter(Importer):
             if type(unit) is models.Manifest:
                 manifest_digests.add(unit.digest)
             type_dict[type(unit)].add(unit.id)
-        # TODO if memory becomes a problem, would this be safe and helpful?
-        # del(units)
 
-        removed_manifest_digests = self._purge_unlinked_manifests(
+        unlinked_manifest_digests = self._retrieve_unlinked_manifests(
             repo.repo_obj,
-            type_dict[models.ManifestList]
+            list(type_dict[models.ManifestList])
         )
         removed_unlinked_manifest_ids = set(
             models.Manifest.objects.filter(
-                digest__in=sorted(list(removed_manifest_digests))
+                digest__in=sorted(list(unlinked_manifest_digests))
             ).distinct("_id")
         )
         type_dict[models.Manifest] |= removed_unlinked_manifest_ids
-        manifest_digests |= removed_manifest_digests
-        self._purge_unlinked_blobs(repo.repo_obj, type_dict[models.Manifest])
 
         all_removed_digests = list(manifest_list_digests) + list(manifest_digests)
-        for digest in all_removed_digests:
-            self._purge_unlinked_tags(repo.repo_obj, digest)
+        self._purge_unlinked_tags(repo.repo_obj, all_removed_digests)
+
+        # purge unlinked manifests
+        unit_filter = {'digest': {'$in': sorted(unlinked_manifest_digests)}}
+        criteria = UnitAssociationCriteria(
+            type_ids=[constants.MANIFEST_TYPE_ID],
+            unit_filters=unit_filter)
+        manager = manager_factory.repo_unit_association_manager()
+        manager.unassociate_by_criteria(
+            repo_id=repo.repo_obj.repo_id,
+            criteria=criteria,
+            notify_plugins=False,
+        )
+
+        self._purge_unlinked_blobs(repo.repo_obj, list(type_dict[models.Manifest]))
 
     @staticmethod
-    def _purge_unlinked_manifests(repo, manifest_list_pks):
+    def _retrieve_unlinked_manifests(repo, manifest_list_pks):
         """
-        Remove any content related to manifest lists that are otherwise unlinked in the repository.
-
-        Returns removed manifests.
+        Retrive manifests related to given manifest lists, otherwise unlinked in the repository.
 
         :param repo: Repository to remove manifests from
         :type  repo: pulp.server.db.model.Repository
-        :param manifest_list_pks: Remove manifests that are associated with these manifest_lists
+        :param manifest_list_pks: Retrieve manifests that are associated with these manifest_lists
         :type manifest_lists: Set of manifest_list pks
 
-        return (removed_manifest_set, removable_manifests_by_digest)
-        :returns: manifests removed by this function by id
+        :returns: manifests (by digest) unlinked by this function
         :rtype:   set
         """
         manifest_lists = models.ManifestList.objects.filter(
@@ -503,26 +513,10 @@ class DockerImporter(Importer):
         for tag in unit_association.RepoUnitAssociationManager._units_from_criteria(
                 repo, criteria):
             possibly_unlinked_manifest_digests.discard(tag.manifest_digest)
-
-        removable_manifests_by_digest = possibly_unlinked_manifest_digests
-        unit_filter = {
-            'digest': {
-                '$in': sorted(removable_manifests_by_digest)
-            }
-        }
-        criteria = UnitAssociationCriteria(
-            type_ids=[constants.MANIFEST_TYPE_ID],
-            unit_filters=unit_filter)
-        manager = manager_factory.repo_unit_association_manager()
-        manager.unassociate_by_criteria(
-            repo_id=repo.repo_id,
-            criteria=criteria,
-            notify_plugins=False,
-        )
-        return removable_manifests_by_digest
+        return possibly_unlinked_manifest_digests
 
     @staticmethod
-    def _purge_unlinked_tags(repo, digest):
+    def _purge_unlinked_tags(repo, digests):
         """
         Purge Tags associated with the given Manifest (image or list) in the repository.
         We don't want to leave Tags that reference Manifests (image or lists) that no longer exist.
@@ -534,7 +528,7 @@ class DockerImporter(Importer):
         """
         # Find Tag objects that reference the removed Manifest. We can remove any such Tags from
         # the repository, and from Pulp as well (since Tag objects are repository specific).
-        unit_filter = {'manifest_digest': digest}
+        unit_filter = {'manifest_digest': {"$in": digests}}
         criteria = UnitAssociationCriteria(
             type_ids=[constants.TAG_TYPE_ID],
             unit_filters=unit_filter)
@@ -545,7 +539,7 @@ class DockerImporter(Importer):
             notify_plugins=False)
         # Finally, we can remove the Tag objects from Pulp entirely, since Tags are repository
         # specific.
-        models.Tag.objects.filter(repo_id=repo.repo_id, manifest_digest=digest).delete()
+        models.Tag.objects.filter(repo_id=repo.repo_id, manifest_digest=digests).delete()
 
     @staticmethod
     def _purge_unlinked_blobs(repo, manifest_pks):
