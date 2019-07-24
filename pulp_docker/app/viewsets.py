@@ -5,7 +5,7 @@ Check `Plugin Writer's Guide`_ for more details.
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
 
-from django_filters import CharFilter, MultipleChoiceFilter
+from django_filters import MultipleChoiceFilter
 from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 
@@ -17,6 +17,7 @@ from pulpcore.plugin.serializers import (
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
+    CharInFilter,
     ContentFilter,
     ContentViewSet,
     RemoteViewSet,
@@ -36,7 +37,7 @@ class ManifestTagFilter(ContentFilter):
         field_name='tagged_manifest__media_type',
         lookup_expr='contains',
     )
-    digest = CharFilter(field_name='tagged_manifest__digest')
+    digest = CharInFilter(field_name='tagged_manifest__digest', lookup_expr='in')
 
     class Meta:
         model = models.ManifestTag
