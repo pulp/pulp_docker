@@ -9,6 +9,7 @@ from multidict import MultiDict
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
 from pulp_docker.app.models import DockerDistribution, Tag, MEDIA_TYPE
+from pulp_docker.app.utils import _convert_manifest
 
 
 log = logging.getLogger(__name__)
@@ -140,28 +141,40 @@ class Registry(Handler):
                 name=tag_name,
             )
         except ObjectDoesNotExist:
+            # return 404 if tag is invalid
             raise PathNotResolved(tag_name)
+
 
         if tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V1:
+            # covers when none headers or 'application/json'
             return_media_type = MEDIA_TYPE.MANIFEST_V1_SIGNED
+            response_headers = {'Content-Type': return_media_type,
+                                'Docker-Content-Digest': tag.tagged_manifest.digest}
+            return await Registry.dispatch_tag(tag, response_headers)
 
-        elif tag.tagged_manifest.media_type in accepted_media_types:
+        if tag.tagged_manifest.media_type in accepted_media_types:
             return_media_type = tag.tagged_manifest.media_type
-        else:
-            # This is where we could eventually support on-the-fly conversion to schema 1.
-            log.warn(
-                "The requested tag `{name}` is of type {media_type}, but the client only accepts "
-                "{accepted_media_types}.".format(
-                    name=tag.name,
-                    media_type=tag.tagged_manifest.media_type,
-                    accepted_media_types=accepted_media_types
+            response_headers = {'Content-Type': return_media_type,
+                                'Docker-Content-Digest': tag.tagged_manifest.digest}
+            return await Registry.dispatch_tag(tag, response_headers)
+
+        log.warn(
+                "Requested Manifest is not compatible against {accepted_media_types}; "
+                "checking for conversion.".format(accepted_media_types=accepted_media_types
                 )
             )
-            raise PathNotResolved(tag_name)
 
-        response_headers = {'Content-Type': return_media_type,
-                            'Docker-Content-Digest': tag.tagged_manifest.digest}
-        return await Registry.dispatch_tag(tag, response_headers)
+        # convert manifest if possible
+        schema, converted, digest = _convert_manifest(tag, accepted_media_types)
+        if schema is None:
+            raise PathNotResolved(tag_name)
+        response_headers = {'Content-Type': MEDIA_TYPE.MANIFEST_V1_SIGNED,
+                            'Docker-Content-Digest': digest}
+        if not converted:
+            return await Registry.dispatch_tag(schema, response_headers)
+        # do not use dispatch_tag here because we will not save converted schema1 as artifact
+        # todo implement dispatch_converted_schema1 method
+        return await Registry.dispatch_converted_schema1(converted, response_headers)
 
     @staticmethod
     async def dispatch_tag(tag, response_headers):
@@ -185,6 +198,9 @@ class Registry(Handler):
         else:
             return await Registry._dispatch(os.path.join(settings.MEDIA_ROOT, artifact.file.name),
                                             response_headers)
+
+    async def dispatch_converted_schema1(converted, response_headers):
+        pass
 
     async def get_by_digest(self, request):
         """
