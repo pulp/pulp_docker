@@ -21,7 +21,7 @@ from pulpcore.plugin.viewsets import (
     ContentViewSet,
     RemoteViewSet,
     OperationPostponedResponse,)
-from rest_framework.decorators import detail_route
+from rest_framework.decorators import action
 
 from . import models, serializers, tasks
 
@@ -145,7 +145,7 @@ class DockerRemoteViewSet(RemoteViewSet):
         operation_description="Trigger an asynchronous task to sync content",
         responses={202: AsyncOperationResponseSerializer}
     )
-    @detail_route(methods=('post',), serializer_class=RepositorySyncURLSerializer)
+    @action(detail=True, methods=['post'], serializer_class=RepositorySyncURLSerializer)
     def sync(self, request, pk):
         """
         Synchronizes a repository. The ``repository`` field has to be provided.
