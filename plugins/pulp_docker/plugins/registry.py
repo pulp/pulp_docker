@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+from time import sleep
 import traceback
 import urlparse
 
@@ -270,6 +271,12 @@ class V1Repository(object):
         return req
 
 
+class TooManyRequestsError(Exception):
+    def __init__(self, retry_after=None):
+        super(Exception, self).__init__()
+        self.retry_after = retry_after
+
+
 class V2Repository(object):
     """
     This class represents a Docker v2 repository.
@@ -475,10 +482,10 @@ class V2Repository(object):
             link = headers.get('Link')
         return tag_list
 
-    def _get_path(self, path, headers=None):
+    def _get_one_path(self, path, headers=None):
         """
-        Retrieve a single path within the upstream registry, and return a 2-tuple of the headers and
-        the response body.
+        Attempt to retrieve a single path within the upstream registry,
+        and return a 2-tuple of theaders and the response body.
 
         :param path: a full http path to retrieve that will be urljoin'd to the upstream registry
                      url.
@@ -501,8 +508,12 @@ class V2Repository(object):
 
         # If the download was unauthorized, check report header, if basic auth is expected
         # retry with basic auth, otherwise attempt to get a token and try again
+        _logger.debug(report.state)
         if report.state == report.DOWNLOAD_FAILED:
-            if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+            response_code = report.error_report.get('response_code')
+            if response_code == 429:  # Too many requests (missing from httplib)
+                raise TooManyRequestsError(retry_after=report.headers.get('retry-after'))
+            elif response_code == httplib.UNAUTHORIZED:
                 auth_header = report.headers.get('www-authenticate')
                 if auth_header is None:
                     raise IOError("401 responses are expected to "
@@ -528,6 +539,48 @@ class V2Repository(object):
                 self._raise_path_error(report)
 
         return report.headers, report.destination.getvalue()
+
+    def _get_path(self, path, headers=None):
+        """
+        Retrieve a single path within the upstream registry, and return a 2-tuple of the headers and
+        the response body.
+
+        :param path: a full http path to retrieve that will be urljoin'd to the upstream registry
+                     url.
+        :type  path: basestring
+        :param headers: headers sent in the request
+        :type headers:  dict
+
+        :return:     (headers, response body)
+        :rtype:      tuple
+        """
+        backoff = 1  # 2s initial backoff
+        while True:
+            try:
+                return self._get_one_path(path)
+            except TooManyRequestsError as e:
+                retry_after = None
+                if e.retry_after is not None:
+                    # We have a retry-after header. Two possible forms:
+                    # - non-negative integer number of seconds
+                    # - 'date' format string
+                    # Only support the first one.
+                    try:
+                        r = int(e.retry_after)
+                        if r < 0:
+                            raise ValueError
+
+                        retry_after = backoff = r
+                    except ValueError:
+                        _logger.debug(_('retry-after format not supported: %(r)s') % {'r': e.retry_after})
+
+                if retry_after is None:
+                    # No useable retry-after header provided, use exponential backoff
+                    if backoff < 2**9:  # Maximum backoff
+                        backoff *= 2
+
+                _logger.debug(_('Too many requests, will retry after %(d)s') % {'d': backoff})
+                sleep(backoff)
 
     @staticmethod
     def _raise_path_error(report):

@@ -601,6 +601,64 @@ class TestV2Repository(unittest.TestCase):
         # The request will fail because the requested path does not exist
         self.assertRaises(IOError, r._get_path, '/some/path')
 
+    @mock.patch('pulp_docker.plugins.registry.sleep')
+    def test__get_path_too_many_requests_retry_after(self, sleep):
+        """
+        Test _get_path() for the case when we are in backoff for 429 response.
+        """
+        report_429 = DownloadReport('', StringIO())
+        report_429.error_report['response_code'] = 429
+        report_429.state = DownloadReport.DOWNLOAD_FAILED
+        report_429.headers = {'retry-after': '5'}
+
+        report_200 = DownloadReport('', StringIO())
+        report_200.download_succeeded()
+        report_200.headers = {'some': 'cool stuff'}
+        report_200.destination.write("This is the stuff you've been waiting for.")
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=[report_429,
+                                                                report_429,
+                                                                report_200])
+
+        headers, body = r._get_path('/some/path')
+
+        self.assertEqual(headers, {'some': 'cool stuff'})
+        self.assertEqual(body, "This is the stuff you've been waiting for.")
+
+    @mock.patch('pulp_docker.plugins.registry.sleep')
+    def test__get_path_too_many_requests(self, sleep):
+        """
+        Test _get_path() for the case when we are in backoff for 429 response.
+        """
+        report_429 = DownloadReport('', StringIO())
+        report_429.error_report['response_code'] = 429
+        report_429.state = DownloadReport.DOWNLOAD_FAILED
+        report_429.headers = {}
+
+        report_200 = DownloadReport('', StringIO())
+        report_200.download_succeeded()
+        report_200.headers = {'some': 'cool stuff'}
+        report_200.destination.write("This is the stuff you've been waiting for.")
+
+        name = 'pulp'
+        download_config = DownloaderConfig(max_concurrent=25)
+        registry_url = 'https://registry.example.com'
+        working_dir = '/a/working/dir'
+        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        r.downloader.download_one = mock.MagicMock(side_effect=[report_429,
+                                                                report_429,
+                                                                report_200])
+
+        headers, body = r._get_path('/some/path')
+
+        self.assertEqual(headers, {'some': 'cool stuff'})
+        self.assertEqual(body, "This is the stuff you've been waiting for.")
+
     def test__get_path_success(self):
         """
         Test _get_path() for the case when the download is successful.
