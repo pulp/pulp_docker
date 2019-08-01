@@ -351,237 +351,116 @@ class TestValidateConfig(unittest.TestCase):
 
 class TestRemoveUnits(unittest.TestCase):
 
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
-    @mock.patch(MODULE + '.DockerImporter._purge_unreferenced_tags')
-    @mock.patch(MODULE + '.DockerImporter._purge_orphaned_blobs')
-    def test_call(self, purge_blobs, purge_tags, mock_repo_qs):
-        repo = mock.Mock()
-        config = mock.Mock()
-        units = mock.Mock()
-        importer = DockerImporter()
-
-        importer.remove_units(repo, units, config)
-
-        purge_tags.assert_called_once_with(repo, units)
-        purge_blobs.assert_called_once_with(repo, units)
-
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
-    def test_remove_with_tag(self, mock_repo_qs):
-        units = [
-            mock.MagicMock(type_id=constants.MANIFEST_TYPE_ID),
-            mock.MagicMock(type_id=constants.IMAGE_TYPE_ID, unit_key={'image_id': 'foo'},
-                           metadata={})
-        ]
-        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
-        mock_repo.scratchpad = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
-                                           constants.IMAGE_ID_KEY: 'foo'}]}
-
-        DockerImporter().remove_units(mock_repo, units, mock.MagicMock())
-
-        self.assertEqual(mock_repo.scratchpad['tags'], [])
-
-
-class TestPurgeUnreferencedTags(unittest.TestCase):
-
-    def setUp(self):
-        self.repo = Repository('repo_source')
-        self.conduit = mock.MagicMock()
-        self.config = PluginCallConfiguration({}, {})
-        self.mock_unit = mock.Mock(
-            type_id=constants.IMAGE_TYPE_ID, unit_key={'image_id': 'foo'}, metadata={})
-
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
-    def test_remove_with_tag(self, mock_repo_qs):
-        units = [
-            # manifests
-            mock.Mock(type_id=constants.MANIFEST_TYPE_ID),
-            # images
-            mock.Mock(
-                type_id=constants.IMAGE_TYPE_ID,
-                unit_key={'image_id': 'foo'},
-                metadata={}
-            ),
-        ]
-        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
-        mock_repo.scratchpad = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
-                                           constants.IMAGE_ID_KEY: 'foo'}]}
-
-        DockerImporter()._purge_unreferenced_tags(self.repo, units)
-
-        self.assertEqual(mock_repo.scratchpad, {'tags': []})
-        mock_repo.save.assert_called_once_with()
-
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
-    def test_remove_without_tag(self, mock_repo_qs):
-        expected_tags = {u'tags': [{constants.IMAGE_TAG_KEY: 'apple',
-                                    constants.IMAGE_ID_KEY: 'bar'}]}
-        mock_repo = mock_repo_qs.get_repo_or_missing_resource.return_value
-        mock_repo.scratchpad = expected_tags
-
-        DockerImporter()._purge_unreferenced_tags(self.repo, [self.mock_unit])
-
-        self.assertEqual(mock_repo.scratchpad['tags'], expected_tags['tags'])
-        mock_repo.save.assert_called_once_with()
-
-
-class TestPurgeOrphanedBlobs(unittest.TestCase):
-
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
     @mock.patch(MODULE + '.UnitAssociationCriteria')
     @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
-    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
-    def test_purge_orphaned(self, query_manager, association_manager, criteria):
-        repo = mock.Mock()
-        blobs = [
-            {'blobSum': 'blob-0'},  # manifest => 1
-            {'blobSum': 'blob-1'},  # manifest => 1
-            {'blobSum': 'blob-2'},  # manifest => 1
-            {'blobSum': 'blob-3'},  # manifest => 1, 2, 3  (not orphaned)
-            {'blobSum': 'blob-4'},  # manifest => 1, 2
-            {'blobSum': 'blob-5'},  # manifest => 2, 4     (not orphaned)
-            {'blobSum': 'blob-6'},  # manifest => 2
+    @mock.patch(MODULE + '.unit_association.RepoUnitAssociationManager')
+    @mock.patch(MODULE + '.models.ManifestList')
+    @mock.patch(MODULE + '.models.Manifest')
+    def test__purge_unlinked_manifests(self, _Manifest, _ManifestList, _RepoUnitAssociationManager,
+                                       _repo_unit_association_manager, _UnitAssociationCriteria):
+
+        manifest_list_pks = ["manifest_list_pk1", "manifest_list_pk2"]
+        manifest_lists_to_remove = [
+            mock.MagicMock(manifests=[mock.MagicMock(digest="sha256:manifest1"),
+                                      mock.MagicMock(digest="sha256:manifest2")],
+                           amd64_digest="sha256:amd64_digest1"),
+            mock.MagicMock(manifests=[mock.MagicMock(digest="sha256:manifest1"),
+                                      mock.MagicMock(digest="sha256:manifest2"),
+                                      mock.MagicMock(digest="sha256:manifest3")],
+                           amd64_digest="sha256:amd64_digest2"),
         ]
-        removed = [
-            mock.Mock(
-                id='manifest-1',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': blobs[0:4]}),
-            mock.Mock(
-                id='manifest-2',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': blobs[2:8]})
+        manifest_lists_to_remain = [
+            mock.MagicMock(manifests=[mock.MagicMock(digest="sha256:manifest3")],
+                           amd64_digest="sha256:amd64_digest1")
         ]
-        others = [
-            mock.Mock(
-                id='manifest-3',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': blobs[3:4]}),
-            mock.Mock(
-                id='manifest-4',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': blobs[5:6]})
+        tags_to_remain = [mock.MagicMock(manifest_digest="sha256:manifest2")]
+
+        repo = mock.MagicMock()
+        _ManifestList.objects.filter.return_value.only.return_value = manifest_lists_to_remove
+
+        # Called 2 times, return each in order.
+        _RepoUnitAssociationManager._units_from_criteria.side_effect = [
+            manifest_lists_to_remain,
+            tags_to_remain,
         ]
 
-        query_manager.return_value.get_units_by_type.return_value = others
+        DockerImporter._purge_unlinked_manifests(repo, manifest_list_pks)
+        _Manifest.objects.filter.assert_called_once_with(
+            digest__in=sorted(['sha256:manifest1', 'sha256:amd64_digest2'])
+        )
 
-        # test
-        importer = DockerImporter()
-        importer._purge_orphaned_blobs(repo, removed)
-
-        # validation
-        criteria.assert_called_once_with(
-            type_ids=[constants.BLOB_TYPE_ID],
-            unit_filters={'digest': {'$in': ['blob-0', 'blob-1', 'blob-2', 'blob-4', 'blob-6']}})
-
-        query_manager.return_value.get_units_by_type.assert_called_once_with(
-            repo.id, constants.MANIFEST_TYPE_ID)
-        association_manager.return_value.unassociate_by_criteria(
-            repo_id=repo.id,
-            criteria=criteria.return_value,
-            owner_type='',  # unused
-            owner_id='',    # unused
-            notify_plugins=False)
-
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
     @mock.patch(MODULE + '.UnitAssociationCriteria')
     @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
-    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
-    def test_purge_orphaned_all_adopted(self, query_manager, association_manager, criteria):
-        repo = mock.Mock()
-        blobs = [
-            {'blobSum': 'blob-0'},  # manifest => 1, 3     (not orphaned)
-            {'blobSum': 'blob-1'},  # manifest => 1, 3     (not orphaned)
-            {'blobSum': 'blob-2'},  # manifest => 1, 3     (not orphaned)
-            {'blobSum': 'blob-3'},  # manifest => 1, 2, 3  (not orphaned)
-            {'blobSum': 'blob-4'},  # manifest => 1, 2, 3  (not orphaned)
-            {'blobSum': 'blob-5'},  # manifest => 2, 4, 3  (not orphaned)
-            {'blobSum': 'blob-6'},  # manifest => 2, 3     (not orphaned)
-        ]
-        removed = [
-            mock.Mock(
-                id='manifest-1',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': blobs[0:4]}),
-            mock.Mock(
-                id='manifest-2',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': blobs[2:8]})
-        ]
-        others = [
-            mock.Mock(
-                id='manifest-3',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': blobs}),
+    @mock.patch(MODULE + '.unit_association.RepoUnitAssociationManager')
+    @mock.patch(MODULE + '.models.Manifest')
+    def test__purge_unlinked_blobs(self, _Manifest, _RepoUnitAssociationManager,
+                                   _repo_unit_association_manager,
+                                   _UnitAssociationCriteria):
+        repo = mock.MagicMock()
+        manifest_pks = ["pk1", "pk2"]
+        _Manifest.objects.filter.return_value.only.return_value = [
+            mock.MagicMock(fs_layers=[mock.MagicMock(blob_sum="sha256:blob11"),
+                                      mock.MagicMock(blob_sum="sha256:blob12")],
+                           config_layer="sha256:config1"),
+            mock.MagicMock(fs_layers=[mock.MagicMock(blob_sum="sha256:blob11"),
+                                      mock.MagicMock(blob_sum="sha256:blob22")],
+                           config_layer="sha256:config2"),
         ]
 
-        query_manager.return_value.get_units_by_type.return_value = others
-
-        # test
-        importer = DockerImporter()
-        importer._purge_orphaned_blobs(repo, removed)
-
-        # validation
-        self.assertFalse(criteria.called)
-        self.assertFalse(association_manager.called)
-
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
-    @mock.patch(MODULE + '.UnitAssociationCriteria')
-    @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
-    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
-    def test_purge_orphaned_nothing_orphaned(self, query_manager, association_manager, criteria):
-        repo = mock.Mock()
-        removed = [
-            mock.Mock(
-                id='manifest-1',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': []}),
-            mock.Mock(
-                id='manifest-2',
-                type_id=constants.MANIFEST_TYPE_ID,
-                metadata={'fs_layers': []})
+        remain_manifests_by_blob_digests = [
+            mock.MagicMock(fs_layers=[
+                mock.MagicMock(blob_sum="sha256:blob11"),
+                mock.MagicMock(blob_sum="sha256:blob12"),
+            ])
         ]
 
-        # test
-        importer = DockerImporter()
-        importer._purge_orphaned_blobs(repo, removed)
-
-        # validation
-        self.assertFalse(query_manager.called)
-        self.assertFalse(criteria.called)
-        self.assertFalse(association_manager.called)
-
-    # We are under a significant time crunch and don't have time to correct all the tests with this
-    # commit. Thus, the decision was made to skip broken tests and come back and fix them later.
-    @skip.skip_broken
-    @mock.patch(MODULE + '.UnitAssociationCriteria')
-    @mock.patch(MODULE + '.manager_factory.repo_unit_association_manager')
-    @mock.patch(MODULE + '.manager_factory.repo_unit_association_query_manager')
-    def test_purge_not_manifests(self, query_manager, association_manager, criteria):
-        repo = mock.Mock()
-        removed = [
-            mock.Mock(type_id=constants.IMAGE_TYPE_ID),
-            mock.Mock(type_id=constants.IMAGE_TYPE_ID),
+        remain_manifests_by_config_digest = [
+            mock.MagicMock(config_layer='sha256:config1')
         ]
 
-        # test
-        importer = DockerImporter()
-        importer._purge_orphaned_blobs(repo, removed)
+        _RepoUnitAssociationManager._units_from_criteria.side_effect = [
+            remain_manifests_by_blob_digests,
+            remain_manifests_by_config_digest,
+        ]
 
-        # validation
-        self.assertFalse(query_manager.called)
-        self.assertFalse(criteria.called)
-        self.assertFalse(association_manager.called)
+        DockerImporter._purge_unlinked_blobs(repo, manifest_pks)
+        possible_blobs_before_layer_removal = [
+            "sha256:blob11", "sha256:blob12", "sha256:blob22", "sha256:config1", "sha256:config2"
+        ]
+        possible_blobs_before_config_removal = [
+            "sha256:blob22", "sha256:config1", "sha256:config2"
+        ]
+        expected_blob_digests_removed = [
+            "sha256:blob22", "sha256:config2"
+        ]
+        # _UnitAssociationCriteria is called 3 times. 2 to weed out blobs, 1 to remove.
+        self.assertEqual(
+            _UnitAssociationCriteria.call_args_list[0],
+            mock.call(
+                type_ids=["docker_manifest"],
+                unit_filters={
+                    "_id": {"$nin": manifest_pks},
+                    "fs_layers.blob_sum": {"$in": sorted(possible_blobs_before_layer_removal)}
+                },
+                unit_fields=["fs_layers.blob_sum"]
+            )
+        )
+        self.assertEqual(
+            _UnitAssociationCriteria.call_args_list[1],
+            mock.call(
+                type_ids=["docker_manifest"],
+                unit_filters={
+                    "_id": {"$nin": manifest_pks},
+                    "config_layer": {"$in": sorted(possible_blobs_before_config_removal)}
+                },
+                unit_fields=["config_layer"]
+            )
+        )
+        self.assertEqual(
+            _UnitAssociationCriteria.call_args_list[2],
+            mock.call(
+                type_ids=["docker_blob"],
+                unit_filters={"digest": {"$in": sorted(expected_blob_digests_removed)}},
+            )
+        )
+        _Manifest.objects.filter.assert_called_once_with(pk__in=manifest_pks)
