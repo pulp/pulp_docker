@@ -11,8 +11,8 @@ from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressBar, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 
-from pulp_docker.app.models import (Manifest, MEDIA_TYPE, ManifestBlob, ManifestTag,
-                                    BlobManifestBlob, ManifestListManifest)
+from pulp_docker.app.models import (Manifest, MEDIA_TYPE, Blob, Tag,
+                                    BlobManifest, ManifestListManifest)
 
 
 log = logging.getLogger(__name__)
@@ -175,7 +175,7 @@ class DockerFirstStage(Stage):
             tag=tag_name,
         )
         url = urljoin(self.remote.url, relative_url)
-        tag = ManifestTag(name=tag_name)
+        tag = Tag(name=tag_name)
         da = DeclarativeArtifact(
             artifact=saved_artifact,
             url=url,
@@ -304,7 +304,7 @@ class DockerFirstStage(Stage):
         """
         digest = blob_data.get('digest') or blob_data.get('blobSum')
         blob_artifact = Artifact(sha256=digest[len("sha256:"):])
-        blob = ManifestBlob(
+        blob = Blob(
             digest=digest,
             media_type=blob_data.get('mediaType', MEDIA_TYPE.REGULAR_BLOB),
         )
@@ -442,7 +442,7 @@ class InterrelateContent(Stage):
 
     def relate_config_blob(self, dc):
         """
-        Relate a ManifestBlob to a Manifest as a config layer.
+        Relate a Blob to a Manifest as a config layer.
 
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
@@ -453,13 +453,13 @@ class InterrelateContent(Stage):
 
     def relate_blob(self, dc):
         """
-        Relate a ManifestBlob to a Manifest.
+        Relate a Blob to a Manifest.
 
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
         """
         related_dc = dc.extra_data.get('blob_relation')
-        thru = BlobManifestBlob(manifest=related_dc.content, manifest_blob=dc.content)
+        thru = BlobManifest(manifest=related_dc.content, manifest_blob=dc.content)
         try:
             thru.save()
         except IntegrityError:
@@ -470,15 +470,15 @@ class InterrelateContent(Stage):
         Relate an ImageManifest to a Tag.
 
         Args:
-            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestTag
+            dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
         """
         related_dc = dc.extra_data.get('man_relation')
         dc.content.tagged_manifest = related_dc.content
         try:
             dc.content.save()
         except IntegrityError:
-            existing_tag = ManifestTag.objects.get(name=dc.content.name,
-                                                   tagged_manifest=related_dc.content)
+            existing_tag = Tag.objects.get(name=dc.content.name,
+                                           tagged_manifest=related_dc.content)
             dc.content = existing_tag
 
     def relate_manifest_to_list(self, dc):

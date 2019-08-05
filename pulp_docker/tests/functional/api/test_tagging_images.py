@@ -144,7 +144,7 @@ class TaggingTestCase(unittest.TestCase):
 
         repository_version = self.client.get(new_repository_version_href)
         removed_content = repository_version['content_summary']['removed']
-        removed_tags = removed_content['docker.manifest-tag']['href']
+        removed_tags = removed_content['docker.tag']['href']
         self.assertEqual(removed_tags, deleted_tags_href, removed_tags)
 
         deleted_tag = self.client.get(deleted_tags_href)['results'][0]

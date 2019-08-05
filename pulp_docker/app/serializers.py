@@ -20,9 +20,9 @@ from pulpcore.plugin.serializers import (
 from . import models
 
 
-class ManifestTagSerializer(SingleArtifactContentSerializer):
+class TagSerializer(SingleArtifactContentSerializer):
     """
-    Serializer for ManifestTags.
+    Serializer for Tags.
     """
 
     name = serializers.CharField(help_text="Tag name")
@@ -38,7 +38,7 @@ class ManifestTagSerializer(SingleArtifactContentSerializer):
             'name',
             'tagged_manifest',
         )
-        model = models.ManifestTag
+        model = models.Tag
 
 
 class ManifestSerializer(SingleArtifactContentSerializer):
@@ -59,13 +59,13 @@ class ManifestSerializer(SingleArtifactContentSerializer):
         many=True,
         help_text="Blobs that are referenced by this Manifest",
         view_name='docker-blobs-detail',
-        queryset=models.ManifestBlob.objects.all()
+        queryset=models.Blob.objects.all()
     )
     config_blob = DetailRelatedField(
         many=False,
         help_text="Blob that contains configuration for this Manifest",
         view_name='docker-blobs-detail',
-        queryset=models.ManifestBlob.objects.all()
+        queryset=models.Blob.objects.all()
     )
 
     class Meta:
@@ -93,7 +93,7 @@ class BlobSerializer(SingleArtifactContentSerializer):
             'digest',
             'media_type',
         )
-        model = models.ManifestBlob
+        model = models.Blob
 
 
 class RegistryPathField(serializers.CharField):
@@ -257,11 +257,11 @@ class UnTagImageSerializer(TagOperationSerializer):
         new_data = super().validate(data)
 
         try:
-            models.ManifestTag.objects.get(
+            models.Tag.objects.get(
                 pk__in=new_data['latest_version'].content.all(),
                 name=new_data['tag']
             )
-        except models.ManifestTag.DoesNotExist:
+        except models.Tag.DoesNotExist:
             raise serializers.ValidationError(
                 _("The tag '{}' does not exist in the latest repository version '{}'"
                   .format(new_data['tag'], new_data['latest_version']))

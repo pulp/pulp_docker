@@ -8,7 +8,7 @@ from multidict import MultiDict
 
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
-from pulp_docker.app.models import DockerDistribution, ManifestTag, MEDIA_TYPE
+from pulp_docker.app.models import DockerDistribution, Tag, MEDIA_TYPE
 
 
 log = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class Registry(Handler):
         repository_version = distribution.get_repository_version()
         for c in repository_version.content:
             c = c.cast()
-            if isinstance(c, ManifestTag):
+            if isinstance(c, Tag):
                 tags['tags'].add(c.name)
         tags['tags'] = list(tags['tags'])
         return web.json_response(tags)
@@ -135,7 +135,7 @@ class Registry(Handler):
         accepted_media_types = await Registry.get_accepted_media_types(request)
 
         try:
-            tag = ManifestTag.objects.get(
+            tag = Tag.objects.get(
                 pk__in=repository_version.content,
                 name=tag_name,
             )
@@ -169,7 +169,7 @@ class Registry(Handler):
         Finds an artifact associated with a Tag and sends it to the client.
 
         Args:
-            tag: Either a ManifestTag or ManifestListTag
+            tag: Tag
             response_headers (dict): dictionary that contains the 'Content-Type' header to send
                 with the response
 

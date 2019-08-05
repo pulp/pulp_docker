@@ -12,13 +12,13 @@ from pulp_smash.pulp3.constants import (
 # FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
 DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
 
-DOCKER_TAG_PATH = urljoin(CONTENT_PATH, 'docker/manifest-tags/')
+DOCKER_TAG_PATH = urljoin(CONTENT_PATH, 'docker/tags/')
 
 DOCKER_TAGGING_PATH = urljoin(BASE_PATH, 'docker/tag/')
 
 DOCKER_UNTAGGING_PATH = urljoin(BASE_PATH, 'docker/untag/')
 
-DOCKER_CONTENT_NAME = 'docker.manifest-blob'
+DOCKER_CONTENT_NAME = 'docker.blob'
 
 DOCKER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'docker/docker/')
 
