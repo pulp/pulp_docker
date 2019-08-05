@@ -5,7 +5,7 @@ Check `Plugin Writer's Guide`_ for more details.
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
 
-from django_filters import ChoiceFilter, CharFilter
+from django_filters import CharFilter, MultipleChoiceFilter
 from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 
@@ -31,7 +31,8 @@ class ManifestTagFilter(ContentFilter):
     FilterSet for Tags.
     """
 
-    media_type = CharFilter(
+    media_type = MultipleChoiceFilter(
+        choices=models.Manifest.MANIFEST_CHOICES,
         field_name='tagged_manifest__media_type',
         lookup_expr='contains',
     )
@@ -39,11 +40,9 @@ class ManifestTagFilter(ContentFilter):
 
     class Meta:
         model = models.ManifestTag
-        fields = [
-            'name',
-            'media_type',
-            'digest',
-        ]
+        fields = {
+            'name': ['exact', 'in'],
+        }
 
 
 class ManifestFilter(ContentFilter):
@@ -51,14 +50,13 @@ class ManifestFilter(ContentFilter):
     FilterSet for Manifests.
     """
 
-    media_type = ChoiceFilter(choices=models.Manifest.MANIFEST_CHOICES)
+    media_type = MultipleChoiceFilter(choices=models.Manifest.MANIFEST_CHOICES)
 
     class Meta:
         model = models.Manifest
-        fields = [
-            'media_type',
-            'digest',
-        ]
+        fields = {
+            'digest': ['exact', 'in'],
+        }
 
 
 class ManifestTagViewSet(ContentViewSet):
@@ -102,14 +100,13 @@ class BlobFilter(ContentFilter):
     FilterSet for Blobs.
     """
 
-    media_type = ChoiceFilter(choices=models.ManifestBlob.BLOB_CHOICES)
+    media_type = MultipleChoiceFilter(choices=models.ManifestBlob.BLOB_CHOICES)
 
     class Meta:
         model = models.ManifestBlob
-        fields = [
-            'digest',
-            'media_type',
-        ]
+        fields = {
+            'digest': ['exact', 'in'],
+        }
 
 
 class BlobViewSet(ContentViewSet):
