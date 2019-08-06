@@ -42,9 +42,10 @@ class Registry(Handler):
 
         """
         accepted_media_types = []
-        for header, value in request.raw_headers:
+        for header, values in request.raw_headers:
             if header == b'Accept':
-                accepted_media_types.append(value.decode('UTF-8'))
+                values = [v.strip().decode('UTF-8') for v in values.split(b",")]
+                accepted_media_types.extend(values)
         return accepted_media_types
 
     @staticmethod
