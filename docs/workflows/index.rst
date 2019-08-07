@@ -49,5 +49,4 @@ Container Workflows
    sync
    upload
    publish
-   tagging
-
+   manage-content
