@@ -136,10 +136,10 @@ class ManifestListManifest(models.Model):
 
     architecture = models.CharField(max_length=255)
     os = models.CharField(max_length=255)
-    os_version = models.CharField(max_length=255)
+    os_version = models.CharField(max_length=255, default='', blank=True)
     os_features = models.TextField(default='', blank=True)
     features = models.TextField(default='', blank=True)
-    variant = models.CharField(max_length=255)
+    variant = models.CharField(max_length=255, default='', blank=True)
 
     image_manifest = models.ForeignKey(
         Manifest, related_name='image_manifests', on_delete=models.CASCADE)
