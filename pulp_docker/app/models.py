@@ -53,6 +53,7 @@ class Blob(Content):
     )
 
     class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
         unique_together = ('digest',)
 
 
@@ -100,6 +101,7 @@ class Manifest(Content):
     )
 
     class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
         unique_together = ('digest',)
 
 
@@ -170,6 +172,7 @@ class Tag(Content):
         Manifest, null=True, related_name='tagged_manifests', on_delete=models.CASCADE)
 
     class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
         unique_together = (
             ('name', 'tagged_manifest'),
         )
@@ -258,6 +261,9 @@ class DockerRemote(Remote):
         else:
             return self.upstream_name
 
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
+
 
 class DockerDistribution(RepositoryVersionDistribution):
     """
@@ -276,3 +282,6 @@ class DockerDistribution(RepositoryVersionDistribution):
             return self.repository_version
         else:
             return None
+
+    class Meta:
+        default_related_name = "%(app_label)s_%(model_name)s"
