@@ -3,6 +3,7 @@ from urllib.parse import urljoin
 
 from pulp_smash.constants import PULP_FIXTURES_BASE_URL
 from pulp_smash.pulp3.constants import (
+    BASE_PATH,
     BASE_DISTRIBUTION_PATH,
     BASE_REMOTE_PATH,
     CONTENT_PATH
@@ -10,6 +11,12 @@ from pulp_smash.pulp3.constants import (
 
 # FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
 DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
+
+DOCKER_TAG_PATH = urljoin(CONTENT_PATH, 'docker/manifest-tags/')
+
+DOCKER_TAGGING_PATH = urljoin(BASE_PATH, 'docker/tag/')
+
+DOCKER_UNTAGGING_PATH = urljoin(BASE_PATH, 'docker/untag/')
 
 DOCKER_CONTENT_NAME = 'docker.manifest-blob'
 
@@ -62,3 +69,5 @@ DOCKER_V2_FEED_URL = 'https://registry-1.docker.io'
 
 This URL can be used as the "feed" property of a Pulp Docker registry.
 """
+
+DOCKERHUB_PULP_FIXTURE_1 = 'pulp/test-fixture-1'

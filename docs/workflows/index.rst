@@ -49,4 +49,5 @@ Container Workflows
    sync
    upload
    publish
+   tagging
 

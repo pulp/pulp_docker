@@ -8,6 +8,7 @@ Check `Plugin Writer's Guide`_ for more details.
 from django_filters import MultipleChoiceFilter
 from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
+from rest_framework import viewsets
 
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
@@ -21,7 +22,8 @@ from pulpcore.plugin.viewsets import (
     ContentFilter,
     ContentViewSet,
     RemoteViewSet,
-    OperationPostponedResponse,)
+    OperationPostponedResponse,
+)
 from rest_framework.decorators import action
 
 from . import models, serializers, tasks
@@ -173,3 +175,75 @@ class DockerDistributionViewSet(BaseDistributionViewSet):
     endpoint_name = 'docker'
     queryset = models.DockerDistribution.objects.all()
     serializer_class = serializers.DockerDistributionSerializer
+
+
+class TagImageViewSet(viewsets.ViewSet):
+    """
+    ViewSet used for tagging manifests. This endpoint supports only HTTP POST requests.
+    """
+
+    endpoint_name = 'tag'
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to create a new repository",
+        responses={202: AsyncOperationResponseSerializer}
+    )
+    def create(self, request):
+        """
+        Create a task which is responsible for initializing a new repository version.
+        """
+        serializer = serializers.TagImageSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        manifest = serializer.validated_data['manifest']
+        tag = serializer.validated_data['tag']
+        repository = serializer.validated_data['repository']
+
+        result = enqueue_with_reservation(
+            tasks.tag_image,
+            [repository, manifest],
+            kwargs={
+                'manifest_pk': manifest.pk,
+                'tag': tag,
+                'repository_pk': repository.pk
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+
+class UnTagImageViewSet(viewsets.ViewSet):
+    """
+    ViewSet used for untagging manifests. This endpoint supports only HTTP POST requests.
+    """
+
+    endpoint_name = 'untag'
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to create a new repository",
+        responses={202: AsyncOperationResponseSerializer}
+    )
+    def create(self, request):
+        """
+        Create a task which is responsible for creating a new tag.
+        """
+        serializer = serializers.UnTagImageSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        tag = serializer.validated_data['tag']
+        repository = serializer.validated_data['repository']
+
+        result = enqueue_with_reservation(
+            tasks.untag_image,
+            [repository],
+            kwargs={
+                'tag': tag,
+                'repository_pk': repository.pk
+            }
+        )
+        return OperationPostponedResponse(result, request)

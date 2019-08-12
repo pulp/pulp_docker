@@ -4,12 +4,17 @@ from django.conf import settings
 
 from rest_framework import serializers
 
-from pulpcore.plugin.models import Remote
+from pulpcore.plugin.models import (
+    Remote,
+    Repository,
+    RepositoryVersion,
+)
 from pulpcore.plugin.serializers import (
     DetailRelatedField,
     RemoteSerializer,
     RepositoryVersionDistributionSerializer,
     SingleArtifactContentSerializer,
+    RelatedField,
 )
 
 from . import models
@@ -162,3 +167,104 @@ class DockerDistributionSerializer(RepositoryVersionDistributionSerializer):
         model = models.DockerDistribution
         fields = tuple(set(RepositoryVersionDistributionSerializer.Meta.fields) - {'base_url'}) + (
             'registry_path',)
+
+
+class TagOperationSerializer(serializers.Serializer):
+    """
+    A base serializer for tagging and untagging manifests.
+    """
+
+    repository = RelatedField(
+        required=True,
+        view_name='repositories-detail',
+        queryset=Repository.objects.all(),
+        help_text='A URI of the repository.'
+    )
+    tag = serializers.CharField(
+        required=True,
+        help_text='A tag name'
+    )
+
+    def validate(self, data):
+        """
+        Validate data passed through a request call.
+
+        Check if a repository has got a reference to a latest repository version. A
+        new dictionary object is initialized by the passed data and altered by a latest
+        repository version.
+        """
+        new_data = {}
+        new_data.update(data)
+
+        latest_version = RepositoryVersion.latest(data['repository'])
+        if not latest_version:
+            raise serializers.ValidationError(
+                _("The latest repository version of '{}' was not found"
+                  .format(data['repository']))
+            )
+
+        new_data['latest_version'] = latest_version
+        return new_data
+
+
+class TagImageSerializer(TagOperationSerializer):
+    """
+    A serializer for parsing and validating data associated with a manifest tagging.
+    """
+
+    digest = serializers.CharField(
+        required=True,
+        help_text='sha256 of the Manifest file'
+    )
+
+    def validate(self, data):
+        """
+        Validate data passed through a request call.
+
+        Manifest with a corresponding digest is retrieved from a database and stored
+        in the dictionary to avoid querying the database in the ViewSet again. The
+        method checks if the tag exists within the repository.
+        """
+        new_data = super().validate(data)
+
+        try:
+            manifest = models.Manifest.objects.get(
+                pk__in=new_data['latest_version'].content.all(),
+                digest=new_data['digest']
+            )
+        except models.Manifest.DoesNotExist:
+            raise serializers.ValidationError(
+                _("A manifest with the digest '{}' does not "
+                  "exist in the latest repository version '{}'"
+                  .format(new_data['digest'], new_data['latest_version']))
+            )
+
+        new_data['manifest'] = manifest
+        return new_data
+
+
+class UnTagImageSerializer(TagOperationSerializer):
+    """
+    A serializer for parsing and validating data associated with a manifest untagging.
+    """
+
+    def validate(self, data):
+        """
+        Validate data passed through a request call.
+
+        The method checks if the tag exists within the latest repository version.
+        """
+        new_data = super().validate(data)
+
+        try:
+            models.ManifestTag.objects.get(
+                pk__in=new_data['latest_version'].content.all(),
+                name=new_data['tag']
+            )
+        except models.ManifestTag.DoesNotExist:
+            raise serializers.ValidationError(
+                _("The tag '{}' does not exist in the latest repository version '{}'"
+                  .format(new_data['tag'], new_data['latest_version']))
+            )
+
+        return new_data
