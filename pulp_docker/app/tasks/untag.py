@@ -1,5 +1,5 @@
 from pulpcore.plugin.models import Repository, RepositoryVersion
-from pulp_docker.app.models import ManifestTag
+from pulp_docker.app.models import Tag
 
 
 def untag_image(tag, repository_pk):
@@ -10,10 +10,10 @@ def untag_image(tag, repository_pk):
     latest_version = RepositoryVersion.latest(repository)
 
     tags_in_latest_repository = latest_version.content.filter(
-        _type="docker.manifest-tag"
+        _type="docker.tag"
     )
 
-    tags_to_remove = ManifestTag.objects.filter(
+    tags_to_remove = Tag.objects.filter(
         pk__in=tags_in_latest_repository,
         name=tag
     )

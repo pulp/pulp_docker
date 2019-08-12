@@ -1,5 +1,5 @@
 from pulpcore.plugin.models import Repository, RepositoryVersion, ContentArtifact, CreatedResource
-from pulp_docker.app.models import ManifestTag, Manifest
+from pulp_docker.app.models import Manifest, Tag
 
 
 def tag_image(manifest_pk, tag, repository_pk):
@@ -8,7 +8,7 @@ def tag_image(manifest_pk, tag, repository_pk):
 
     If the tag name is already associated with an existing manifest with the same digest,
     no new content is created. Note that a same tag name cannot be used for two different
-    manifests. Due to this fact, an old ManifestTag object is going to be removed from
+    manifests. Due to this fact, an old Tag object is going to be removed from
     a new repository version when a manifest contains a digest which is not equal to the
     digest passed with POST request.
     """
@@ -18,14 +18,14 @@ def tag_image(manifest_pk, tag, repository_pk):
     repository = Repository.objects.get(pk=repository_pk)
     latest_version = RepositoryVersion.latest(repository)
 
-    tags_to_remove = ManifestTag.objects.filter(
+    tags_to_remove = Tag.objects.filter(
         pk__in=latest_version.content.all(),
         name=tag
     ).exclude(
         tagged_manifest=manifest
     )
 
-    manifest_tag, created = ManifestTag.objects.get_or_create(
+    manifest_tag, created = Tag.objects.get_or_create(
         name=tag,
         tagged_manifest=manifest
     )
@@ -40,7 +40,7 @@ def tag_image(manifest_pk, tag, repository_pk):
         relative_path=tag
     )
 
-    tags_to_add = ManifestTag.objects.filter(
+    tags_to_add = Tag.objects.filter(
         pk=manifest_tag.pk
     ).exclude(
         pk__in=latest_version.content.all()

@@ -25,7 +25,7 @@ MEDIA_TYPE = SimpleNamespace(
 )
 
 
-class ManifestBlob(Content):
+class Blob(Content):
     """
     A blob defined within a manifest.
 
@@ -39,7 +39,7 @@ class ManifestBlob(Content):
         manifest (models.ForeignKey): Many-to-one relationship with Manifest.
     """
 
-    TYPE = 'manifest-blob'
+    TYPE = 'blob'
 
     BLOB_CHOICES = (
         (MEDIA_TYPE.CONFIG_BLOB, MEDIA_TYPE.CONFIG_BLOB),
@@ -68,7 +68,7 @@ class Manifest(Content):
         media_type (models.CharField): The manifest media type.
 
     Relations:
-        blobs (models.ManyToManyField): Many-to-many relationship with ManifestBlob.
+        blobs (models.ManyToManyField): Many-to-many relationship with Blob.
         config_blob (models.ForeignKey): Blob that contains configuration for this Manifest.
         listed_manifests (models.ManyToManyField): Many-to-many relationship with Manifest. This
             field is used only for a manifest-list type Manifests.
@@ -87,8 +87,8 @@ class Manifest(Content):
         max_length=60,
         choices=MANIFEST_CHOICES)
 
-    blobs = models.ManyToManyField(ManifestBlob, through='BlobManifestBlob')
-    config_blob = models.ForeignKey(ManifestBlob, related_name='config_blob',
+    blobs = models.ManyToManyField(Blob, through='BlobManifest')
+    config_blob = models.ForeignKey(Blob, related_name='config_blob',
                                     null=True, on_delete=models.CASCADE)
 
     # Order matters for through fields, (source, target)
@@ -103,15 +103,15 @@ class Manifest(Content):
         unique_together = ('digest',)
 
 
-class BlobManifestBlob(models.Model):
+class BlobManifest(models.Model):
     """
-    Many-to-many relationship between ManifestBlobs and ImageManifests.
+    Many-to-many relationship between Blobs and Manifests.
     """
 
     manifest = models.ForeignKey(
         Manifest, related_name='blob_manifests', on_delete=models.CASCADE)
     manifest_blob = models.ForeignKey(
-        ManifestBlob, related_name='manifest_blobs', on_delete=models.CASCADE)
+        Blob, related_name='manifest_blobs', on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ('manifest', 'manifest_blob')
@@ -150,7 +150,7 @@ class ManifestListManifest(models.Model):
         unique_together = ('image_manifest', 'manifest_list')
 
 
-class ManifestTag(Content):
+class Tag(Content):
     """
     A tagged Manifest.
 
@@ -162,7 +162,7 @@ class ManifestTag(Content):
 
     """
 
-    TYPE = 'manifest-tag'
+    TYPE = 'tag'
 
     name = models.CharField(max_length=255, db_index=True)
 

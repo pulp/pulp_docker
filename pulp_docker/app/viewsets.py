@@ -29,7 +29,7 @@ from rest_framework.decorators import action
 from . import models, serializers, tasks
 
 
-class ManifestTagFilter(ContentFilter):
+class TagFilter(ContentFilter):
     """
     FilterSet for Tags.
     """
@@ -42,7 +42,7 @@ class ManifestTagFilter(ContentFilter):
     digest = CharInFilter(field_name='tagged_manifest__digest', lookup_expr='in')
 
     class Meta:
-        model = models.ManifestTag
+        model = models.Tag
         fields = {
             'name': ['exact', 'in'],
         }
@@ -62,20 +62,20 @@ class ManifestFilter(ContentFilter):
         }
 
 
-class ManifestTagViewSet(ContentViewSet):
+class TagViewSet(ContentViewSet):
     """
-    ViewSet for ManifestTag.
+    ViewSet for Tag.
     """
 
-    endpoint_name = 'manifest-tags'
-    queryset = models.ManifestTag.objects.all()
-    serializer_class = serializers.ManifestTagSerializer
-    filterset_class = ManifestTagFilter
+    endpoint_name = 'tags'
+    queryset = models.Tag.objects.all()
+    serializer_class = serializers.TagSerializer
+    filterset_class = TagFilter
 
     @transaction.atomic
     def create(self, request):
         """
-        Create a new ManifestTag from a request.
+        Create a new Tag from a request.
         """
         raise NotImplementedError()
 
@@ -103,10 +103,10 @@ class BlobFilter(ContentFilter):
     FilterSet for Blobs.
     """
 
-    media_type = MultipleChoiceFilter(choices=models.ManifestBlob.BLOB_CHOICES)
+    media_type = MultipleChoiceFilter(choices=models.Blob.BLOB_CHOICES)
 
     class Meta:
-        model = models.ManifestBlob
+        model = models.Blob
         fields = {
             'digest': ['exact', 'in'],
         }
@@ -114,18 +114,18 @@ class BlobFilter(ContentFilter):
 
 class BlobViewSet(ContentViewSet):
     """
-    ViewSet for ManifestBlobs.
+    ViewSet for Blobs.
     """
 
     endpoint_name = 'blobs'
-    queryset = models.ManifestBlob.objects.all()
+    queryset = models.Blob.objects.all()
     serializer_class = serializers.BlobSerializer
     filterset_class = BlobFilter
 
     @transaction.atomic
     def create(self, request):
         """
-        Create a new ManifestBlob from a request.
+        Create a new Blob from a request.
         """
         raise NotImplementedError()
 
