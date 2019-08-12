@@ -277,10 +277,18 @@ class DockerFirstStage(Stage):
             schema_version=2 if manifest_data['mediaType'] == MEDIA_TYPE.MANIFEST_V2 else 1,
             media_type=manifest_data['mediaType'],
         )
+        platform = {}
+        p = manifest_data['platform']
+        platform['architecture'] = p['architecture']
+        platform['os'] = p['os']
+        platform['features'] = p.get('features', '')
+        platform['variant'] = p.get('variant', '')
+        platform['os.version'] = p.get('os.version', '')
+        platform['os.features'] = p.get('os.features', '')
         man_dc = DeclarativeContent(
             content=manifest,
             d_artifacts=[da],
-            extra_data={'relation': list_dc},
+            extra_data={'relation': list_dc, 'platform': platform},
             does_batch=False,
         )
         return man_dc
@@ -481,7 +489,16 @@ class InterrelateContent(Stage):
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ImageManifest
         """
         related_dc = dc.extra_data.get('relation')
-        thru = ManifestListManifest(manifest_list=dc.content, image_manifest=related_dc.content)
+        platform = dc.extra_data.get('platform')
+        thru = ManifestListManifest(manifest_list=dc.content, image_manifest=related_dc.content,
+                                    architecture=platform['architecture'],
+                                    os=platform['os'],
+                                    features=platform.get('features'),
+                                    variant=platform.get('variant'),
+                                    os_version=platform.get('os.version'),
+                                    os_features=platform.get('os.features')
+                                    )
+
         try:
             thru.save()
         except IntegrityError:
