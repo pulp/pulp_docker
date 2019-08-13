@@ -479,6 +479,7 @@ class InterrelateContent(Stage):
         except IntegrityError:
             existing_tag = Tag.objects.get(name=dc.content.name,
                                            tagged_manifest=related_dc.content)
+            dc.content.delete()
             dc.content = existing_tag
 
     def relate_manifest_to_list(self, dc):
