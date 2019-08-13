@@ -16,7 +16,7 @@ Start by creating a new repository named "foo"::
 
 Response:
 
-.. code:: json
+.. code::
 
     {
         "_href": "/pulp/api/v3/repositories/39520001-18e9-4c17-a703-2963a7837060/",
@@ -51,7 +51,7 @@ Create the remote by POST to the remotes endpoint::
 
     $ http POST http://localhost:24817/pulp/api/v3/remotes/docker/docker/ name='library/busybox' upstream_name='busybox' url='https://registry-1.docker.io' policy='on_demand'
 
-.. code:: json
+.. code::
 
     {
         "_href": "/pulp/api/v3/remotes/docker/docker/f300a4a2-1348-4fce-9836-824203e5130e/",
