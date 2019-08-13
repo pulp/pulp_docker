@@ -6,7 +6,11 @@ from pulp_smash import api, cli, config, exceptions
 from pulp_smash.pulp3.constants import MEDIA_PATH, REPO_PATH
 from pulp_smash.pulp3.utils import gen_repo, sync
 
-from pulp_docker.tests.functional.constants import DOCKER_REMOTE_PATH
+from pulp_docker.tests.functional.constants import (
+    DOCKER_TAG_PATH,
+    DOCKER_REMOTE_PATH,
+    DOCKERHUB_PULP_FIXTURE_1,
+)
 from pulp_docker.tests.functional.utils import gen_docker_remote
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 
@@ -112,3 +116,37 @@ class SyncInvalidURLTestCase(unittest.TestCase):
 
         with self.assertRaises(exceptions.TaskReportError):
             sync(cfg, remote, repo)
+
+
+class TestRepeatedSync(unittest.TestCase):
+    """Test behavior when a sync is repeated."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Create class-wide variables."""
+        cls.cfg = config.get_config()
+        cls.client = api.Client(cls.cfg, api.json_handler)
+        cls.from_repo = cls.client.post(REPO_PATH, gen_repo())
+        remote_data = gen_docker_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        cls.remote = cls.client.post(DOCKER_REMOTE_PATH, remote_data)
+
+    @classmethod
+    def tearDownClass(cls):
+        """Delete things made in setUpClass. addCleanup feature does not work with setupClass."""
+        cls.client.delete(cls.from_repo['_href'])
+        cls.client.delete(cls.remote['_href'])
+
+    def test_sync_idempotency(self):
+        """Ensure that sync does not create orphan tags https://pulp.plan.io/issues/5252 ."""
+        sync(self.cfg, self.remote, self.from_repo)
+        first_sync_tags_named_a = self.client.get("{unit_path}?{filters}".format(
+            unit_path=DOCKER_TAG_PATH,
+            filters="name=manifest_a",
+        ))
+        sync(self.cfg, self.remote, self.from_repo)
+        second_sync_tags_named_a = self.client.get("{unit_path}?{filters}".format(
+            unit_path=DOCKER_TAG_PATH,
+            filters="name=manifest_a",
+        ))
+        self.assertEqual(first_sync_tags_named_a['count'], 1)
+        self.assertEqual(second_sync_tags_named_a['count'], 1)
