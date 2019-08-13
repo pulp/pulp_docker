@@ -21,7 +21,7 @@ Create the distribution, referencing a repository or repository version::
 
 Response:
 
-.. code:: json
+.. code::
 
     {
         "_href": "/pulp/api/v3/docker-distributions/8f312746-9b0a-4dda-a9d0-de39f4f43c29/",
