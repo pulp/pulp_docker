@@ -4,7 +4,7 @@ import unittest
 
 from pulp_smash import api, cli, config, exceptions
 from pulp_smash.pulp3.constants import MEDIA_PATH, REPO_PATH
-from pulp_smash.pulp3.utils import gen_repo, sync
+from pulp_smash.pulp3.utils import delete_orphans, gen_repo, sync
 
 from pulp_docker.tests.functional.constants import (
     DOCKER_TAG_PATH,
@@ -129,12 +129,14 @@ class TestRepeatedSync(unittest.TestCase):
         cls.from_repo = cls.client.post(REPO_PATH, gen_repo())
         remote_data = gen_docker_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         cls.remote = cls.client.post(DOCKER_REMOTE_PATH, remote_data)
+        delete_orphans(cls.cfg)
 
     @classmethod
     def tearDownClass(cls):
         """Delete things made in setUpClass. addCleanup feature does not work with setupClass."""
         cls.client.delete(cls.from_repo['_href'])
         cls.client.delete(cls.remote['_href'])
+        delete_orphans(cls.cfg)
 
     def test_sync_idempotency(self):
         """Ensure that sync does not create orphan tags https://pulp.plan.io/issues/5252 ."""

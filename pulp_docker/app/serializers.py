@@ -268,3 +268,25 @@ class UnTagImageSerializer(TagOperationSerializer):
             )
 
         return new_data
+
+
+class DockerRecursiveAddSerializer(serializers.Serializer):
+    """
+    Serializer for adding content to a Docker repository.
+    """
+
+    repository = serializers.HyperlinkedRelatedField(
+        required=True,
+        help_text=_('A URI of the repository to add content.'),
+        queryset=Repository.objects.all(),
+        view_name='repositories-detail',
+        label=_('Repository'),
+        error_messages={
+            'required': _('The repository URI must be specified.')
+        }
+    )
+    content_units = serializers.ListField(
+        help_text=_('A list of content units to add to a new repository version.'),
+        write_only=True,
+        required=False
+    )

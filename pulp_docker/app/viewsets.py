@@ -1,7 +1,7 @@
 """
 Check `Plugin Writer's Guide`_ for more details.
 
-.. _Plugin Writer's Guide:
+. _Plugin Writer's Guide:
     http://docs.pulpproject.org/en/3.0/nightly/plugins/plugin-writer/index.html
 """
 
@@ -14,17 +14,19 @@ from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositorySyncURLSerializer,
 )
-
+from pulpcore.plugin.models import Content
 from pulpcore.plugin.tasking import enqueue_with_reservation
 from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
     CharInFilter,
     ContentFilter,
     ContentViewSet,
+    NamedModelViewSet,
     RemoteViewSet,
     OperationPostponedResponse,
 )
 from rest_framework.decorators import action
+from rest_framework import viewsets as drf_viewsets
 
 from . import models, serializers, tasks
 
@@ -244,6 +246,37 @@ class UnTagImageViewSet(viewsets.ViewSet):
             kwargs={
                 'tag': tag,
                 'repository_pk': repository.pk
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+
+class RecursiveAdd(drf_viewsets.ViewSet):
+    """
+    ViewSet for recursively adding and removing Docker content.
+    """
+
+    serializer_class = serializers.DockerRecursiveAddSerializer
+
+    def create(self, request):
+        """
+        Queues a task that creates a new RepositoryVersion by adding content units.
+        """
+        add_content_units = []
+        serializer = serializers.DockerRecursiveAddSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        repository = serializer.validated_data['repository']
+
+        if 'content_units' in request.data:
+            for url in request.data['content_units']:
+                content = NamedModelViewSet.get_resource(url, Content)
+                add_content_units.append(content.pk)
+
+        result = enqueue_with_reservation(
+            tasks.recursive_add_content, [repository],
+            kwargs={
+                'repository_pk': repository.pk,
+                'content_units': add_content_units,
             }
         )
         return OperationPostponedResponse(result, request)

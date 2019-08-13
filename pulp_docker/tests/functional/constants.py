@@ -9,8 +9,13 @@ from pulp_smash.pulp3.constants import (
     CONTENT_PATH
 )
 
-# FIXME: replace 'unit' with your own content type names, and duplicate as necessary for each type
-DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/units/')
+DOCKER_MANIFEST_PATH = urljoin(CONTENT_PATH, 'docker/manifests/')
+
+DOCKER_TAG_PATH = urljoin(CONTENT_PATH, 'docker/tags/')
+
+DOCKER_BLOB_PATH = urljoin(CONTENT_PATH, 'docker/blobs/')
+
+DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/unit/')
 
 DOCKER_TAG_PATH = urljoin(CONTENT_PATH, 'docker/tags/')
 
@@ -23,6 +28,8 @@ DOCKER_CONTENT_NAME = 'docker.blob'
 DOCKER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'docker/docker/')
 
 DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/docker/')
+
+DOCKER_RECURSIVE_ADD_PATH = urljoin(BASE_PATH, 'docker/recursive-add/')
 
 DOCKER_IMAGE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'docker/busybox:latest.tar')
 """The URL to a Docker image as created by ``docker save``."""
