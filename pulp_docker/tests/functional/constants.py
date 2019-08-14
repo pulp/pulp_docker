@@ -17,11 +17,11 @@ DOCKER_BLOB_PATH = urljoin(CONTENT_PATH, 'docker/blobs/')
 
 DOCKER_CONTENT_PATH = urljoin(CONTENT_PATH, 'docker/unit/')
 
-DOCKER_TAG_PATH = urljoin(CONTENT_PATH, 'docker/tags/')
-
 DOCKER_TAGGING_PATH = urljoin(BASE_PATH, 'docker/tag/')
 
 DOCKER_UNTAGGING_PATH = urljoin(BASE_PATH, 'docker/untag/')
+
+DOCKER_TAG_COPY_PATH = urljoin(BASE_PATH, 'docker/tags/copy/')
 
 DOCKER_CONTENT_NAME = 'docker.blob'
 
