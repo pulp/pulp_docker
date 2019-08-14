@@ -163,9 +163,13 @@ class TaggingTestCase(unittest.TestCase):
 
     def get_manifest_by_tag(self, tag_name):
         """Fetch a manifest by the tag name."""
+        latest_version = self.client.get(
+            self.repository['_href']
+        )['_latest_version_href']
+
         manifest_a_href = self.client.get('{unit_path}?{filters}'.format(
             unit_path=DOCKER_TAG_PATH,
-            filters=f'name={tag_name}'
+            filters=f'name={tag_name}&repository_version={latest_version}'
         ))['results'][0]['tagged_manifest']
         return self.client.get(manifest_a_href)
 
