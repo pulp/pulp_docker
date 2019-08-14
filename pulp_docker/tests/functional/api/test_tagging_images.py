@@ -46,24 +46,28 @@ class TaggingTestCase(unittest.TestCase):
         This test checks if the tag was created in a new repository version.
         """
         manifest_a = self.get_manifest_by_tag('manifest_a')
-        response = self.tag_image(manifest_a, 'new_tag')
+        self.tag_image(manifest_a, 'new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
             repository_href=self.repository['_href'],
             new_version='2'
         )
 
-        created_tag = self.client.get('{unit_path}?{filters}'.format(
+        added_tags_href = '{unit_path}?{filters}'.format(
             unit_path=DOCKER_TAG_PATH,
             filters=f'repository_version_added={new_repository_version_href}'
-        ))['results'][0]
+        )
+        created_tag = self.client.get(added_tags_href)['results'][0]
         self.assertEqual(created_tag['name'], 'new_tag', created_tag['name'])
 
-        self.assertEqual(
-            set(response['created_resources']),
-            {new_repository_version_href, created_tag['_href']},
-            set(response['created_resources'])
-        )
+        repository_version = self.client.get(new_repository_version_href)
+
+        added_content = repository_version['content_summary']['added']
+        added_tags = added_content['docker.tag']['count']
+        self.assertEqual(added_tags, 1, added_content)
+
+        removed_content = repository_version['content_summary']['removed']
+        self.assertEqual(removed_content, {}, removed_content)
 
     def test_02_tag_first_image_with_same_tag(self):
         """
@@ -72,7 +76,7 @@ class TaggingTestCase(unittest.TestCase):
         This test checks if a new repository version was created with no content added.
         """
         manifest_a = self.get_manifest_by_tag('manifest_a')
-        response = self.tag_image(manifest_a, 'new_tag')
+        self.tag_image(manifest_a, 'new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
             repository_href=self.repository['_href'],
@@ -80,14 +84,12 @@ class TaggingTestCase(unittest.TestCase):
         )
 
         repository_version = self.client.get(new_repository_version_href)
+
         added_content = repository_version['content_summary']['added']
         self.assertEqual(added_content, {}, added_content)
 
-        self.assertEqual(
-            set(response['created_resources']),
-            {new_repository_version_href},
-            set(response['created_resources'])
-        )
+        removed_content = repository_version['content_summary']['removed']
+        self.assertEqual(removed_content, {}, removed_content)
 
     def test_03_tag_second_image_with_same_tag(self):
         """
@@ -98,63 +100,68 @@ class TaggingTestCase(unittest.TestCase):
         """
         manifest_a = self.get_manifest_by_tag('manifest_a')
         manifest_b = self.get_manifest_by_tag('manifest_b')
-        response = self.tag_image(manifest_b, 'new_tag')
+        self.tag_image(manifest_b, 'new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
             repository_href=self.repository['_href'],
             new_version='4'
         )
-        created_tag = self.client.get('{unit_path}?{filters}'.format(
+
+        added_tags_href = '{unit_path}?{filters}'.format(
             unit_path=DOCKER_TAG_PATH,
             filters=f'repository_version_added={new_repository_version_href}'
-        ))['results'][0]
+        )
+        created_tag = self.client.get(added_tags_href)['results'][0]
         self.assertEqual(created_tag['name'], 'new_tag', created_tag['name'])
 
         created_tag_manifest = self.client.get(created_tag['tagged_manifest'])
         self.assertEqual(created_tag_manifest, manifest_b, created_tag_manifest)
 
-        deleted_tag = self.client.get('{unit_path}?{filters}'.format(
+        removed_tags_href = '{unit_path}?{filters}'.format(
             unit_path=DOCKER_TAG_PATH,
             filters=f'repository_version_removed={new_repository_version_href}'
-        ))['results'][0]
-        self.assertEqual(deleted_tag['name'], 'new_tag', deleted_tag['name'])
-
-        deleted_tag_manifest = self.client.get(deleted_tag['tagged_manifest'])
-        self.assertEqual(deleted_tag_manifest, manifest_a, deleted_tag_manifest)
-
-        self.assertEqual(
-            set(response['created_resources']),
-            {new_repository_version_href, created_tag['_href']},
-            set(response['created_resources'])
         )
+        removed_tag = self.client.get(removed_tags_href)['results'][0]
+        self.assertEqual(removed_tag['name'], 'new_tag', removed_tag['name'])
+
+        removed_tag_manifest = self.client.get(removed_tag['tagged_manifest'])
+        self.assertEqual(removed_tag_manifest, manifest_a, removed_tag_manifest)
+
+        repository_version = self.client.get(new_repository_version_href)
+
+        added_content = repository_version['content_summary']['added']
+        added_tags = added_content['docker.tag']['count']
+        self.assertEqual(added_tags, 1, added_content)
+
+        removed_content = repository_version['content_summary']['removed']
+        removed_tags = removed_content['docker.tag']['count']
+        self.assertEqual(removed_tags, 1, removed_content)
 
     def test_04_untag_second_image(self):
         """Untag the manifest and check if the tag was added in a new repository version."""
-        response = self.untag_image('new_tag')
+        self.untag_image('new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
             repository_href=self.repository['_href'],
             new_version='5'
         )
 
-        deleted_tags_href = '{unit_path}?{filters}'.format(
+        removed_tags_href = '{unit_path}?{filters}'.format(
             unit_path=DOCKER_TAG_PATH,
             filters=f'repository_version_removed={new_repository_version_href}'
         )
 
         repository_version = self.client.get(new_repository_version_href)
+
         removed_content = repository_version['content_summary']['removed']
         removed_tags = removed_content['docker.tag']['href']
-        self.assertEqual(removed_tags, deleted_tags_href, removed_tags)
+        self.assertEqual(removed_tags, removed_tags_href, removed_tags)
 
-        deleted_tag = self.client.get(deleted_tags_href)['results'][0]
-        self.assertEqual(deleted_tag['name'], 'new_tag', deleted_tag)
+        added_content = repository_version['content_summary']['added']
+        self.assertEqual(added_content, {}, added_content)
 
-        self.assertEqual(
-            response['created_resources'],
-            [new_repository_version_href],
-            response['created_resources']
-        )
+        removed_tag = self.client.get(removed_tags_href)['results'][0]
+        self.assertEqual(removed_tag['name'], 'new_tag', removed_tag)
 
     def test_05_untag_second_image_again(self):
         """Untag the manifest that was already untagged."""
@@ -163,9 +170,13 @@ class TaggingTestCase(unittest.TestCase):
 
     def get_manifest_by_tag(self, tag_name):
         """Fetch a manifest by the tag name."""
+        latest_version = self.client.get(
+            self.repository['_href']
+        )['_latest_version_href']
+
         manifest_a_href = self.client.get('{unit_path}?{filters}'.format(
             unit_path=DOCKER_TAG_PATH,
-            filters=f'name={tag_name}'
+            filters=f'name={tag_name}&repository_version={latest_version}'
         ))['results'][0]['tagged_manifest']
         return self.client.get(manifest_a_href)
 
@@ -176,8 +187,7 @@ class TaggingTestCase(unittest.TestCase):
             'repository': self.repository['_href'],
             'digest': manifest['digest']
         }
-        response = self.client.post(DOCKER_TAGGING_PATH, params)
-        return self.client.get(response['task'])
+        self.client.post(DOCKER_TAGGING_PATH, params)
 
     def untag_image(self, tag_name):
         """Perform an untagging operation."""
@@ -185,5 +195,4 @@ class TaggingTestCase(unittest.TestCase):
             'tag': tag_name,
             'repository': self.repository['_href']
         }
-        response = self.client.post(DOCKER_UNTAGGING_PATH, params)
-        return self.client.get(response['task'])
+        self.client.post(DOCKER_UNTAGGING_PATH, params)
