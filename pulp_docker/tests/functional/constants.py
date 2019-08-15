@@ -33,6 +33,8 @@ DOCKER_REMOTE_PATH = urljoin(BASE_REMOTE_PATH, 'docker/docker/')
 
 DOCKER_RECURSIVE_ADD_PATH = urljoin(BASE_PATH, 'docker/recursive-add/')
 
+DOCKER_RECURSIVE_REMOVE_PATH = urljoin(BASE_PATH, 'docker/recursive-remove/')
+
 DOCKER_IMAGE_URL = urljoin(PULP_FIXTURES_BASE_URL, 'docker/busybox:latest.tar')
 """The URL to a Docker image as created by ``docker save``."""
 

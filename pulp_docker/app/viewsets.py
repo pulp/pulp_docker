@@ -253,22 +253,22 @@ class UnTagImageViewSet(drf_viewsets.ViewSet):
 
 class RecursiveAdd(drf_viewsets.ViewSet):
     """
-    ViewSet for recursively adding and removing Docker content.
+    ViewSet for recursively adding Docker content.
     """
 
-    serializer_class = serializers.DockerRecursiveAddSerializer
+    serializer_class = serializers.RecursiveManageSerializer
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to recursively add docker content.",
         responses={202: AsyncOperationResponseSerializer},
-        request_body=serializers.DockerRecursiveAddSerializer,
+        request_body=serializers.RecursiveManageSerializer,
     )
     def create(self, request):
         """
         Queues a task that creates a new RepositoryVersion by adding content units.
         """
         add_content_units = []
-        serializer = serializers.DockerRecursiveAddSerializer(data=request.data)
+        serializer = serializers.RecursiveManageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         repository = serializer.validated_data['repository']
 
@@ -368,6 +368,42 @@ class ManifestCopyViewSet(drf_viewsets.ViewSet):
             kwargs={
                 'repository_pk': destination.pk,
                 'content_units': manifests_to_add,
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+
+class RecursiveRemove(drf_viewsets.ViewSet):
+    """
+    ViewSet for recursively removing Docker content.
+    """
+
+    serializer_class = serializers.RecursiveManageSerializer
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to recursively remove docker content.",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.RecursiveManageSerializer,
+    )
+    def create(self, request):
+        """
+        Queues a task that creates a new RepositoryVersion by removing content units.
+        """
+        remove_content_units = []
+        serializer = serializers.RecursiveManageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        repository = serializer.validated_data['repository']
+
+        if 'content_units' in request.data:
+            for url in request.data['content_units']:
+                content = NamedModelViewSet.get_resource(url, Content)
+                remove_content_units.append(content.pk)
+
+        result = enqueue_with_reservation(
+            tasks.recursive_remove_content, [repository],
+            kwargs={
+                'repository_pk': repository.pk,
+                'content_units': remove_content_units,
             }
         )
         return OperationPostponedResponse(result, request)
