@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 V2_ACCEPT_HEADERS = {
-    'accept': ','.join([MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_LIST])
+    'Accept': ','.join([MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_LIST])
 }
 
 
