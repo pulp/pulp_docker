@@ -49,7 +49,7 @@ request. ``on_demand`` and ``streamed`` policies can provide significant disk sp
 
 Create the remote by POST to the remotes endpoint::
 
-    $ http POST http://localhost:24817/pulp/api/v3/remotes/docker/docker/ name='library/busybox' upstream_name='busybox' url='https://registry-1.docker.io' policy='on_demand'
+    $ http POST http://localhost:24817/pulp/api/v3/remotes/docker/docker/ name='busybox' upstream_name='library/busybox' url='https://registry-1.docker.io' policy='on_demand'
 
 .. code::
 
@@ -60,7 +60,7 @@ Create the remote by POST to the remotes endpoint::
 
 Save this url as an environment variable::
 
-    $ export REMOTE_HREF=$(http :24817/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "library/busybox") | ._href')
+    $ export REMOTE_HREF=$(http :24817/pulp/api/v3/remotes/docker/docker/ | jq -r '.results[] | select(.name == "busybox") | ._href')
 
 
 .. _filtered-sync-workflow:
