@@ -9,12 +9,198 @@ from requests.exceptions import HTTPError
 
 from pulp_docker.tests.functional.constants import (
     DOCKER_TAG_PATH,
+    DOCKER_TAG_COPY_PATH,
     DOCKER_TAGGING_PATH,
     DOCKER_REMOTE_PATH,
     DOCKER_RECURSIVE_ADD_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
 )
 from pulp_docker.tests.functional.utils import gen_docker_remote
+
+
+class TestTagCopy(unittest.TestCase):
+    """Test recursive copy of tags content to a repository."""
+
+    @classmethod
+    def setUpClass(cls):
+        """Sync pulp/test-fixture-1 so we can copy content from it."""
+        cls.cfg = config.get_config()
+        cls.client = api.Client(cls.cfg, api.json_handler)
+        cls.from_repo = cls.client.post(REPO_PATH, gen_repo())
+        remote_data = gen_docker_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
+        cls.remote = cls.client.post(DOCKER_REMOTE_PATH, remote_data)
+        sync(cls.cfg, cls.remote, cls.from_repo)
+        latest_version = cls.client.get(cls.from_repo['_href'])['_latest_version_href']
+        cls.latest_from_version = "repository_version={version}".format(version=latest_version)
+
+    def setUp(self):
+        """Create an empty repository to copy into."""
+        self.to_repo = self.client.post(REPO_PATH, gen_repo())
+        self.addCleanup(self.client.delete, self.to_repo['_href'])
+
+    @classmethod
+    def tearDownClass(cls):
+        """Delete things made in setUpClass. addCleanup feature does not work with setupClass."""
+        cls.client.delete(cls.from_repo['_href'])
+        cls.client.delete(cls.remote['_href'])
+
+    def test_missing_repository_argument(self):
+        """Ensure source_repository or source_repository_version is required."""
+        with self.assertRaises(HTTPError):
+            self.client.post(DOCKER_RECURSIVE_ADD_PATH)
+
+        with self.assertRaises(HTTPError):
+            self.client.post(
+                DOCKER_RECURSIVE_ADD_PATH,
+                {'source_repository': self.from_repo['_href']}
+            )
+
+        with self.assertRaises(HTTPError):
+            self.client.post(
+                DOCKER_RECURSIVE_ADD_PATH,
+                {'source_repository_version': self.from_repo['_latest_version_href']}
+            )
+
+        with self.assertRaises(HTTPError):
+            self.client.post(
+                DOCKER_RECURSIVE_ADD_PATH,
+                {'destination_repository': self.to_repo['_href']}
+            )
+
+    def test_empty_source_repository(self):
+        """Ensure exception is raised when source_repository does not have latest version."""
+        with self.assertRaises(HTTPError):
+            self.client.post(
+                DOCKER_TAG_COPY_PATH,
+                {
+                    # to_repo has no versions.
+                    'source_repository': self.to_repo['_href'],
+                    'destination_repository': self.from_repo['_href'],
+                }
+            )
+
+    def test_source_repository_and_source_version(self):
+        """Passing source_repository_version and repository returns a 400."""
+        with self.assertRaises(HTTPError):
+            self.client.post(
+                DOCKER_TAG_COPY_PATH,
+                {
+                    'source_repository': self.from_repo['_href'],
+                    'source_repository_version': self.from_repo['_latest_version_href'],
+                    'destination_repository': self.to_repo['_href']
+                }
+            )
+
+    def test_copy_all_tags(self):
+        """Passing only source and destination repositories copies all tags."""
+        self.client.post(
+            DOCKER_TAG_COPY_PATH,
+            {
+                'source_repository': self.from_repo['_href'],
+                'destination_repository': self.to_repo['_href']
+            }
+        )
+        latest_to_repo_href = self.client.get(self.to_repo['_href'])['_latest_version_href']
+        latest_from_repo_href = self.client.get(self.from_repo['_href'])['_latest_version_href']
+        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']['present']
+        from_repo_content = self.client.get(latest_from_repo_href)['content_summary']['present']
+        for docker_type in ['docker.tag', 'docker.manifest', 'docker.blob']:
+            self.assertEqual(
+                to_repo_content[docker_type]['count'],
+                from_repo_content[docker_type]['count']
+            )
+
+    def test_copy_all_tags_from_version(self):
+        """Passing only source version and destination repositories copies all tags."""
+        latest_from_repo_href = self.client.get(self.from_repo['_href'])['_latest_version_href']
+        self.client.post(
+            DOCKER_TAG_COPY_PATH,
+            {
+                'source_repository_version': latest_from_repo_href,
+                'destination_repository': self.to_repo['_href']
+            }
+        )
+        latest_to_repo_href = self.client.get(self.to_repo['_href'])['_latest_version_href']
+        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']['present']
+        from_repo_content = self.client.get(latest_from_repo_href)['content_summary']['present']
+        for docker_type in ['docker.tag', 'docker.manifest', 'docker.blob']:
+            self.assertEqual(
+                to_repo_content[docker_type]['count'],
+                from_repo_content[docker_type]['count']
+            )
+
+    def test_copy_tags_by_name(self):
+        """Passing only source and destination repositories copies all tags."""
+        self.client.post(
+            DOCKER_TAG_COPY_PATH,
+            {
+                'source_repository': self.from_repo['_href'],
+                'destination_repository': self.to_repo['_href'],
+                'names': ['ml_i', 'manifest_c']
+            }
+        )
+        latest_to_repo_href = self.client.get(self.to_repo['_href'])['_latest_version_href']
+        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']['present']
+        self.assertEqual(to_repo_content['docker.tag']['count'], 2)
+        # ml_i has 1 manifest list, 2 manifests, manifest_c has 1 manifest
+        self.assertEqual(to_repo_content['docker.manifest']['count'], 4)
+        # each manifest (not manifest list) has 2 blobs
+        self.assertEqual(to_repo_content['docker.blob']['count'], 6)
+
+    def test_copy_tags_by_name_empty_list(self):
+        """Passing only source and destination repositories copies all tags."""
+        self.client.post(
+            DOCKER_TAG_COPY_PATH,
+            {
+                'source_repository': self.from_repo['_href'],
+                'destination_repository': self.to_repo['_href'],
+                'names': []
+            }
+        )
+        latest_to_repo_href = self.client.get(self.to_repo['_href'])['_latest_version_href']
+        # A new version was created
+        self.assertNotEqual(latest_to_repo_href, self.to_repo['_latest_version_href'])
+
+        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']['present']
+        # No content added
+        for docker_type in ['docker.tag', 'docker.manifest', 'docker.blob']:
+            self.assertFalse(docker_type in to_repo_content)
+
+    def test_copy_tags_with_conflicting_names(self):
+        """If tag names are already present in a repository, the conflicting tags are removed."""
+        self.client.post(
+            DOCKER_TAG_COPY_PATH,
+            {
+                'source_repository': self.from_repo['_href'],
+                'destination_repository': self.to_repo['_href']
+            }
+        )
+        # Same call
+        self.client.post(
+            DOCKER_TAG_COPY_PATH,
+            {
+                'source_repository': self.from_repo['_href'],
+                'destination_repository': self.to_repo['_href']
+            }
+        )
+        latest_to_repo_href = self.client.get(self.to_repo['_href'])['_latest_version_href']
+        latest_from_repo_href = self.client.get(self.from_repo['_href'])['_latest_version_href']
+        to_repo_content = self.client.get(latest_to_repo_href)['content_summary']
+        from_repo_content = self.client.get(latest_from_repo_href)['content_summary']
+        for docker_type in ['docker.tag', 'docker.manifest', 'docker.blob']:
+            self.assertEqual(
+                to_repo_content['present'][docker_type]['count'],
+                from_repo_content['present'][docker_type]['count']
+            )
+
+        self.assertEqual(
+            to_repo_content['added']['docker.tag']['count'],
+            from_repo_content['present']['docker.tag']['count']
+        )
+        self.assertEqual(
+            to_repo_content['removed']['docker.tag']['count'],
+            from_repo_content['present']['docker.tag']['count']
+        )
 
 
 class TestRecursiveAdd(unittest.TestCase):

@@ -11,10 +11,12 @@ from pulpcore.plugin.models import (
 )
 from pulpcore.plugin.serializers import (
     DetailRelatedField,
+    NestedRelatedField,
     RemoteSerializer,
     RepositoryVersionDistributionSerializer,
     SingleArtifactContentSerializer,
     RelatedField,
+    validate_unknown_fields,
 )
 
 from . import models
@@ -290,3 +292,68 @@ class DockerRecursiveAddSerializer(serializers.Serializer):
         write_only=True,
         required=False
     )
+
+
+class TagCopySerializer(serializers.Serializer):
+    """
+    Serializer for copying tags from a source repository to a destination repository.
+    """
+
+    source_repository = serializers.HyperlinkedRelatedField(
+        help_text=_('A URI of the repository to copy tags from.'),
+        queryset=Repository.objects.all(),
+        view_name='repositories-detail',
+        label=_('Repository'),
+        write_only=True,
+        required=False,
+    )
+    source_repository_version = NestedRelatedField(
+        help_text=_('A URI of the repository version to copy tags from.'),
+        view_name='versions-detail',
+        lookup_field='number',
+        parent_lookup_kwargs={'repository_pk': 'repository__pk'},
+        queryset=models.RepositoryVersion.objects.all(),
+        write_only=True,
+        required=False,
+    )
+    destination_repository = serializers.HyperlinkedRelatedField(
+        required=True,
+        help_text=_('A URI of the repository to copy tags to.'),
+        queryset=Repository.objects.all(),
+        view_name='repositories-detail',
+        label=_('Repository'),
+        error_messages={
+            'required': _('Destination repository URI must be specified.')
+        }
+    )
+    names = serializers.ListField(
+        required=False,
+        allow_null=False,
+        help_text="A list of tag names to copy."
+    )
+
+    def validate(self, data):
+        """Ensure that source_repository or source_rpository_version is pass, but not both."""
+        if hasattr(self, 'initial_data'):
+            validate_unknown_fields(self.initial_data, self.fields)
+
+        repository = data.pop('source_repository', None)
+        repository_version = data.get('source_repository_version')
+        if not repository and not repository_version:
+            raise serializers.ValidationError(
+                _("Either the 'repository' or 'repository_version' need to be specified"))
+        elif not repository and repository_version:
+            return data
+        elif repository and not repository_version:
+            version = models.RepositoryVersion.latest(repository)
+            if version:
+                new_data = {'source_repository_version': version}
+                new_data.update(data)
+                return new_data
+            else:
+                raise serializers.ValidationError(
+                    detail=_('Source repository has no version available to copy content from'))
+        raise serializers.ValidationError(
+            _("Either the 'repository' or 'repository_version' need to be specified "
+              "but not both.")
+        )

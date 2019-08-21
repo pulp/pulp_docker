@@ -8,8 +8,6 @@ Check `Plugin Writer's Guide`_ for more details.
 from django_filters import MultipleChoiceFilter
 from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework import viewsets
-
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
     RepositorySyncURLSerializer,
@@ -25,8 +23,8 @@ from pulpcore.plugin.viewsets import (
     RemoteViewSet,
     OperationPostponedResponse,
 )
-from rest_framework.decorators import action
 from rest_framework import viewsets as drf_viewsets
+from rest_framework.decorators import action
 
 from . import models, serializers, tasks
 
@@ -179,7 +177,7 @@ class DockerDistributionViewSet(BaseDistributionViewSet):
     serializer_class = serializers.DockerDistributionSerializer
 
 
-class TagImageViewSet(viewsets.ViewSet):
+class TagImageViewSet(drf_viewsets.ViewSet):
     """
     ViewSet used for tagging manifests. This endpoint supports only HTTP POST requests.
     """
@@ -188,7 +186,8 @@ class TagImageViewSet(viewsets.ViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to create a new repository",
-        responses={202: AsyncOperationResponseSerializer}
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.TagImageSerializer,
     )
     def create(self, request):
         """
@@ -216,7 +215,7 @@ class TagImageViewSet(viewsets.ViewSet):
         return OperationPostponedResponse(result, request)
 
 
-class UnTagImageViewSet(viewsets.ViewSet):
+class UnTagImageViewSet(drf_viewsets.ViewSet):
     """
     ViewSet used for untagging manifests. This endpoint supports only HTTP POST requests.
     """
@@ -225,7 +224,8 @@ class UnTagImageViewSet(viewsets.ViewSet):
 
     @swagger_auto_schema(
         operation_description="Trigger an asynchronous task to create a new repository",
-        responses={202: AsyncOperationResponseSerializer}
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.UnTagImageSerializer,
     )
     def create(self, request):
         """
@@ -258,6 +258,11 @@ class RecursiveAdd(drf_viewsets.ViewSet):
 
     serializer_class = serializers.DockerRecursiveAddSerializer
 
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to recursively add docker content.",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.DockerRecursiveAddSerializer,
+    )
     def create(self, request):
         """
         Queues a task that creates a new RepositoryVersion by adding content units.
@@ -277,6 +282,48 @@ class RecursiveAdd(drf_viewsets.ViewSet):
             kwargs={
                 'repository_pk': repository.pk,
                 'content_units': add_content_units,
+            }
+        )
+        return OperationPostponedResponse(result, request)
+
+
+class TagCopyViewSet(drf_viewsets.ViewSet):
+    """
+    ViewSet for copying tags recursively.
+    """
+
+    serializer_class = serializers.TagCopySerializer
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to copy tags",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.TagCopySerializer,
+    )
+    def create(self, request):
+        """
+        Queues a task that creates a new RepositoryVersion by adding content units.
+        """
+        names = request.data.get("names")
+        serializer = serializers.TagCopySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        source_latest = serializer.validated_data['source_repository_version']
+        destination = serializer.validated_data['destination_repository']
+        content_tags_in_repo = source_latest.content.filter(
+            _type="docker.tag"
+        )
+        tags_in_repo = models.Tag.objects.filter(
+            pk__in=content_tags_in_repo,
+        )
+        if names is None:
+            tags_to_add = tags_in_repo
+        else:
+            tags_to_add = tags_in_repo.filter(name__in=names)
+
+        result = enqueue_with_reservation(
+            tasks.recursive_add_content, [destination],
+            kwargs={
+                'repository_pk': destination.pk,
+                'content_units': tags_to_add.values_list('pk', flat=True),
             }
         )
         return OperationPostponedResponse(result, request)

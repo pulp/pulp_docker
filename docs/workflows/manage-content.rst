@@ -7,6 +7,7 @@ There are multiple ways that users can manage their Docker content in repositori
 
    1. :ref:`Tag<tagging-workflow>` or :ref:`Untag<untagging-workflow>` Manifests in a repository.
    2. :ref:`Recursively add content<recursive-add>`
+   3. :ref:`Copy tags from source repository<tag-copy>`
 
 .. warning::
 
@@ -70,3 +71,21 @@ with a duplicate name will first remove the existing tag
    Adding a tagged manifest will **not** include the tag itself.
 
 Reference: `Docker Recursive Add Usage <../restapi.html#tag/docker:-recursive-add>`_
+
+.. _tag-copy:
+
+Recursively Copy Tags from a Source Repository
+----------------------------------------------
+
+Tags in one repository can be copied to another repository using the tag
+copy endpoint.
+
+When no names are specified, all tags are recursively copied. If names are
+specified, only the matching tags are recursively copied.
+
+If tag names being copied already exist in the destination repository,
+the conflicting tags are removed from the destination repository and the
+new tags are added. This action is not recursive, no manifests or blobs
+are removed.
+
+Reference: `Docker Copy Tags Usage <../restapi.html#operation/docker_tags_copy_create>`_
