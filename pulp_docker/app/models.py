@@ -1,7 +1,6 @@
 import re
 
 from logging import getLogger
-from types import SimpleNamespace
 
 from django.db import models
 
@@ -9,20 +8,10 @@ from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import Content, Remote, RepositoryVersion, RepositoryVersionDistribution
 
 from . import downloaders
+from pulp_docker.constants import MEDIA_TYPE
 
 
 logger = getLogger(__name__)
-
-
-MEDIA_TYPE = SimpleNamespace(
-    MANIFEST_V1='application/vnd.docker.distribution.manifest.v1+json',
-    MANIFEST_V1_SIGNED='application/vnd.docker.distribution.manifest.v1+prettyjws',
-    MANIFEST_V2='application/vnd.docker.distribution.manifest.v2+json',
-    MANIFEST_LIST='application/vnd.docker.distribution.manifest.list.v2+json',
-    CONFIG_BLOB='application/vnd.docker.container.image.v1+json',
-    REGULAR_BLOB='application/vnd.docker.image.rootfs.diff.tar.gzip',
-    FOREIGN_BLOB='application/vnd.docker.image.rootfs.foreign.diff.tar.gzip',
-)
 
 
 class Blob(Content):

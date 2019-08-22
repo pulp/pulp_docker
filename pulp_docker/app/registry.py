@@ -8,7 +8,8 @@ from multidict import MultiDict
 
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
-from pulp_docker.app.models import DockerDistribution, Tag, MEDIA_TYPE
+from pulp_docker.app.models import DockerDistribution, Tag
+from pulp_docker.constants import MEDIA_TYPE
 
 
 log = logging.getLogger(__name__)

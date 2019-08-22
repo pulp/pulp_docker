@@ -294,13 +294,13 @@ class DockerRecursiveAddSerializer(serializers.Serializer):
     )
 
 
-class TagCopySerializer(serializers.Serializer):
+class CopySerializer(serializers.Serializer):
     """
-    Serializer for copying tags from a source repository to a destination repository.
+    Serializer for copying units from a source repository to a destination repository.
     """
 
     source_repository = serializers.HyperlinkedRelatedField(
-        help_text=_('A URI of the repository to copy tags from.'),
+        help_text=_('A URI of the repository to copy content from.'),
         queryset=Repository.objects.all(),
         view_name='repositories-detail',
         label=_('Repository'),
@@ -308,7 +308,7 @@ class TagCopySerializer(serializers.Serializer):
         required=False,
     )
     source_repository_version = NestedRelatedField(
-        help_text=_('A URI of the repository version to copy tags from.'),
+        help_text=_('A URI of the repository version to copy content from.'),
         view_name='versions-detail',
         lookup_field='number',
         parent_lookup_kwargs={'repository_pk': 'repository__pk'},
@@ -318,18 +318,13 @@ class TagCopySerializer(serializers.Serializer):
     )
     destination_repository = serializers.HyperlinkedRelatedField(
         required=True,
-        help_text=_('A URI of the repository to copy tags to.'),
+        help_text=_('A URI of the repository to copy content to.'),
         queryset=Repository.objects.all(),
         view_name='repositories-detail',
         label=_('Repository'),
         error_messages={
             'required': _('Destination repository URI must be specified.')
         }
-    )
-    names = serializers.ListField(
-        required=False,
-        allow_null=False,
-        help_text="A list of tag names to copy."
     )
 
     def validate(self, data):
@@ -357,3 +352,32 @@ class TagCopySerializer(serializers.Serializer):
             _("Either the 'repository' or 'repository_version' need to be specified "
               "but not both.")
         )
+
+
+class TagCopySerializer(CopySerializer):
+    """
+    Serializer for copying tags from a source repository to a destination repository.
+    """
+
+    names = serializers.ListField(
+        required=False,
+        allow_null=False,
+        help_text="A list of tag names to copy."
+    )
+
+
+class ManifestCopySerializer(CopySerializer):
+    """
+    Serializer for copying manifests from a source repository to a destination repository.
+    """
+
+    digests = serializers.ListField(
+        required=False,
+        allow_null=False,
+        help_text="A list of manifest digests to copy."
+    )
+    media_types = serializers.MultipleChoiceField(
+        choices=models.Manifest.MANIFEST_CHOICES,
+        required=False,
+        help_text="A list of media_types to copy."
+    )

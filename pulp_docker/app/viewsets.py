@@ -327,3 +327,47 @@ class TagCopyViewSet(drf_viewsets.ViewSet):
             }
         )
         return OperationPostponedResponse(result, request)
+
+
+class ManifestCopyViewSet(drf_viewsets.ViewSet):
+    """
+    ViewSet for copying manifests recursively.
+    """
+
+    serializer_class = serializers.ManifestCopySerializer
+
+    @swagger_auto_schema(
+        operation_description="Trigger an asynchronous task to copy manifests",
+        responses={202: AsyncOperationResponseSerializer},
+        request_body=serializers.ManifestCopySerializer,
+    )
+    def create(self, request):
+        """
+        Queues a task that creates a new RepositoryVersion by adding content units.
+        """
+        serializer = serializers.ManifestCopySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        source_latest = serializer.validated_data['source_repository_version']
+        destination = serializer.validated_data['destination_repository']
+        content_manifests_in_repo = source_latest.content.filter(
+            _type="docker.manifest"
+        )
+        manifests_in_repo = models.Manifest.objects.filter(
+            pk__in=content_manifests_in_repo,
+        )
+        digests = request.data.get("digests")
+        media_types = request.data.get("media_types")
+        filters = {}
+        if digests is not None:
+            filters['digest__in'] = digests
+        if media_types is not None:
+            filters['media_type__in'] = media_types
+        manifests_to_add = manifests_in_repo.filter(**filters)
+        result = enqueue_with_reservation(
+            tasks.recursive_add_content, [destination],
+            kwargs={
+                'repository_pk': destination.pk,
+                'content_units': manifests_to_add,
+            }
+        )
+        return OperationPostponedResponse(result, request)
