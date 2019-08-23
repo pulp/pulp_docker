@@ -132,7 +132,10 @@ class BlobViewSet(ContentViewSet):
 
 class DockerRemoteViewSet(RemoteViewSet):
     """
-    A ViewSet for DockerRemote.
+    Docker remotes represent an external repository that implements the Docker
+    Registry API. Docker remotes support deferred downloading by configuring
+    the ``policy`` field.  ``on_demand`` and ``streamed`` policies can provide
+    significant disk space savings.
     """
 
     endpoint_name = 'docker'
@@ -142,7 +145,7 @@ class DockerRemoteViewSet(RemoteViewSet):
     # This decorator is necessary since a sync operation is asyncrounous and returns
     # the id and href of the sync task.
     @swagger_auto_schema(
-        operation_description="Trigger an asynchronous task to sync content",
+        operation_description="Trigger an asynchronous task to sync content.",
         responses={202: AsyncOperationResponseSerializer}
     )
     @action(detail=True, methods=['post'], serializer_class=RepositorySyncURLSerializer)
@@ -169,7 +172,11 @@ class DockerRemoteViewSet(RemoteViewSet):
 
 class DockerDistributionViewSet(BaseDistributionViewSet):
     """
-    ViewSet for DockerDistribution model.
+    The Docker Distribution will serve the latest version of a Repository if
+    ``repository`` is specified. The Docker Distribution will serve a specific
+    repository version if ``repository_version``. Note that **either**
+    ``repository`` or ``repository_version`` can be set on a Docker
+    Distribution, but not both.
     """
 
     endpoint_name = 'docker'

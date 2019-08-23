@@ -117,15 +117,6 @@ class RegistryPathField(serializers.CharField):
 class DockerRemoteSerializer(RemoteSerializer):
     """
     A Serializer for DockerRemote.
-
-    Add any new fields if defined on DockerRemote.
-    Similar to the example above, in DockerContentSerializer.
-    Additional validators can be added to the parent validators list
-
-    For example::
-
-    class Meta:
-        validators = platform.RemoteSerializer.Meta.validators + [myValidator1, myValidator2]
     """
 
     upstream_name = serializers.CharField(
@@ -144,7 +135,12 @@ class DockerRemoteSerializer(RemoteSerializer):
     )
 
     policy = serializers.ChoiceField(
-        help_text="The policy to use when downloading content.",
+        help_text="""
+        immediate - All manifests and blobs are downloaded and saved during a sync.
+        on_demand - Only tags and manifests are downloaded. Blobs are not
+                    downloaded until they are requested for the first time by a client.
+        streamed - Blobs are streamed to the client with every request and never saved.
+        """,
         choices=Remote.POLICY_CHOICES,
         default=Remote.IMMEDIATE
     )
