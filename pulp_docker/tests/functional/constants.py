@@ -23,6 +23,8 @@ DOCKER_UNTAGGING_PATH = urljoin(BASE_PATH, 'docker/untag/')
 
 DOCKER_TAG_COPY_PATH = urljoin(BASE_PATH, 'docker/tags/copy/')
 
+DOCKER_MANIFEST_COPY_PATH = urljoin(BASE_PATH, 'docker/manifests/copy/')
+
 DOCKER_CONTENT_NAME = 'docker.blob'
 
 DOCKER_DISTRIBUTION_PATH = urljoin(BASE_DISTRIBUTION_PATH, 'docker/docker/')

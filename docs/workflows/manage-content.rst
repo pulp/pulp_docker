@@ -8,6 +8,7 @@ There are multiple ways that users can manage their Docker content in repositori
    1. :ref:`Tag<tagging-workflow>` or :ref:`Untag<untagging-workflow>` Manifests in a repository.
    2. :ref:`Recursively add content<recursive-add>`
    3. :ref:`Copy tags from source repository<tag-copy>`
+   4. :ref:`Copy manifests from source repository<manifest-copy>`
 
 .. warning::
 
@@ -89,3 +90,20 @@ new tags are added. This action is not recursive, no manifests or blobs
 are removed.
 
 Reference: `Docker Copy Tags Usage <../restapi.html#operation/docker_tags_copy_create>`_
+
+.. _manifest-copy:
+
+Recursively Copy Manifests from a Source Repository
+---------------------------------------------------
+
+Manifests in one repository can be copied to another repository using
+the manifest copy endpoint.
+
+If digests are specified, only the manifests (and their recursively
+related content) will be added.
+
+If media_types are specified, only manifests matching that media type
+(and their recursively related content) will be added. This allows users
+to copy only manifest lists, for example.
+
+Reference: `Docker Copy Manifests Usage <../restapi.html#operation/docker_manifests_copy_create>`_
