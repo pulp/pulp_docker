@@ -21,6 +21,12 @@ in the home directory. The ``.netrc`` should have the following configuration:
     login admin
     password admin
 
+One should observe that ``httpie`` uses the configuration retrieved from ``.netrc`` by default.
+Due to this, a custom Authorization header is always overwritten by the Basic Authorization with
+the provided login and password. In order to send HTTP requests which contain JWT Authorization
+headers, ensure yourself that the plugin `JWTAuth plugin <https://github.com/teracyhq/httpie-jwt-auth>`_
+was already installed.
+
 If you configured the ``admin`` user with a different password, adjust the configuration
 accordingly. If you prefer to specify the username and password with each request, please see
 ``httpie`` documentation on how to do that.
@@ -49,3 +55,4 @@ Container Workflows
    sync
    host
    manage-content
+   authentication
