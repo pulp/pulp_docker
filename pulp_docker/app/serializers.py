@@ -272,9 +272,9 @@ class UnTagImageSerializer(TagOperationSerializer):
         return new_data
 
 
-class DockerRecursiveAddSerializer(serializers.Serializer):
+class RecursiveManageSerializer(serializers.Serializer):
     """
-    Serializer for adding content to a Docker repository.
+    Serializer for adding and removing content to/from a Docker repository.
     """
 
     repository = serializers.HyperlinkedRelatedField(
@@ -288,7 +288,7 @@ class DockerRecursiveAddSerializer(serializers.Serializer):
         }
     )
     content_units = serializers.ListField(
-        help_text=_('A list of content units to add to a new repository version.'),
+        help_text=_('A list of content units to operate on.'),
         write_only=True,
         required=False
     )

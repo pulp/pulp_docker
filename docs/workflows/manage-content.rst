@@ -7,8 +7,9 @@ There are multiple ways that users can manage their Docker content in repositori
 
    1. :ref:`Tag<tagging-workflow>` or :ref:`Untag<untagging-workflow>` Manifests in a repository.
    2. :ref:`Recursively add content<recursive-add>`
-   3. :ref:`Copy tags from source repository<tag-copy>`
-   4. :ref:`Copy manifests from source repository<manifest-copy>`
+   3. :ref:`Recursively remove content<recursive-remove>`
+   4. :ref:`Copy tags from source repository<tag-copy>`
+   5. :ref:`Copy manifests from source repository<manifest-copy>`
 
 .. warning::
 
@@ -72,6 +73,28 @@ with a duplicate name will first remove the existing tag
    Adding a tagged manifest will **not** include the tag itself.
 
 Reference: `Docker Recursive Add Usage <../restapi.html#tag/docker:-recursive-add>`_
+
+.. _recursive-remove:
+
+Recursively Remove Content from a Repository
+--------------------------------------------
+
+Any Docker content can be removed from a repository version with the
+recursive-remove endpoint. Recursive remove is symmetrical with
+recursive add, meaning that performing a recursive-add and a
+recursive-remove back-to-back with the same content will result in the
+original content set. If other operations (ie tagging) are done between
+recursive-add and recursive remove, they can break the symmetry.
+
+Removing a tag also removes the tagged_manifest and its related content,
+which is **new behavior with Pulp 3**.
+
+Recursive remove **does not** remove content that is related to content
+that will stay in the repository. For example, if a manifest is tagged,
+the manifest cannot be removed from the repository-- instead the tag
+should be removed.
+
+Reference: `Docker Recursive Remove Usage <../restapi.html#tag/docker:-recursive-remove>`_
 
 .. _tag-copy:
 
