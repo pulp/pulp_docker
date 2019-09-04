@@ -20,7 +20,7 @@ plugin_caps: PULP_DOCKER
 plugin_caps_short: DOCKER
 plugin_dash: pulp-docker
 plugin_dash_short: docker
-plugin_name: docker
+plugin_name: pulp_docker
 plugin_snake: pulp_docker
 plugin_snake_short: docker
 pypi_username: pulp
