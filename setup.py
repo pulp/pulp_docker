@@ -12,7 +12,7 @@ with open('README.rst') as f:
 
 setup(
     name='pulp-docker',
-    version='4.0.0b6',
+    version='4.0.0b7.dev',
     description='pulp-docker plugin for the Pulp Project',
     long_description=long_description,
     license='GPLv2+',
