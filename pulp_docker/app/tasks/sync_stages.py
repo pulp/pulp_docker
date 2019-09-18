@@ -8,7 +8,7 @@ from gettext import gettext as _
 from urllib.parse import urljoin, urlparse, urlunparse
 
 from django.db import IntegrityError
-from pulpcore.plugin.models import Artifact, ProgressBar, Remote
+from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
 
 from pulp_docker.app.models import (Manifest, MEDIA_TYPE, Blob, Tag,
@@ -47,7 +47,9 @@ class DockerFirstStage(Stage):
         man_dcs = {}
         total_blobs = []
 
-        with ProgressBar(message='Downloading tag list', total=1) as pb:
+        with ProgressReport(
+            message='Downloading tag list', code='downloading.tag_list', total=1
+        ) as pb:
             repo_name = self.remote.namespaced_upstream_name
             relative_url = '/v2/{name}/tags/list'.format(name=repo_name)
             tag_list_url = urljoin(self.remote.url, relative_url)
@@ -75,7 +77,9 @@ class DockerFirstStage(Stage):
             downloader = self.remote.get_downloader(url=url)
             to_download.append(downloader.run(extra_data={'headers': V2_ACCEPT_HEADERS}))
 
-        pb_parsed_tags = ProgressBar(message='Processing Tags', state='running')
+        pb_parsed_tags = ProgressReport(
+            message='Processing Tags', code='processing.tag', state='running'
+        )
 
         for download_tag in asyncio.as_completed(to_download):
             tag = await download_tag
