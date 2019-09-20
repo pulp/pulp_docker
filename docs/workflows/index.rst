@@ -47,6 +47,5 @@ Container Workflows
    :maxdepth: 2
 
    sync
-   upload
-   publish
+   host
    manage-content
