@@ -1,6 +1,18 @@
 3.2 Release Notes
 =================
 
+3.2.5
+-----
+
+Bug Fixes:
+**********
+
+* Removing docker manifests from a docker repository takes a long time
+* Removing manifest_lists from a repository does not purge all newly unlinked manifests
+
+See the full list of :fixedbugs_pulp_docker:`3.2.5`.
+
+
 3.2.4
 -----
 
