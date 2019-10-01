@@ -10,6 +10,7 @@ from urllib.parse import urljoin, urlparse, urlunparse
 from django.db import IntegrityError
 from pulpcore.plugin.models import Artifact, ProgressReport, Remote
 from pulpcore.plugin.stages import DeclarativeArtifact, DeclarativeContent, Stage
+from pulpcore.constants import TASK_STATES
 
 from pulp_docker.app.models import (Manifest, MEDIA_TYPE, Blob, Tag,
                                     BlobManifest, ManifestListManifest)
@@ -78,7 +79,10 @@ class DockerFirstStage(Stage):
             to_download.append(downloader.run(extra_data={'headers': V2_ACCEPT_HEADERS}))
 
         pb_parsed_tags = ProgressReport(
-            message='Processing Tags', code='processing.tag', state='running'
+            message='Processing Tags',
+            code='processing.tag',
+            state=TASK_STATES.RUNNING,
+            total=len(tag_list)
         )
 
         for download_tag in asyncio.as_completed(to_download):
@@ -115,7 +119,6 @@ class DockerFirstStage(Stage):
             pb_parsed_tags.increment()
 
         pb_parsed_tags.state = 'completed'
-        pb_parsed_tags.total = pb_parsed_tags.done
         pb_parsed_tags.save()
 
         for manifest_future in asyncio.as_completed(future_manifests):
