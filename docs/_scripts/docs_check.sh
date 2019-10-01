@@ -25,3 +25,8 @@ source manifest_copy.sh
 
 source destination_repo.sh
 source tag_copy.sh
+
+# Check tag/untag
+source image_tagging.sh
+source download_after_tagging.sh
+source image_untagging.sh

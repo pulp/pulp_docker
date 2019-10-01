@@ -31,7 +31,18 @@ related to manifests because of that. In pulp, it is required to specify
 a digest of a manifest in order to create a tag for the corresponding
 image.
 
-``http POST http://localhost:24817/pulp/api/v3/docker/tag/ repository=${REPOSITORY_HREF} tag=${TAG_NAME} digest=${MANIFEST_DIGEST}``
+Below is provided an example on how to tag an image within a repository.
+First, a digest of an existing manifest is selected. Then, a custom tag is
+applied to the corresponding manifest.
+
+.. literalinclude:: ../_scripts/image_tagging.sh
+   :language: bash
+
+A new distribution can be created to include the newly created tag. This
+allows clients to pull the image with the applied tag.
+
+.. literalinclude:: ../_scripts/download_after_tagging.sh
+    :language: bash
 
 Each tag has to be unique within a repository to prevent ambiguity. When
 a user is trying to tag an image with a same name but with a different
@@ -47,9 +58,10 @@ Untagging
 ---------
 
 An untagging is an inverse operation to the tagging. To remove a tag
-applied to an image, it is required to issue the following call.
+applied to an image, it is required to issue the following calls.
 
-``http POST http://localhost:24817/pulp/api/v3/docker/untag/ repository=${REPOSITORY_HREF} tag=${TAG_NAME}``
+.. literalinclude:: ../_scripts/image_untagging.sh
+    :language: bash
 
 Pulp will create a new repository version which will not contain the
 corresponding tag. The removed tag however still persists in a database.
