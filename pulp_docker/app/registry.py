@@ -14,6 +14,9 @@ from pulp_docker.constants import MEDIA_TYPE
 
 log = logging.getLogger(__name__)
 
+v2_headers = MultiDict()
+v2_headers['Docker-Distribution-API-Version'] = 'registry/2.0'
+
 
 class ArtifactNotFound(Exception):
     """
@@ -96,7 +99,7 @@ class Registry(Handler):
 
         The docker client uses this endpoint to discover that the V2 API is available.
         """
-        return web.json_response({})
+        return web.json_response({}, headers=v2_headers)
 
     async def tags_list(self, request):
         """
@@ -111,7 +114,7 @@ class Registry(Handler):
             if isinstance(c, Tag):
                 tags['tags'].add(c.name)
         tags['tags'] = list(tags['tags'])
-        return web.json_response(tags)
+        return web.json_response(tags, headers=v2_headers)
 
     async def get_tag(self, request):
         """
