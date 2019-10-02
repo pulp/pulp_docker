@@ -13,6 +13,28 @@ Changelog
 
 .. towncrier release notes start
 
+4.0.0b7 (2019-10-02)
+====================
+
+
+Bugfixes
+--------
+
+- Fix a bug that allowed arbitrary url prefixes for custom endpoints.
+  `#5486 <https://pulp.plan.io/issues/5486>`_
+- Add Docker-Distribution-API-Version header among response headers.
+  `#5527 <https://pulp.plan.io/issues/5527>`_
+
+
+Misc
+----
+
+- `#5470 <https://pulp.plan.io/issues/5470>`_
+
+
+----
+
+
 4.0.0b6 (2019-09-05)
 ====================
 
