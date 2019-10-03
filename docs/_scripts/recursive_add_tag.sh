@@ -2,7 +2,7 @@
 
 echo "Retrieve the href of Tag latest in the synced repository."
 export TAG_HREF=$(http $BASE_ADDR'/pulp/api/v3/content/docker/tags/?repository_version='$REPOVERSION_HREF'&name=latest' \
-  | jq -r '.results | first | ._href')
+  | jq -r '.results | first | .pulp_href')
 
 echo "Create a task to recursively add a tag to the repo."
 export TASK_HREF=$(http POST $BASE_ADDR'/pulp/api/v3/docker/recursive-add/' \

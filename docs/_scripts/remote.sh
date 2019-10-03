@@ -7,7 +7,7 @@ http POST $BASE_ADDR/pulp/api/v3/remotes/docker/docker/ \
 
 echo "Export an environment variable for the new remote URI."
 export REMOTE_HREF=$(http $BASE_ADDR/pulp/api/v3/remotes/docker/docker/ \
-    | jq -r '.results[] | select(.name == "my-hello-repo") | ._href')
+    | jq -r '.results[] | select(.name == "my-hello-repo") | .pulp_href')
 
 echo "Inspecting new Remote."
 http $BASE_ADDR$REMOTE_HREF

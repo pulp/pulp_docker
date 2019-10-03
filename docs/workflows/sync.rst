@@ -15,8 +15,8 @@ Create a Repository
 Repository GET Response::
 
    {
-       "_created": "2019-09-05T14:29:43.424822Z",
-       "_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
+       "pulp_created": "2019-09-05T14:29:43.424822Z",
+       "pulp_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
        "_latest_version_href": null,
        "_versions_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/",
        "description": null,
@@ -41,9 +41,9 @@ including `quay`, `google container registry`, or even another instance of Pulp.
 Remote GET Response::
 
    {
-       "_created": "2019-09-05T14:29:44.267406Z",
-       "_href": "/pulp/api/v3/remotes/docker/docker/1cc699b7-24fd-4944-bde7-86aed8ac12fa/",
-       "_last_updated": "2019-09-05T14:29:44.267428Z",
+       "pulp_created": "2019-09-05T14:29:44.267406Z",
+       "pulp_href": "/pulp/api/v3/remotes/docker/docker/1cc699b7-24fd-4944-bde7-86aed8ac12fa/",
+       "pulp_last_updated": "2019-09-05T14:29:44.267428Z",
        "_type": "docker.docker",
        "download_concurrency": 20,
        "name": "my-hello-repo",
@@ -80,8 +80,8 @@ Repository Version GET Response (when complete):
 .. code:: json
 
    {
-       "_created": "2019-09-05T14:29:45.563089Z",
-       "_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/",
+       "pulp_created": "2019-09-05T14:29:45.563089Z",
+       "pulp_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/1/",
        "base_version": null,
        "content_summary": {
            "added": {
