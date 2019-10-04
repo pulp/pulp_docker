@@ -81,7 +81,7 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
         if not selectors.bug_is_fixed(4599, self.cfg.pulp_version):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         # requests doesn't allow the use of != in parameters.
-        url = '{}?fields!=base_path,name'.format(
+        url = '{}?exclude_fields=base_path,name'.format(
             self.distribution['_href']
         )
         distribution = self.client.get(url)
