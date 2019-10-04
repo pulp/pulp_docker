@@ -6,7 +6,6 @@ Check `Plugin Writer's Guide`_ for more details.
 """
 
 from django_filters import MultipleChoiceFilter
-from django.db import transaction
 from drf_yasg.utils import swagger_auto_schema
 from pulpcore.plugin.serializers import (
     AsyncOperationResponseSerializer,
@@ -18,8 +17,8 @@ from pulpcore.plugin.viewsets import (
     BaseDistributionViewSet,
     CharInFilter,
     ContentFilter,
-    ContentViewSet,
     NamedModelViewSet,
+    ReadOnlyContentViewSet,
     RemoteViewSet,
     OperationPostponedResponse,
 )
@@ -62,7 +61,7 @@ class ManifestFilter(ContentFilter):
         }
 
 
-class TagViewSet(ContentViewSet):
+class TagViewSet(ReadOnlyContentViewSet):
     """
     ViewSet for Tag.
     """
@@ -72,15 +71,8 @@ class TagViewSet(ContentViewSet):
     serializer_class = serializers.TagSerializer
     filterset_class = TagFilter
 
-    @transaction.atomic
-    def create(self, request):
-        """
-        Create a new Tag from a request.
-        """
-        raise NotImplementedError()
 
-
-class ManifestViewSet(ContentViewSet):
+class ManifestViewSet(ReadOnlyContentViewSet):
     """
     ViewSet for Manifest.
     """
@@ -89,13 +81,6 @@ class ManifestViewSet(ContentViewSet):
     queryset = models.Manifest.objects.all()
     serializer_class = serializers.ManifestSerializer
     filterset_class = ManifestFilter
-
-    @transaction.atomic
-    def create(self, request):
-        """
-        Create a new Manifest from a request.
-        """
-        raise NotImplementedError()
 
 
 class BlobFilter(ContentFilter):
@@ -112,7 +97,7 @@ class BlobFilter(ContentFilter):
         }
 
 
-class BlobViewSet(ContentViewSet):
+class BlobViewSet(ReadOnlyContentViewSet):
     """
     ViewSet for Blobs.
     """
@@ -121,13 +106,6 @@ class BlobViewSet(ContentViewSet):
     queryset = models.Blob.objects.all()
     serializer_class = serializers.BlobSerializer
     filterset_class = BlobFilter
-
-    @transaction.atomic
-    def create(self, request):
-        """
-        Create a new Blob from a request.
-        """
-        raise NotImplementedError()
 
 
 class DockerRemoteViewSet(RemoteViewSet):
