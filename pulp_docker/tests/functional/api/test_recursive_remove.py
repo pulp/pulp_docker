@@ -34,7 +34,7 @@ class TestRecursiveRemove(unittest.TestCase):
         remote_data = gen_docker_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         cls.remote = cls.client.post(DOCKER_REMOTE_PATH, remote_data)
         sync(cls.cfg, cls.remote, cls.from_repo)
-        latest_version = cls.client.get(cls.from_repo['pulp_href'])['_latest_version_href']
+        latest_version = cls.client.get(cls.from_repo['pulp_href'])['latest_version_href']
         cls.latest_from_version = "repository_version={version}".format(version=latest_version)
 
     def setUp(self):
@@ -58,12 +58,12 @@ class TestRecursiveRemove(unittest.TestCase):
         """Passing only a repository creates a new version."""
         # Create a new version, repository must have latest version to be valid.
         self.client.post(DOCKER_RECURSIVE_ADD_PATH, {'repository': self.to_repo['pulp_href']})
-        after_add_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        after_add_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
 
         # Actual test
         self.client.post(DOCKER_RECURSIVE_REMOVE_PATH, {'repository': self.to_repo['pulp_href']})
         after_remove_version_href = self.client.get(
-            self.to_repo['pulp_href'])['_latest_version_href']
+            self.to_repo['pulp_href'])['latest_version_href']
         self.assertNotEqual(after_add_version_href, after_remove_version_href)
         latest = self.client.get(after_remove_version_href)
         for content_type in ['docker.tag', 'docker.manifest', 'docker.blob']:
@@ -72,7 +72,7 @@ class TestRecursiveRemove(unittest.TestCase):
     def test_repository_only_no_latest_version(self):
         """Create a new version, even when there is nothing to remove."""
         self.client.post(DOCKER_RECURSIVE_REMOVE_PATH, {'repository': self.to_repo['pulp_href']})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         self.assertIsNotNone(latest_version_href)
         latest = self.client.get(latest_version_href)
         for content_type in ['docker.tag', 'docker.manifest', 'docker.blob']:
@@ -87,7 +87,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_ADD_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
         # Ensure test begins in the correct state
@@ -99,7 +99,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_REMOVE_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('docker.tag' in latest['content_summary']['removed'])
         self.assertEqual(latest['content_summary']['removed']['docker.manifest']['count'], 1)
@@ -114,7 +114,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_ADD_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
         # Ensure test begins in the correct state
@@ -126,7 +126,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_REMOVE_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('docker.tag' in latest['content_summary']['removed'])
         self.assertEqual(latest['content_summary']['removed']['docker.manifest']['count'], 3)
@@ -141,7 +141,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_ADD_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i_tag]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
         # Ensure test begins in the correct state
@@ -153,7 +153,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_REMOVE_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i_tag]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertEqual(latest['content_summary']['removed']['docker.tag']['count'], 1)
         self.assertEqual(latest['content_summary']['removed']['docker.manifest']['count'], 3)
@@ -168,7 +168,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_ADD_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a_tag]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
         # Ensure valid starting state
@@ -180,7 +180,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_REMOVE_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a_tag]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
         self.assertEqual(latest['content_summary']['removed']['docker.tag']['count'], 1)
@@ -200,7 +200,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_ADD_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_a, manifest_e]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         # Ensure valid starting state
         self.assertFalse('docker.tag' in latest['content_summary']['added'])
@@ -213,7 +213,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_REMOVE_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [manifest_e]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('docker.tag' in latest['content_summary']['removed'])
         self.assertEqual(latest['content_summary']['removed']['docker.manifest']['count'], 1)
@@ -234,7 +234,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_ADD_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [ml_i, ml_iii]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         # Ensure valid starting state
         self.assertFalse('docker.tag' in latest['content_summary']['added'])
@@ -246,7 +246,7 @@ class TestRecursiveRemove(unittest.TestCase):
         self.client.post(
             DOCKER_RECURSIVE_REMOVE_PATH,
             {'repository': self.to_repo['pulp_href'], 'content_units': [ml_iii]})
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertFalse('docker.tag' in latest['content_summary']['removed'])
         # 1 manifest list, 1 manifest
@@ -278,7 +278,7 @@ class TestRecursiveRemove(unittest.TestCase):
                 'content_units': [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]
             }
         )
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
         self.assertEqual(latest['content_summary']['added']['docker.tag']['count'], 4)
@@ -292,7 +292,7 @@ class TestRecursiveRemove(unittest.TestCase):
                 'content_units': [ml_i_tag, ml_ii_tag, ml_iii_tag, ml_iv_tag]
             }
         )
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
 
         self.assertEqual(latest['content_summary']['removed']['docker.tag']['count'], 4)
@@ -314,7 +314,7 @@ class TestRecursiveRemove(unittest.TestCase):
                 'content_units': [manifest_a_tag['pulp_href']]
             }
         )
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         self.assertEqual(latest['content_summary']['added']['docker.tag']['count'], 1)
         self.assertEqual(latest['content_summary']['added']['docker.manifest']['count'], 1)
@@ -328,7 +328,7 @@ class TestRecursiveRemove(unittest.TestCase):
             }
         )
 
-        latest_version_href = self.client.get(self.to_repo['pulp_href'])['_latest_version_href']
+        latest_version_href = self.client.get(self.to_repo['pulp_href'])['latest_version_href']
         latest = self.client.get(latest_version_href)
         for content_type in ['docker.tag', 'docker.manifest', 'docker.blob']:
             self.assertFalse(content_type in latest['content_summary']['removed'], msg=content_type)

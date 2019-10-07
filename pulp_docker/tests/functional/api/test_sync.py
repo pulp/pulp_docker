@@ -49,16 +49,16 @@ class BasicSyncTestCase(unittest.TestCase):
         self.addCleanup(self.client.delete, remote['pulp_href'])
 
         # Sync the repository.
-        self.assertIsNone(repo['_latest_version_href'])
+        self.assertIsNone(repo['latest_version_href'])
         sync(self.cfg, remote, repo)
         repo = self.client.get(repo['pulp_href'])
-        self.assertIsNotNone(repo['_latest_version_href'])
+        self.assertIsNotNone(repo['latest_version_href'])
 
         # Sync the repository again.
-        latest_version_href = repo['_latest_version_href']
+        latest_version_href = repo['latest_version_href']
         sync(self.cfg, remote, repo)
         repo = self.client.get(repo['pulp_href'])
-        self.assertNotEqual(latest_version_href, repo['_latest_version_href'])
+        self.assertNotEqual(latest_version_href, repo['latest_version_href'])
 
     def test_file_decriptors(self):
         """Test whether file descriptors are closed properly.

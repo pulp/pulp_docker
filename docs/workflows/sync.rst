@@ -17,8 +17,8 @@ Repository GET Response::
    {
        "pulp_created": "2019-09-05T14:29:43.424822Z",
        "pulp_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/",
-       "_latest_version_href": null,
-       "_versions_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/",
+       "latest_version_href": null,
+       "versions_href": "/pulp/api/v3/repositories/fcf03266-f0e4-4497-8434-0fe9d94c8053/versions/",
        "description": null,
        "name": "codzo"
    }

@@ -84,7 +84,7 @@ class PullContentTestCase(unittest.TestCase):
             # Step 5.
             response_dict = cls.client.using_handler(api.task_handler).post(
                 DOCKER_DISTRIBUTION_PATH,
-                gen_distribution(repository_version=cls.repo['_latest_version_href'])
+                gen_distribution(repository_version=cls.repo['latest_version_href'])
             )
             distribution_href = response_dict['pulp_href']
             cls.distribution_with_repo_version = cls.client.get(distribution_href)
@@ -300,7 +300,7 @@ class PullOnDemandContentTestCase(unittest.TestCase):
             # Step 5.
             response_dict = cls.client.using_handler(api.task_handler).post(
                 DOCKER_DISTRIBUTION_PATH,
-                gen_distribution(repository_version=cls.repo['_latest_version_href'])
+                gen_distribution(repository_version=cls.repo['latest_version_href'])
             )
             distribution_href = response_dict['pulp_href']
             cls.distribution_with_repo_version = cls.client.get(distribution_href)
