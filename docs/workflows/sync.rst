@@ -44,7 +44,6 @@ Remote GET Response::
        "pulp_created": "2019-09-05T14:29:44.267406Z",
        "pulp_href": "/pulp/api/v3/remotes/docker/docker/1cc699b7-24fd-4944-bde7-86aed8ac12fa/",
        "pulp_last_updated": "2019-09-05T14:29:44.267428Z",
-       "_type": "docker.docker",
        "download_concurrency": 20,
        "name": "my-hello-repo",
        "policy": "immediate",
