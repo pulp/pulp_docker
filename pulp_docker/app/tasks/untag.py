@@ -10,7 +10,7 @@ def untag_image(tag, repository_pk):
     latest_version = RepositoryVersion.latest(repository)
 
     tags_in_latest_repository = latest_version.content.filter(
-        _type="docker.tag"
+        pulp_type="docker.tag"
     )
 
     tags_to_remove = Tag.objects.filter(

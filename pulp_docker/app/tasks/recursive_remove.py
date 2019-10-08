@@ -32,12 +32,12 @@ def recursive_remove_content(repository_pk, content_units):
     latest_version = RepositoryVersion.latest(repository)
     latest_content = latest_version.content.all() if latest_version else Content.objects.none()
 
-    tags_in_repo = Q(pk__in=latest_content.filter(_type='docker.tag'))
-    manifests_in_repo = Q(pk__in=latest_content.filter(_type='docker.manifest'))
+    tags_in_repo = Q(pk__in=latest_content.filter(pulp_type='docker.tag'))
+    manifests_in_repo = Q(pk__in=latest_content.filter(pulp_type='docker.manifest'))
     user_provided_content = Q(pk__in=content_units)
     type_manifest_list = Q(media_type=MEDIA_TYPE.MANIFEST_LIST)
     type_manifest = Q(media_type__in=[MEDIA_TYPE.MANIFEST_V1, MEDIA_TYPE.MANIFEST_V2])
-    blobs_in_repo = Q(pk__in=latest_content.filter(_type='docker.blob'))
+    blobs_in_repo = Q(pk__in=latest_content.filter(pulp_type='docker.blob'))
 
     # Tags do not have must_remain because they are the highest level content.
     tags_to_remove = Tag.objects.filter(user_provided_content & tags_in_repo)

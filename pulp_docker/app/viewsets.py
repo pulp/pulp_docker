@@ -294,7 +294,7 @@ class TagCopyViewSet(drf_viewsets.ViewSet):
         source_latest = serializer.validated_data['source_repository_version']
         destination = serializer.validated_data['destination_repository']
         content_tags_in_repo = source_latest.content.filter(
-            _type="docker.tag"
+            pulp_type="docker.tag"
         )
         tags_in_repo = models.Tag.objects.filter(
             pk__in=content_tags_in_repo,
@@ -335,7 +335,7 @@ class ManifestCopyViewSet(drf_viewsets.ViewSet):
         source_latest = serializer.validated_data['source_repository_version']
         destination = serializer.validated_data['destination_repository']
         content_manifests_in_repo = source_latest.content.filter(
-            _type="docker.manifest"
+            pulp_type="docker.manifest"
         )
         manifests_in_repo = models.Manifest.objects.filter(
             pk__in=content_manifests_in_repo,
