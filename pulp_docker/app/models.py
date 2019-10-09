@@ -35,7 +35,7 @@ class Blob(Content):
         (MEDIA_TYPE.REGULAR_BLOB, MEDIA_TYPE.REGULAR_BLOB),
         (MEDIA_TYPE.FOREIGN_BLOB, MEDIA_TYPE.FOREIGN_BLOB),
     )
-    digest = models.CharField(max_length=255)
+    digest = models.CharField(max_length=255, db_index=True)
     media_type = models.CharField(
         max_length=80,
         choices=BLOB_CHOICES
@@ -71,7 +71,7 @@ class Manifest(Content):
         (MEDIA_TYPE.MANIFEST_V2, MEDIA_TYPE.MANIFEST_V2),
         (MEDIA_TYPE.MANIFEST_LIST, MEDIA_TYPE.MANIFEST_LIST),
     )
-    digest = models.CharField(max_length=255)
+    digest = models.CharField(max_length=255, db_index=True)
     schema_version = models.IntegerField()
     media_type = models.CharField(
         max_length=60,
