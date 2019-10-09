@@ -4,7 +4,7 @@ echo "Create a task to copy a tag to the repo."
 export TASK_HREF=$(http POST $BASE_ADDR'/pulp/api/v3/docker/tags/copy/' \
   source_repository=$REPO_HREF \
   destination_repository=$DEST_REPO_HREF \
-  names:="[\"latest\"]" \
+  names:="[\"manifest_a\"]" \
   | jq -r '.task')
 
 # Poll the task (here we use a function defined in docs/_scripts/base.sh)

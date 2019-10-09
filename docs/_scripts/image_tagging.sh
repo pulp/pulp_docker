@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 export TAG_NAME='custom_tag'
-export MANIFEST_DIGEST='sha256:b8ba256769a0ac28dd126d584e0a2011cd2877f3f76e093a7ae560f2a5301c00'
+export MANIFEST_DIGEST='sha256:21e3caae28758329318c8a868a80daa37ad8851705155fc28767852c73d36af5'
 
 echo "Tagging the manifest."
 export TASK_URL=$(http POST $BASE_ADDR'/pulp/api/v3/docker/tag/' \
