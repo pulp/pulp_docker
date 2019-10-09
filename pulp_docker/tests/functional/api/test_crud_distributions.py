@@ -49,8 +49,8 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
 
     @skip_if(bool, 'distribution', False)
     def test_02_read_distribution(self):
-        """Read a distribution by its _href."""
-        distribution = self.client.get(self.distribution['_href'])
+        """Read a distribution by its pulp_href."""
+        distribution = self.client.get(self.distribution['pulp_href'])
         for key, val in self.distribution.items():
             with self.subTest(key=key):
                 self.assertEqual(distribution[key], val)
@@ -65,10 +65,10 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         fields = ('base_path', 'name')
         for field_pair in permutations(fields, 2):
-            # ex: field_pair = ('_href', 'base_url)
+            # ex: field_pair = ('pulp_href', 'base_url)
             with self.subTest(field_pair=field_pair):
                 distribution = self.client.get(
-                    self.distribution['_href'],
+                    self.distribution['pulp_href'],
                     params={'fields': ','.join(field_pair)}
                 )
                 self.assertEqual(
@@ -82,7 +82,7 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
             raise unittest.SkipTest('Issue 4599 is not resolved')
         # requests doesn't allow the use of != in parameters.
         url = '{}?exclude_fields=base_path,name'.format(
-            self.distribution['_href']
+            self.distribution['pulp_href']
         )
         distribution = self.client.get(url)
         response_fields = distribution.keys()
@@ -111,8 +111,8 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
     def test_03_partially_update(self):
         """Update a distribution using HTTP PATCH."""
         body = gen_distribution()
-        self.client.patch(self.distribution['_href'], body)
-        type(self).distribution = self.client.get(self.distribution['_href'])
+        self.client.patch(self.distribution['pulp_href'], body)
+        type(self).distribution = self.client.get(self.distribution['pulp_href'])
         for key, val in body.items():
             with self.subTest(key=key):
                 self.assertEqual(self.distribution[key], val)
@@ -121,8 +121,8 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
     def test_04_fully_update(self):
         """Update a distribution using HTTP PUT."""
         body = gen_distribution()
-        self.client.put(self.distribution['_href'], body)
-        type(self).distribution = self.client.get(self.distribution['_href'])
+        self.client.put(self.distribution['pulp_href'], body)
+        type(self).distribution = self.client.get(self.distribution['pulp_href'])
         for key, val in body.items():
             with self.subTest(key=key):
                 self.assertEqual(self.distribution[key], val)
@@ -130,9 +130,9 @@ class CRUDDockerDistributionsTestCase(unittest.TestCase):
     @skip_if(bool, 'distribution', False)
     def test_05_delete(self):
         """Delete a distribution."""
-        self.client.delete(self.distribution['_href'])
+        self.client.delete(self.distribution['pulp_href'])
         with self.assertRaises(HTTPError):
-            self.client.get(self.distribution['_href'])
+            self.client.get(self.distribution['pulp_href'])
 
     def test_negative_create_distribution_with_invalid_parameter(self):
         """Attempt to create distribution passing invalid parameter.
@@ -172,7 +172,7 @@ class DistributionBasePathTestCase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """Clean up resources."""
-        cls.client.delete(cls.distribution['_href'])
+        cls.client.delete(cls.distribution['pulp_href'])
 
     def test_spaces(self):
         """Test that spaces can not be part of ``base_path``."""
@@ -209,4 +209,4 @@ class DistributionBasePathTestCase(unittest.TestCase):
         Use the given kwargs as the body of the request.
         """
         with self.assertRaises(HTTPError):
-            self.client.patch(self.distribution['_href'], kwargs)
+            self.client.patch(self.distribution['pulp_href'], kwargs)

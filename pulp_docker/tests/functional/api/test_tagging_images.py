@@ -36,8 +36,8 @@ class TaggingTestCase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         """Clean generated resources."""
-        cls.client.delete(cls.repository['_href'])
-        cls.client.delete(cls.remote['_href'])
+        cls.client.delete(cls.repository['pulp_href'])
+        cls.client.delete(cls.remote['pulp_href'])
 
     def test_01_tag_first_image(self):
         """
@@ -49,7 +49,7 @@ class TaggingTestCase(unittest.TestCase):
         self.tag_image(manifest_a, 'new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
-            repository_href=self.repository['_href'],
+            repository_href=self.repository['pulp_href'],
             new_version='2'
         )
 
@@ -79,7 +79,7 @@ class TaggingTestCase(unittest.TestCase):
         self.tag_image(manifest_a, 'new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
-            repository_href=self.repository['_href'],
+            repository_href=self.repository['pulp_href'],
             new_version='3'
         )
 
@@ -103,7 +103,7 @@ class TaggingTestCase(unittest.TestCase):
         self.tag_image(manifest_b, 'new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
-            repository_href=self.repository['_href'],
+            repository_href=self.repository['pulp_href'],
             new_version='4'
         )
 
@@ -142,7 +142,7 @@ class TaggingTestCase(unittest.TestCase):
         self.untag_image('new_tag')
 
         new_repository_version_href = '{repository_href}versions/{new_version}/'.format(
-            repository_href=self.repository['_href'],
+            repository_href=self.repository['pulp_href'],
             new_version='5'
         )
 
@@ -171,7 +171,7 @@ class TaggingTestCase(unittest.TestCase):
     def get_manifest_by_tag(self, tag_name):
         """Fetch a manifest by the tag name."""
         latest_version = self.client.get(
-            self.repository['_href']
+            self.repository['pulp_href']
         )['_latest_version_href']
 
         manifest_a_href = self.client.get('{unit_path}?{filters}'.format(
@@ -184,7 +184,7 @@ class TaggingTestCase(unittest.TestCase):
         """Perform a tagging operation."""
         params = {
             'tag': tag_name,
-            'repository': self.repository['_href'],
+            'repository': self.repository['pulp_href'],
             'digest': manifest['digest']
         }
         self.client.post(DOCKER_TAGGING_PATH, params)
@@ -193,6 +193,6 @@ class TaggingTestCase(unittest.TestCase):
         """Perform an untagging operation."""
         params = {
             'tag': tag_name,
-            'repository': self.repository['_href']
+            'repository': self.repository['pulp_href']
         }
         self.client.post(DOCKER_UNTAGGING_PATH, params)

@@ -96,7 +96,7 @@ Relations:
    (non-recursively).
 
 Begin by following the :ref:`Synchronize <sync-workflow>` workflow to
-start with a repository that has some content in it. 
+start with a repository that has some content in it.
 
 Next create a new repository that we can add content to.
 
@@ -114,8 +114,8 @@ tag to function correctly when pulled by a client.
 New Repository Version::
 
    {
-       "_created": "2019-09-05T19:04:06.152589Z",
-       "_href": "/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/",
+       "pulp_created": "2019-09-05T19:04:06.152589Z",
+       "pulp_href": "/pulp/api/v3/repositories/ce642635-dd9b-423f-82c4-86a150b9f5fe/versions/10/",
        "base_version": null,
        "content_summary": {
            "added": {
@@ -192,8 +192,8 @@ been removed, resulting in an empty repository.
 New Repository Version::
 
       {
-          "_created": "2019-09-10T13:25:44.078017Z",
-          "_href": "/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/",
+          "pulp_created": "2019-09-10T13:25:44.078017Z",
+          "pulp_href": "/pulp/api/v3/repositories/c2f67416-7200-4dcc-9868-f320431aae20/versions/2/",
           "base_version": null,
           "content_summary": {
               "added": {},
@@ -249,8 +249,8 @@ name.
 New Repository Version::
 
    {
-       "_created": "2019-09-10T13:42:12.572859Z",
-       "_href": "/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/",
+       "pulp_created": "2019-09-10T13:42:12.572859Z",
+       "pulp_href": "/pulp/api/v3/repositories/2b1c6d76-c369-4f31-8eb8-9d5d92bb2346/versions/1/",
        "base_version": null,
        "content_summary": {
            "added": {
@@ -309,8 +309,8 @@ to copy only manifest lists, for example.
 New Repository Version::
 
    {
-       "_created": "2019-09-20T13:53:04.907351Z",
-       "_href": "/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/",
+       "pulp_created": "2019-09-20T13:53:04.907351Z",
+       "pulp_href": "/pulp/api/v3/repositories/70450dfb-ae46-4061-84e3-97eb71cf9414/versions/2/",
        "base_version": null,
        "content_summary": {
            "added": {

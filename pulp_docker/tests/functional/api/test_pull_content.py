@@ -56,29 +56,29 @@ class PullContentTestCase(unittest.TestCase):
 
             # Step 1
             _repo = cls.client.post(REPO_PATH, gen_repo())
-            cls.teardown_cleanups.append((cls.client.delete, _repo['_href']))
+            cls.teardown_cleanups.append((cls.client.delete, _repo['pulp_href']))
 
             # Step 2
             cls.remote = cls.client.post(
                 DOCKER_REMOTE_PATH, gen_docker_remote()
             )
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.remote['_href'])
+                (cls.client.delete, cls.remote['pulp_href'])
             )
 
             # Step 3
             sync(cls.cfg, cls.remote, _repo)
-            cls.repo = cls.client.get(_repo['_href'])
+            cls.repo = cls.client.get(_repo['pulp_href'])
 
             # Step 4.
             response_dict = cls.client.using_handler(api.task_handler).post(
                 DOCKER_DISTRIBUTION_PATH,
-                gen_distribution(repository=cls.repo['_href'])
+                gen_distribution(repository=cls.repo['pulp_href'])
             )
-            distribution_href = response_dict['_href']
+            distribution_href = response_dict['pulp_href']
             cls.distribution_with_repo = cls.client.get(distribution_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo['_href'])
+                (cls.client.delete, cls.distribution_with_repo['pulp_href'])
             )
 
             # Step 5.
@@ -86,10 +86,10 @@ class PullContentTestCase(unittest.TestCase):
                 DOCKER_DISTRIBUTION_PATH,
                 gen_distribution(repository_version=cls.repo['_latest_version_href'])
             )
-            distribution_href = response_dict['_href']
+            distribution_href = response_dict['pulp_href']
             cls.distribution_with_repo_version = cls.client.get(distribution_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo_version['_href'])
+                (cls.client.delete, cls.distribution_with_repo_version['pulp_href'])
             )
 
             # remove callback if everything goes well
@@ -271,30 +271,30 @@ class PullOnDemandContentTestCase(unittest.TestCase):
 
             # Step 1
             _repo = cls.client.post(REPO_PATH, gen_repo())
-            cls.teardown_cleanups.append((cls.client.delete, _repo['_href']))
+            cls.teardown_cleanups.append((cls.client.delete, _repo['pulp_href']))
 
             # Step 2
             cls.remote = cls.client.post(
                 DOCKER_REMOTE_PATH, gen_docker_remote(policy='on_demand')
             )
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.remote['_href'])
+                (cls.client.delete, cls.remote['pulp_href'])
             )
 
             # Step 3
             sync(cls.cfg, cls.remote, _repo)
-            cls.repo = cls.client.get(_repo['_href'])
+            cls.repo = cls.client.get(_repo['pulp_href'])
             cls.artifact_count = len(cls.client.get(ARTIFACTS_PATH))
 
             # Step 4.
             response_dict = cls.client.using_handler(api.task_handler).post(
                 DOCKER_DISTRIBUTION_PATH,
-                gen_distribution(repository=cls.repo['_href'])
+                gen_distribution(repository=cls.repo['pulp_href'])
             )
-            distribution_href = response_dict['_href']
+            distribution_href = response_dict['pulp_href']
             cls.distribution_with_repo = cls.client.get(distribution_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo['_href'])
+                (cls.client.delete, cls.distribution_with_repo['pulp_href'])
             )
 
             # Step 5.
@@ -302,10 +302,10 @@ class PullOnDemandContentTestCase(unittest.TestCase):
                 DOCKER_DISTRIBUTION_PATH,
                 gen_distribution(repository_version=cls.repo['_latest_version_href'])
             )
-            distribution_href = response_dict['_href']
+            distribution_href = response_dict['pulp_href']
             cls.distribution_with_repo_version = cls.client.get(distribution_href)
             cls.teardown_cleanups.append(
-                (cls.client.delete, cls.distribution_with_repo_version['_href'])
+                (cls.client.delete, cls.distribution_with_repo_version['pulp_href'])
             )
 
             # remove callback if everything goes well

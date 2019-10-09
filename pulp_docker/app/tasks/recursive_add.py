@@ -55,7 +55,7 @@ def recursive_add_content(repository_pk, content_units):
     latest_version = RepositoryVersion.latest(repository)
     if latest_version:
         tags_in_repo = latest_version.content.filter(
-            _type="docker.tag"
+            pulp_type="docker.tag"
         )
         tags_to_replace = Tag.objects.filter(
             pk__in=tags_in_repo,
