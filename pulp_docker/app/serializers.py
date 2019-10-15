@@ -41,6 +41,7 @@ class TagSerializer(SingleArtifactContentSerializer):
             'tagged_manifest',
         )
         model = models.Tag
+        ref_name = f'{model._meta.app_label}_{model._meta.model_name}'
 
 
 class ManifestSerializer(SingleArtifactContentSerializer):
