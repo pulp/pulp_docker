@@ -172,7 +172,7 @@ class TaggingTestCase(unittest.TestCase):
         """Fetch a manifest by the tag name."""
         latest_version = self.client.get(
             self.repository['pulp_href']
-        )['_latest_version_href']
+        )['latest_version_href']
 
         manifest_a_href = self.client.get('{unit_path}?{filters}'.format(
             unit_path=DOCKER_TAG_PATH,
