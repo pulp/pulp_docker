@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-echo "Retrieve the href of Tag latest in the synced repository."
+echo "Retrieve the href of Tag manifest_a in the synced repository."
 export TAG_HREF=$(http $BASE_ADDR'/pulp/api/v3/content/docker/tags/?repository_version='$REPOVERSION_HREF'&name=manifest_a' \
   | jq -r '.results | first | .pulp_href')
 
