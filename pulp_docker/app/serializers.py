@@ -125,14 +125,11 @@ class DockerRemoteSerializer(RemoteSerializer):
         allow_blank=False,
         help_text=_("Name of the upstream repository")
     )
-    whitelist_tags = serializers.CharField(
-        required=False,
+    whitelist_tags = serializers.ListField(
+        child=serializers.CharField(max_length=255),
         allow_null=True,
-        help_text="""A comma separated string of tags to sync.
-        Example:
-
-        latest,1.27.0
-        """
+        required=False,
+        help_text=_("A list of whitelisted tags to sync")
     )
 
     policy = serializers.ChoiceField(

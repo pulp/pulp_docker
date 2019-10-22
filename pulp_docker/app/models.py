@@ -3,6 +3,7 @@ import re
 from logging import getLogger
 
 from django.db import models
+from django.contrib.postgres import fields
 
 from pulpcore.plugin.download import DownloaderFactory
 from pulpcore.plugin.models import Content, Remote, RepositoryVersion, RepositoryVersionDistribution
@@ -179,7 +180,10 @@ class DockerRemote(Remote):
 
     upstream_name = models.CharField(max_length=255, db_index=True)
     include_foreign_layers = models.BooleanField(default=False)
-    whitelist_tags = models.TextField(null=True)
+    whitelist_tags = fields.ArrayField(
+        models.CharField(max_length=255, null=True),
+        null=True
+    )
 
     TYPE = 'docker'
 

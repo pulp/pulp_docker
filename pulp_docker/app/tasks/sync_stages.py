@@ -66,7 +66,7 @@ class DockerFirstStage(Stage):
             await self.handle_pagination(link, repo_name, tag_list)
             whitelist_tags = self.remote.whitelist_tags
             if whitelist_tags:
-                tag_list = list(set(tag_list) & set(whitelist_tags.split(',')))
+                tag_list = list(set(tag_list) & set(whitelist_tags))
             pb.increment()
 
         for tag_name in tag_list:
