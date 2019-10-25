@@ -4,6 +4,8 @@ from setuptools import find_packages, setup
 
 requirements = [
     "pulpcore~=3.0rc7",
+    'ecdsa~=0.13.2',
+    'pyjwkest~=1.4.0',
 ]
 
 
