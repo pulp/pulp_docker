@@ -96,7 +96,7 @@ spec:
     password: pulp
     admin_password: pulp
   pulp_settings:
-     content_host: $(hostname):24816
+     content_origin: http://$(hostname):24816
      token_server: $(hostname):24816/token
      private_key_path: /var/lib/pulp/tmp/private.pem
      public_key_path: /var/lib/pulp/tmp/public.pem
