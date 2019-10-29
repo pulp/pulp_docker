@@ -1,6 +1,4 @@
-#!/usr/bin/env python
-
-import argparse
+import os
 import base64
 import binascii
 import datetime
@@ -9,46 +7,70 @@ import hashlib
 import itertools
 import json
 import logging
-import sys
 from collections import namedtuple
 from jwkest import jws, jwk, ecc
+
+from django.core.exceptions import ObjectDoesNotExist
+from django.conf import settings
+
+from pulp_docker.constants import MEDIA_TYPE
 
 log = logging.getLogger(__name__)
 
 FS_Layer = namedtuple("FS_Layer", "layer_id uncompressed_digest history")
 
 
-def main():
+class Schema1ConverterWrapper:
+    """An abstraction around creating new manifests of the format schema 1."""
+
+    def __init__(self, tag, accepted_media_types, path):
+        """Store a tag object, accepted media type, and path."""
+        self.path = path
+        self.tag = tag
+        self.accepted_media_types = accepted_media_types
+        self.name = path
+
+    def convert(self):
+        """Convert a manifest to schema 1."""
+        if self.tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_V2:
+            converted_schema = self._convert_schema(self.tag.tagged_manifest)
+            return converted_schema, True, self.tag.tagged_manifest.digest
+        elif self.tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_LIST:
+            legacy = self._get_legacy_manifest()
+            if legacy.media_type == MEDIA_TYPE.MANIFEST_V2:
+                converted_schema = self._convert_schema(legacy)
+                return converted_schema, True, legacy.digest
+            elif legacy.media_type in self.accepted_media_types:
+                # return legacy without conversion
+                return legacy, False, legacy.digest
+            else:
+                raise RuntimeError()
+
+    def _convert_schema(self, manifest):
+        config_dict = _get_config_dict(manifest)
+        manifest_dict = _get_manifest_dict(manifest)
+
+        converter = ConverterS2toS1(
+            manifest_dict,
+            config_dict,
+            name=self.name,
+            tag=self.tag.name
+        )
+        return converter.convert()
+
+    def _get_legacy_manifest(self):
+        ml = self.tag.tagged_manifest.listed_manifests.all()
+        for manifest in ml:
+            m = manifest.manifest_lists.first()
+            if m.architecture == 'amd64' and m.os == 'linux':
+                return m.manifest_list
+
+        raise RuntimeError()
+
+
+class ConverterS2toS1:
     """
-    Command line entry point for validation purposes.
-    """
-    logging.basicConfig(level=logging.ERROR, format='%(asctime)s %(levelname)s %(message)s')
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--manifest', help='v2s1 manifest', required=True, type=argparse.FileType())
-    parser.add_argument('--config-layer', help='Config layer', type=argparse.FileType())
-    parser.add_argument('--namespace', help='Namespace', default='myself')
-    parser.add_argument('--repository', help='Image name (repository)', default='dummy')
-    parser.add_argument('--tag', help='Tag', default='latest')
-
-    parser.add_argument('-v', '--verbose', action='count', default=0, help='Increase verbosity')
-
-    args = parser.parse_args()
-    logLevel = logging.INFO
-    if args.verbose > 1:
-        logLevel = logging.DEBUG
-    log.setLevel(logLevel)
-
-    converter = Converter_s2_to_s1(
-        json.load(args.manifest), json.load(args.config_layer),
-        namespace=args.namespace, repository=args.repository,
-        tag=args.tag)
-    manif_data = converter.convert()
-    print(manif_data)
-
-
-class Converter_s2_to_s1:
-    """
-    Convertor class from schema 2 to schema 1.
+    Converter class from schema 2 to schema 1.
 
     Initialize it with a manifest and a config layer JSON documents,
     and call convert() to obtain the signed manifest, as a JSON-encoded string.
@@ -56,13 +78,12 @@ class Converter_s2_to_s1:
 
     EMPTY_LAYER = "sha256:a3ed95caeb02ffe68cdd9fd84406680ae93d633cb16422d00e8a7c22955b46d4"
 
-    def __init__(self, manifest, config_layer, namespace=None, repository=None, tag=None):
+    def __init__(self, manifest, config_layer, name, tag):
         """
         Initializer needs a manifest and a config layer as JSON documents.
         """
-        self.namespace = namespace or "ignored"
-        self.repository = repository or "test"
-        self.tag = tag or "latest"
+        self.name = name
+        self.tag = tag
         self.manifest = manifest
         self.config_layer = config_layer
         self.fs_layers = []
@@ -76,10 +97,12 @@ class Converter_s2_to_s1:
             log.info("Manifest is already schema 1")
             return _jsonDumps(self.manifest)
         log.info("Converting manifest to schema 1")
-        name = "%s/%s" % (self.namespace, self.repository)
+
         self.compute_layers()
-        manifest = dict(name=name, tag=self.tag, architecture=self.config_layer['architecture'],
-                        schemaVersion=1, fsLayers=self.fs_layers, history=self.history)
+        manifest = dict(
+            name=self.name, tag=self.tag, architecture=self.config_layer['architecture'],
+            schemaVersion=1, fsLayers=self.fs_layers, history=self.history
+        )
         key = jwk.ECKey().load_key(ecc.P256)
         key.kid = getKeyId(key)
         manifData = sign(manifest, key)
@@ -199,32 +222,6 @@ def sign(data, key):
     return jdata2
 
 
-def validate_signature(signed_mf):
-    """
-    Validate the signature of a signed manifest
-
-    A signed manifest is a JSON document with a signature attribute
-    as the last element.
-    """
-    # In order to validate the signature, we need the exact original payload
-    # (the document without the signature). We cannot json.load the document
-    # and get rid of the signature, the payload would likely end up
-    # differently because of differences in field ordering and indentation.
-    # So we need to strip the signature using plain string manipulation, and
-    # add back a trailing }
-
-    # strip the signature block
-    payload, sep, signatures = signed_mf.partition('   "signatures"')
-    # get rid of the trailing ,\n, and add \n}
-    jw_payload = payload[:-2] + '\n}'
-    # base64-encode and remove any trailing =
-    jw_payload = base64.urlsafe_b64encode(jw_payload.encode('ascii')).decode('ascii').rstrip("=")
-    # add payload as a json attribute, and then add the signatures back
-    complete_msg = payload + '   "payload": "{}",\n'.format(jw_payload) + sep + signatures
-    _jws = jws.JWS()
-    _jws.verify_json(complete_msg.encode('ascii'))
-
-
 def getKeyId(key):
     """
     DER-encode the key and represent it in the format XXXX:YYYY:...
@@ -270,5 +267,23 @@ def number2string(num, order):
     return binascii.unhexlify(nhex)
 
 
-if __name__ == '__main__':
-    sys.exit(main())
+def _get_config_dict(manifest):
+    try:
+        config_artifact = manifest.config_blob._artifacts.get()
+    except ObjectDoesNotExist:
+        raise RuntimeError()
+    return _get_dict(config_artifact)
+
+
+def _get_manifest_dict(manifest):
+    try:
+        manifest_artifact = manifest._artifacts.get()
+    except ObjectDoesNotExist:
+        raise RuntimeError()
+    return _get_dict(manifest_artifact)
+
+
+def _get_dict(artifact):
+    with open(os.path.join(settings.MEDIA_ROOT, artifact.file.path)) as json_file:
+        json_string = json_file.read()
+    return json.loads(json_string)
