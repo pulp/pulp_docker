@@ -57,7 +57,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
         headers.update(auth_headers)
         # aiohttps does not allow to send auth argument and auth header together
         self.session._default_auth = None
-        async with self.session.get(self.url, headers=headers) as response:
+        async with self.session.get(self.url, headers=headers, proxy=self.proxy) as response:
             try:
                 response.raise_for_status()
             except ClientResponseError as e:
@@ -125,8 +125,8 @@ class RegistryAuthHttpDownloader(HttpDownloader):
                 # for private repos
                 basic = aiohttp.BasicAuth(self.remote.username, self.remote.password).encode()
                 headers['Authorization'] = basic
-            async with self.session.get(token_url, headers=headers, raise_for_status=True) as \
-                    token_response:
+            async with self.session.get(token_url, headers=headers, proxy=self.proxy,
+                                        raise_for_status=True) as token_response:
                 token_data = await token_response.text()
 
             self.registry_auth['bearer'] = json.loads(token_data)['token']
