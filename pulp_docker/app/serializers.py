@@ -111,7 +111,7 @@ class RegistryPathField(serializers.CharField):
         if settings.CONTENT_HOST:
             host = settings.CONTENT_HOST
         else:
-            host = self.context['request'].get_host()
+            raise RuntimeError('The value CONTENT_HOST was not specified in the settings.')
         return ''.join([host, '/', value])
 
 

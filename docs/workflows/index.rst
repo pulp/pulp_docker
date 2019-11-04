@@ -40,6 +40,13 @@ set is the hostname and port::
    $ export BASE_ADDR=http://<hostname>:24817
 
 
+**required settings**
+In order to distribute content, it is required to set up a value for CONTENT_HOST in the settings file
+``pulp_docker/app/settings.py``::
+
+   CONTENT_HOST = "localhost:24816"
+
+
 Container Workflows
 -------------------
 
