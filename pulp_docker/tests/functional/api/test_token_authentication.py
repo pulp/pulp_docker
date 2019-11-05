@@ -63,15 +63,15 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
         cls.distribution = cls.client.using_handler(api.task_handler).post(
             DOCKER_DISTRIBUTION_PATH,
-            gen_distribution(repository=cls.repository['_href'])
+            gen_distribution(repository=cls.repository['pulp_href'])
         )
 
     @classmethod
     def tearDownClass(cls):
         """Clean generated resources."""
-        cls.client.delete(cls.repository['_href'])
-        cls.client.delete(cls.remote['_href'])
-        cls.client.delete(cls.distribution['_href'])
+        cls.client.delete(cls.repository['pulp_href'])
+        cls.client.delete(cls.remote['pulp_href'])
+        cls.client.delete(cls.distribution['pulp_href'])
 
     def test_pull_image_with_raw_http_requests(self):
         """
