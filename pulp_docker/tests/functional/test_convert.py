@@ -10,7 +10,7 @@ class Test:
 
     def test_convert(self):
         """Test schema converter on a known manifest"""
-        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER)
+        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag')
         signed_mf = cnv.convert()
         validate_signature(signed_mf)
 
@@ -20,7 +20,7 @@ class Test:
 
     def test_compute_layers(self):
         """Test that computing the layers produces the expected data"""
-        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER)
+        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag')
         cnv.compute_layers()
         empty = dict(blobSum=cnv.EMPTY_LAYER)
         assert [dict(blobSum="sha256:layer1"), empty, empty, empty,

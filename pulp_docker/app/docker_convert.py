@@ -37,12 +37,12 @@ class Schema1ConverterWrapper:
             return converted_schema, True, self.tag.tagged_manifest.digest
         elif self.tag.tagged_manifest.media_type == MEDIA_TYPE.MANIFEST_LIST:
             legacy = self._get_legacy_manifest()
-            if legacy.media_type == MEDIA_TYPE.MANIFEST_V2:
-                converted_schema = self._convert_schema(legacy)
-                return converted_schema, True, legacy.digest
-            elif legacy.media_type in self.accepted_media_types:
+            if legacy.media_type in self.accepted_media_types:
                 # return legacy without conversion
                 return legacy, False, legacy.digest
+            elif legacy.media_type == MEDIA_TYPE.MANIFEST_V2:
+                converted_schema = self._convert_schema(legacy)
+                return converted_schema, True, legacy.digest
             else:
                 raise RuntimeError()
 
@@ -93,11 +93,6 @@ class ConverterS2toS1:
         """
         Convert manifest from schema 2 to schema 1
         """
-        if self.manifest.get("schemaVersion") == 1:
-            log.info("Manifest is already schema 1")
-            return _jsonDumps(self.manifest)
-        log.info("Converting manifest to schema 1")
-
         self.compute_layers()
         manifest = dict(
             name=self.name, tag=self.tag, architecture=self.config_layer['architecture'],
@@ -276,10 +271,7 @@ def _get_config_dict(manifest):
 
 
 def _get_manifest_dict(manifest):
-    try:
-        manifest_artifact = manifest._artifacts.get()
-    except ObjectDoesNotExist:
-        raise RuntimeError()
+    manifest_artifact = manifest._artifacts.get()
     return _get_dict(manifest_artifact)
 
 
