@@ -16,6 +16,7 @@ def recursive_add_content(repository_pk, content_units):
             should be created.
         content_units (list): List of PKs for :class:`~pulpcore.app.models.Content` that
             should be added to the previous Repository Version for this Repository.
+
     """
     repository = Repository.objects.get(pk=repository_pk)
 

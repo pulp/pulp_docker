@@ -45,6 +45,7 @@ class RegistryAuthHttpDownloader(HttpDownloader):
 
         Args:
             handle_401(bool): If true, catch 401, request a new token and retry.
+
         """
         headers = {}
         repo_name = None

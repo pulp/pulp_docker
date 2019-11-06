@@ -9,8 +9,8 @@ from multidict import MultiDict
 from pulpcore.plugin.content import Handler, PathNotResolved
 from pulpcore.plugin.models import ContentArtifact
 from pulp_docker.app.models import DockerDistribution, Tag
+from pulp_docker.app.token_verification import TokenVerifier
 from pulp_docker.constants import MEDIA_TYPE
-
 
 log = logging.getLogger(__name__)
 
@@ -96,15 +96,17 @@ class Registry(Handler):
     async def serve_v2(request):
         """
         Handler for Docker Registry v2 root.
-
-        The docker client uses this endpoint to discover that the V2 API is available.
         """
+        Registry.verify_token(request, 'pull')
+
         return web.json_response({}, headers=v2_headers)
 
     async def tags_list(self, request):
         """
         Handler for Docker Registry v2 tags/list API.
         """
+        Registry.verify_token(request, 'pull')
+
         path = request.match_info['path']
         distribution = self._match_distribution(path)
         tags = {'name': path, 'tags': set()}
@@ -132,6 +134,8 @@ class Registry(Handler):
                 streamed back to the client.
 
         """
+        Registry.verify_token(request, 'pull')
+
         path = request.match_info['path']
         tag_name = request.match_info['tag_name']
         distribution = self._match_distribution(path)
@@ -194,6 +198,8 @@ class Registry(Handler):
         """
         Return a response to the "GET" action.
         """
+        Registry.verify_token(request, 'pull')
+
         path = request.match_info['path']
         digest = "sha256:{digest}".format(digest=request.match_info['digest'])
         distribution = self._match_distribution(path)
@@ -214,3 +220,9 @@ class Registry(Handler):
                                                 headers)
             else:
                 return await self._stream_content_artifact(request, web.StreamResponse(), ca)
+
+    @staticmethod
+    def verify_token(request, access_action):
+        """Verify a Bearer token."""
+        token_verifier = TokenVerifier(request, access_action)
+        token_verifier.verify()
