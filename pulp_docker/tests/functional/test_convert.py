@@ -1,4 +1,8 @@
-from pulp_docker import docker_convert
+import base64
+
+from jwkest import jws
+
+from pulp_docker.app import docker_convert
 
 
 class Test:
@@ -6,9 +10,9 @@ class Test:
 
     def test_convert(self):
         """Test schema converter on a known manifest"""
-        cnv = docker_convert.Converter_s2_to_s1(MANIFEST, CONFIG_LAYER)
+        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag')
         signed_mf = cnv.convert()
-        docker_convert.validate_signature(signed_mf)
+        validate_signature(signed_mf)
 
         empty = dict(blobSum=cnv.EMPTY_LAYER)
         assert [dict(blobSum="sha256:layer1"), empty, empty, empty,
@@ -16,7 +20,7 @@ class Test:
 
     def test_compute_layers(self):
         """Test that computing the layers produces the expected data"""
-        cnv = docker_convert.Converter_s2_to_s1(MANIFEST, CONFIG_LAYER)
+        cnv = docker_convert.ConverterS2toS1(MANIFEST, CONFIG_LAYER, 'test-repo', 'tes-tag')
         cnv.compute_layers()
         empty = dict(blobSum=cnv.EMPTY_LAYER)
         assert [dict(blobSum="sha256:layer1"), empty, empty, empty,
@@ -28,6 +32,32 @@ class Test:
             {'v1Compatibility': '{"container_config":{"Cmd":"/bin/sh -c #(nop)  LABEL name=CentOS Base Image vendor=CentOS license=GPLv2 build-date=20180302"},"created":"2018-03-06T00:48:12.458578213Z","id":"9e9220abceaf86f2ad7820ae8124d01223d8ec022b9a6cb8c99a8ae1747137ea","parent":"cb48c1db9c0a1ede7c85c85351856fc3e40e750931295c8fac837c63b403586a","throwaway":true}'},  # noqa
             {'v1Compatibility': '{"container_config":{"Cmd":"/bin/sh -c #(nop) ADD file:FILE_CHECKSUM in / "},"created":"2018-03-06T00:48:12.077095981Z","id":"cb48c1db9c0a1ede7c85c85351856fc3e40e750931295c8fac837c63b403586a"}'},  # noqa
         ] == cnv.history
+
+
+def validate_signature(signed_mf):
+    """
+    Validate the signature of a signed manifest
+
+    A signed manifest is a JSON document with a signature attribute
+    as the last element.
+    """
+    # In order to validate the signature, we need the exact original payload
+    # (the document without the signature). We cannot json.load the document
+    # and get rid of the signature, the payload would likely end up
+    # differently because of differences in field ordering and indentation.
+    # So we need to strip the signature using plain string manipulation, and
+    # add back a trailing }
+
+    # strip the signature block
+    payload, sep, signatures = signed_mf.partition('   "signatures"')
+    # get rid of the trailing ,\n, and add \n}
+    jw_payload = payload[:-2] + '\n}'
+    # base64-encode and remove any trailing =
+    jw_payload = base64.urlsafe_b64encode(jw_payload.encode('ascii')).decode('ascii').rstrip("=")
+    # add payload as a json attribute, and then add the signatures back
+    complete_msg = payload + '   "payload": "{}",\n'.format(jw_payload) + sep + signatures
+    _jws = jws.JWS()
+    _jws.verify_json(complete_msg.encode('ascii'))
 
 
 MANIFEST = dict(schemaVersion=2, layers=[
