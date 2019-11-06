@@ -27,6 +27,7 @@ def recursive_remove_content(repository_pk, content_units):
             should be created.
         content_units (list): List of PKs for :class:`~pulpcore.app.models.Content` that
             should be removed from the Repository.
+
     """
     repository = Repository.objects.get(pk=repository_pk)
     latest_version = RepositoryVersion.latest(repository)

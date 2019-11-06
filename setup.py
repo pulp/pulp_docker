@@ -6,6 +6,7 @@ requirements = [
     "pulpcore~=3.0rc7",
     'ecdsa~=0.13.2',
     'pyjwkest~=1.4.0',
+    'pyjwt[crypto]~=1.7.1'
 ]
 
 

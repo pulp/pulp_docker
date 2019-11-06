@@ -200,6 +200,7 @@ class DockerFirstStage(Stage):
         Args:
             tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
             manifest_list_data (dict): Data about a ManifestList
+
         """
         digest = "sha256:{digest}".format(digest=tag_dc.d_artifacts[0].artifact.sha256)
         relative_url = '/v2/{name}/manifests/{digest}'.format(
@@ -231,6 +232,7 @@ class DockerFirstStage(Stage):
             tag_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
             manifest_data (dict): Data about a single new ImageManifest.
             raw_data: (str): The raw JSON representation of the ImageManifest.
+
         """
         media_type = manifest_data.get('mediaType', MEDIA_TYPE.MANIFEST_V1)
         if media_type == MEDIA_TYPE.MANIFEST_V2:
@@ -265,6 +267,7 @@ class DockerFirstStage(Stage):
         Args:
             list_dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ManifestList
             manifest_data (dict): Data about a single new ImageManifest.
+
         """
         digest = manifest_data['digest']
         relative_url = '/v2/{name}/manifests/{digest}'.format(
@@ -453,6 +456,7 @@ class InterrelateContent(Stage):
 
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
+
         """
         configured_dc = dc.extra_data.get('config_relation')
         configured_dc.content.config_blob = dc.content
@@ -464,6 +468,7 @@ class InterrelateContent(Stage):
 
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Blob
+
         """
         related_dc = dc.extra_data.get('blob_relation')
         thru = BlobManifest(manifest=related_dc.content, manifest_blob=dc.content)
@@ -478,6 +483,7 @@ class InterrelateContent(Stage):
 
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a Tag
+
         """
         related_dc = dc.extra_data.get('man_relation')
         dc.content.tagged_manifest = related_dc.content
@@ -495,6 +501,7 @@ class InterrelateContent(Stage):
 
         Args:
             dc (pulpcore.plugin.stages.DeclarativeContent): dc for a ImageManifest
+
         """
         related_dc = dc.extra_data.get('relation')
         platform = dc.extra_data.get('platform')

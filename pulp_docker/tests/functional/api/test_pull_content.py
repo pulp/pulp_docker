@@ -47,6 +47,14 @@ class PullContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
+
+        token_auth = cls.cfg.hosts[0].roles['token auth']
+        client = cli.Client(cls.cfg)
+        client.run('openssl ecparam -genkey -name prime256v1 -noout -out {}'
+                   .format(token_auth['private key']).split())
+        client.run('openssl ec -in {} -pubout -out {}'.format(
+            token_auth['private key'], token_auth['public key']).split())
+
         cls.client = api.Client(cls.cfg, api.page_handler)
         cls.teardown_cleanups = []
 
@@ -260,7 +268,16 @@ class PullOnDemandContentTestCase(unittest.TestCase):
         * `Pulp #4460 <https://pulp.plan.io/issues/4460>`_
         """
         cls.cfg = config.get_config()
+
+        token_auth = cls.cfg.hosts[0].roles['token auth']
+        client = cli.Client(cls.cfg)
+        client.run('openssl ecparam -genkey -name prime256v1 -noout -out {}'
+                   .format(token_auth['private key']).split())
+        client.run('openssl ec -in {} -pubout -out {}'.format(
+            token_auth['private key'], token_auth['public key']).split())
+
         cls.client = api.Client(cls.cfg, api.page_handler)
+
         cls.teardown_cleanups = []
 
         delete_orphans(cls.cfg)

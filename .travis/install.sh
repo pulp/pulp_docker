@@ -47,7 +47,6 @@ else
   TAG=$(git rev-parse --abbrev-ref HEAD | tr / _)
 fi
 
-
 PLUGIN=pulp_docker
 
 
@@ -99,8 +98,9 @@ spec:
   pulp_settings:
      content_host: $(hostname):24816
      token_server: $(hostname):24816/token
+     private_key_path: /var/lib/pulp/tmp/private.pem
+     public_key_path: /var/lib/pulp/tmp/public.pem
      token_signature_algorithm: ES256
-    
 CRYAML
 
 # Install k3s, lightweight Kubernetes
