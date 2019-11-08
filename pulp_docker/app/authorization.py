@@ -16,7 +16,7 @@ from pulpcore.plugin.content import Handler
 
 TOKEN_EXPIRATION_TIME = 300
 
-KNOWN_SERVICES = [settings.CONTENT_HOST]
+KNOWN_SERVICES = [settings.CONTENT_ORIGIN]
 ANONYMOUS_USER = ''
 EMPTY_ACCESS_SCOPE = '::'
 

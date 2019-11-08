@@ -107,10 +107,7 @@ class RegistryPathField(serializers.CharField):
         """
         Converts a base_path into a registry path.
         """
-        if settings.CONTENT_HOST:
-            host = settings.CONTENT_HOST
-        else:
-            host = self.context['request'].get_host()
+        host = settings.CONTENT_ORIGIN
         return ''.join([host, '/', value])
 
 

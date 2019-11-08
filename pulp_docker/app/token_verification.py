@@ -98,7 +98,7 @@ class TokenVerifier:
         realm="https://token",service="docker.io",scope="repository:my-app:push".
         """
         realm = f'{self.request.scheme}://{settings.TOKEN_SERVER}'
-        authenticate_string = f'Bearer realm="{realm}",service="{settings.CONTENT_HOST}"'
+        authenticate_string = f'Bearer realm="{realm}",service="{settings.CONTENT_ORIGIN}"'
 
         if not self._is_verifying_root_endpoint():
             scope = f'repository:{source_path}:pull'
@@ -132,7 +132,7 @@ class TokenVerifier:
         return {
             'algorithms': [settings.TOKEN_SIGNATURE_ALGORITHM],
             'issuer': settings.TOKEN_SERVER,
-            'audience': settings.CONTENT_HOST
+            'audience': settings.CONTENT_ORIGIN
         }
 
     def contains_accessible_actions(self, decoded_token):
