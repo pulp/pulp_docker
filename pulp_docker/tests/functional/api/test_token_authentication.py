@@ -8,7 +8,6 @@ from requests.auth import AuthBase
 
 from pulp_smash import api, config, cli
 from pulp_smash.pulp3.utils import gen_repo, sync, gen_distribution
-from pulp_smash.pulp3.constants import REPO_PATH
 
 from pulp_docker.tests.functional.utils import set_up_module as setUpModule  # noqa:F401
 from pulp_docker.tests.functional.utils import gen_docker_remote
@@ -17,7 +16,8 @@ from pulp_docker.tests.functional.constants import (
     DOCKER_TAG_PATH,
     DOCKER_REMOTE_PATH,
     DOCKERHUB_PULP_FIXTURE_1,
-    DOCKER_DISTRIBUTION_PATH
+    DOCKER_DISTRIBUTION_PATH,
+    DOCKER_REPO_PATH,
 )
 from pulp_docker.constants import MEDIA_TYPE
 
@@ -56,7 +56,7 @@ class TokenAuthenticationTestCase(unittest.TestCase):
 
         cls.client = api.Client(cls.cfg, api.page_handler)
 
-        cls.repository = cls.client.post(REPO_PATH, gen_repo())
+        cls.repository = cls.client.post(DOCKER_REPO_PATH, gen_repo())
         remote_data = gen_docker_remote(upstream_name=DOCKERHUB_PULP_FIXTURE_1)
         cls.remote = cls.client.post(DOCKER_REMOTE_PATH, remote_data)
         sync(cls.cfg, cls.remote, cls.repository)

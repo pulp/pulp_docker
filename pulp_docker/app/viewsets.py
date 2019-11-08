@@ -21,6 +21,7 @@ from pulpcore.plugin.viewsets import (
     ReadOnlyContentViewSet,
     RemoteViewSet,
     RepositoryViewSet,
+    RepositoryVersionViewSet,
     OperationPostponedResponse,
 )
 from rest_framework import viewsets as drf_viewsets
@@ -157,6 +158,14 @@ class DockerRepositoryViewSet(RepositoryViewSet):
             }
         )
         return OperationPostponedResponse(result, request)
+
+
+class DockerRepositoryVersionViewSet(RepositoryVersionViewSet):
+    """
+    DockerRepositoryVersion represents a single docker repository version.
+    """
+
+    parent_viewset = DockerRepositoryViewSet
 
 
 class DockerDistributionViewSet(BaseDistributionViewSet):
