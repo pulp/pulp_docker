@@ -1,11 +1,5 @@
-pulp_docker
-===========
+``pulp_docker`` Plugin
+======================
 
-Allow Pulp to manage Docker images.  Not to be confused with a Docker image running Pulp which may be found in the [Packaging repo](https://github.com/pulp/packaging/tree/docker).
-
-tagging
--------
-
-To tag a new version, edit pulp-docker.spec to the new version, create a PR,
-and once merged run `tito tag --keep-version`. Do not use the tito
-auto-increment tagger for the time being.
+This is the [pulp_docker](https://docs.pulpproject.org/plugins/pulp_docker/index.html)  Plugin for [Pulp 2 Project](https://docs.pulpproject.org/).
+This plugin provides Pulp 2 with support for docker images.
