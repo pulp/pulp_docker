@@ -1,6 +1,18 @@
 3.2 Release Notes
 =================
 
+=======
+3.2.6
+-----
+
+Bug Fixes:
+**********
+
+* Can't import containers created with Buildah
+
+See the full list of :fixedbugs_pulp_docker:`3.2.6`.
+
+
 3.2.5
 -----
 
