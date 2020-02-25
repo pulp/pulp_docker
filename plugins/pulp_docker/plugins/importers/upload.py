@@ -407,6 +407,7 @@ class AddUnits(PluginStep):
             if isinstance(item, models.Blob):
                 blobs = repository.find_repo_content_units(
                     repository=self.get_repo().repo_obj,
+                    repo_content_unit_q=Q(unit_type_id=item._content_type_id),
                     units_q=Q(digest=item.digest),
                     limit=1)
                 if tuple(blobs):
