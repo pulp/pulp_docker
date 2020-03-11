@@ -45,6 +45,9 @@ OPTION_REMOVE_TAG = PulpCliOption('--remove-tag', d, required=False, allow_multi
 d = _('name of the upstream repository')
 OPT_UPSTREAM_NAME = PulpCliOption('--upstream-name', d, required=False)
 
+d = _('full path to the json file that contains pull secret')
+OPT_PULL_SECRET = PulpCliOption('--pull-secret', d, required=False)
+
 d = _('Enable sync of v1 API. defaults to "false." DEPRECATED.')
 OPT_ENABLE_V1 = PulpCliOption('--enable-v1', d, required=False,
                               parse_func=okaara_parsers.parse_boolean)
@@ -93,6 +96,10 @@ class CreateUpdateMixin(object):
         if whitelist_tags is not None:
             config[constants.CONFIG_KEY_WHITELIST_TAGS] = whitelist_tags
 
+        pull_secret = user_input.pop(OPT_PULL_SECRET.keyword, None)
+        if pull_secret is not None:
+            config[constants.CONFIG_KEY_PULL_SECRET] = pull_secret
+
         return config
 
 
@@ -112,6 +119,7 @@ class CreateDockerRepositoryCommand(CreateUpdateMixin, CreateAndConfigureReposit
         self.add_option(OPT_ENABLE_V1)
         self.add_option(OPT_ENABLE_V2)
         self.add_option(OPTION_WHITELIST_TAGS)
+        self.add_option(OPT_PULL_SECRET)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 
@@ -171,6 +179,7 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
         self.add_option(OPT_ENABLE_V1)
         self.add_option(OPT_ENABLE_V2)
         self.add_option(OPTION_WHITELIST_TAGS)
+        self.add_option(OPT_PULL_SECRET)
         self.sync_group.add_option(OPT_UPSTREAM_NAME)
         self.options_bundle.opt_feed.description = DESC_FEED
 
@@ -182,6 +191,10 @@ class UpdateDockerRepositoryCommand(UpdateRepositoryCommand, ImporterConfigMixin
         name = kwargs.pop(OPT_UPSTREAM_NAME.keyword, None)
         if name is not None:
             importer_config[constants.CONFIG_KEY_UPSTREAM_NAME] = name
+
+        pull_secret = kwargs.pop(OPT_PULL_SECRET.keyword, None)
+        if pull_secret is not None:
+            importer_config[constants.CONFIG_KEY_PULL_SECRET] = pull_secret
 
         if importer_config:
             whitelist_tags = importer_config.get(OPTION_WHITELIST_TAGS.keyword, None)

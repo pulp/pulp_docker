@@ -373,7 +373,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
 
         self.assertEqual(r.name, name)
         self.assertEqual(r.download_config, download_config)
@@ -381,6 +382,7 @@ class TestV2Repository(unittest.TestCase):
         self.assertEqual(type(r.downloader), HTTPThreadedDownloader)
         self.assertEqual(r.downloader.config, download_config)
         self.assertEqual(r.working_dir, working_dir)
+        self.assertEqual(r.repo_config, config)
 
     def test_api_version_check_incorrect_header(self):
         """
@@ -403,7 +405,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
 
         self.assertFalse(r.api_version_check())
@@ -417,7 +420,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
 
         self.assertFalse(r.api_version_check())
 
@@ -444,7 +448,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
 
         # This should not raise an Exception
@@ -470,7 +475,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
 
         # This should not raise an Exception
@@ -493,7 +499,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         digest = 'sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef'
 
         request = r.create_blob_download_request(digest)
@@ -526,7 +533,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
         digest = 'sha256:46356a7d9575b4cee21e7867b1b83a51788610b7719a616096d943b44737ad9a'
         with open(os.path.join(TEST_DATA_PATH, 'manifest_repeated_layers.json')) as manifest_file:
@@ -557,7 +565,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
 
         tags = r.get_tags()
@@ -573,7 +582,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig()
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
 
         with self.assertRaises(PulpCodedException) as assertion:
             r.get_tags()
@@ -590,7 +600,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
 
         report = DownloadReport(registry_url + '/some/path', StringIO())
         report.error_report['response_code'] = httplib.UNAUTHORIZED
@@ -621,7 +632,8 @@ class TestV2Repository(unittest.TestCase):
         download_config = DownloaderConfig(max_concurrent=25)
         registry_url = 'https://registry.example.com'
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         r.downloader.download_one = mock.MagicMock(side_effect=download_one)
 
         headers, body = r._get_path('/some/path')
@@ -666,7 +678,8 @@ class TestV2Repository(unittest.TestCase):
         registry_url = "https://registry-1.docker.io"
         download_config = mock.MagicMock()
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         self.assertEqual('library/test_image', r.name, "Non-name-spaced image not prepended")
 
     @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader')
@@ -675,7 +688,8 @@ class TestV2Repository(unittest.TestCase):
         registry_url = "https://registry-1.docker.io"
         download_config = mock.MagicMock()
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         self.assertNotEqual('library/library/test_image', r.name,
                             "Name-spaced image prepended with library")
 
@@ -685,7 +699,8 @@ class TestV2Repository(unittest.TestCase):
         registry_url = "https://somewhere.not-docker.io"
         download_config = mock.MagicMock()
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         self.assertNotEqual('library/library/test_image', r.name,
                             "Name-spaced Non-docker hub image prepended with library")
 
@@ -695,6 +710,7 @@ class TestV2Repository(unittest.TestCase):
         registry_url = "https://somewhere.not-docker.io"
         download_config = mock.MagicMock()
         working_dir = '/a/working/dir'
-        r = registry.V2Repository(name, download_config, registry_url, working_dir)
+        config = {}
+        r = registry.V2Repository(name, download_config, registry_url, working_dir, config)
         self.assertNotEqual('library/test_image', r.name,
                             "Non-docker hub image prepended with library")

@@ -19,6 +19,7 @@ REPO_NOTE_DOCKER = 'docker-repo'
 
 # Config keys for the importer
 CONFIG_KEY_UPSTREAM_NAME = 'upstream_name'
+CONFIG_KEY_PULL_SECRET = 'pull_secret'
 
 # Config keys for the distributor plugin conf
 CONFIG_KEY_DOCKER_PUBLISH_DIRECTORY = 'docker_publish_directory'

@@ -65,7 +65,7 @@ class SyncStep(publish_step.PluginStep):
 
         # Create a Repository object to interact with.
         self.index_repository = registry.V2Repository(
-            upstream_name, download_config, url, self.get_working_dir())
+            upstream_name, download_config, url, self.get_working_dir(), config)
         self.v1_index_repository = registry.V1Repository(upstream_name, download_config, url,
                                                          self.get_working_dir())
 
@@ -420,6 +420,7 @@ class AuthDownloadStep(publish_step.DownloadStep):
             importer_constants.KEY_BASIC_AUTH_USER, None)
         self.basic_auth_password = config.repo_plugin_config.pop(
             importer_constants.KEY_BASIC_AUTH_PASS, None)
+
         super(AuthDownloadStep, self).__init__(
             step_type, downloads=downloads, repo=repo, conduit=conduit, config=config,
             working_dir=working_dir, plugin_type=plugin_type)

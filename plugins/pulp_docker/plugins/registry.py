@@ -9,6 +9,7 @@ import os
 import re
 import traceback
 import urlparse
+import base64
 
 from nectar.downloaders.threaded import HTTPThreadedDownloader
 from nectar.listener import AggregatingEventListener
@@ -279,7 +280,7 @@ class V2Repository(object):
     MANIFEST_PATH = '/v2/{name}/manifests/{reference}'
     TAGS_PATH = '/v2/{name}/tags/list'
 
-    def __init__(self, name, download_config, registry_url, working_dir):
+    def __init__(self, name, download_config, registry_url, working_dir, config):
         """
         Initialize the V2Repository.
 
@@ -305,11 +306,27 @@ class V2Repository(object):
 
         self.download_config = download_config
         self.registry_url = registry_url
+        self.repo_config = config
+
+        user = None
+        passw = None
+        pull_secret_file = self.repo_config.get(constants.CONFIG_KEY_PULL_SECRET, None)
+        if pull_secret_file:
+            with open(pull_secret_file, 'r') as pull_secret:
+                pull_secret = json.load(pull_secret)
+            parse = urlparse.urlsplit(self.registry_url)
+            registries = pull_secret['auths']
+            if parse.netloc in registries:
+                creds = base64.b64decode(registries[parse.netloc]['auth'])
+                user, passw = creds.split(':')
 
         # Use basic auth information for retrieving tokens from auth server and for downloading
         # with basic auth
-        self.auth_downloader = HTTPThreadedDownloader(copy.deepcopy(self.download_config),
-                                                      AggregatingEventListener())
+        dc = copy.deepcopy(self.download_config)
+        if user and passw:
+            dc.basic_auth_username = user
+            dc.basic_auth_password = passw
+        self.auth_downloader = HTTPThreadedDownloader(dc, AggregatingEventListener())
         self.download_config.basic_auth_username = None
         self.download_config.basic_auth_password = None
         self.downloader = HTTPThreadedDownloader(self.download_config, AggregatingEventListener())

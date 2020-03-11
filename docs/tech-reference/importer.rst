@@ -36,3 +36,6 @@ The following options are available to the docker importer configuration.
 
 ``upstream_name``
  The name of the repository to import from the upstream repository.
+
+``pull_secret``
+Full path to the json file that contains pull secret.
