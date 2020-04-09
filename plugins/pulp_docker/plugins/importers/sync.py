@@ -7,6 +7,7 @@ import httplib
 import itertools
 import logging
 import os
+import time
 
 from mongoengine import NotUniqueError
 
@@ -441,33 +442,55 @@ class AuthDownloadStep(publish_step.DownloadStep):
 
     def download_failed(self, report):
         """
+        Handle download failure:
         If the download is unauthorized, depending on the returned auth scheme, either try with
-        basic auth or attempt to retrieve a token and try again.
+        basic auth or attempt to retrieve a token and try again. Also retry when getting connection
+        issue, such as connection reset by peer which is not cover by the python-requests.
 
         :param report: download report
         :type  report: nectar.report.DownloadReport
         """
-        if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+        tries = self.downloader.tries
+        tried = 0
+        while report.state is report.DOWNLOAD_FAILED:
+            retry = False
             request = self._requests_map[report.url]
-            auth_header = report.headers.get('www-authenticate')
+            if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
+                retry = True
+                auth_header = report.headers.get('www-authenticate')
 
-            if auth_header is None:
-                raise IOError("401 responses are expected to contain authentication information")
-            if "Basic" in auth_header:
-                self.downloader.session.headers = auth_util.update_basic_auth_header(
-                    self.downloader.session.headers,
-                    self.basic_auth_username, self.basic_auth_password)
-                _logger.debug(_('Download unauthorized, retrying with basic authentication'))
-            else:
-                token = auth_util.request_token(self.parent.index_repository.auth_downloader,
-                                                request, auth_header,
-                                                self.parent.index_repository.name)
-                self.downloader.session.headers = auth_util.update_token_auth_header(
-                    self.downloader.session.headers, token)
-                _logger.debug("Download unauthorized, retrying with new bearer token.")
+                if auth_header is None:
+                    raise IOError("401 responses are expected to contain authentication"
+                                  " information")
+                if "Basic" in auth_header:
+                    self.downloader.session.headers = auth_util.update_basic_auth_header(
+                        self.downloader.session.headers,
+                        self.basic_auth_username, self.basic_auth_password)
+                    _logger.debug(_('Download unauthorized, retrying with basic authentication'))
+                else:
+                    token = auth_util.request_token(self.parent.index_repository.auth_downloader,
+                                                    request, auth_header,
+                                                    self.parent.index_repository.name)
+                    self.downloader.session.headers = auth_util.update_token_auth_header(
+                        self.downloader.session.headers, token)
+                    _logger.debug("Download unauthorized, retrying with new bearer token.")
+            elif not report.error_report.get('response_code'):
+                retry = True
+                time.sleep(0.5)
+
+            if not retry:
+                break
+
+            tried += 1
+            _logger.info("Retrying(%d/%d) to download %s due to %s" % (tried, tries, report.url,
+                                                                       report.error_msg))
 
             # Events must be false or download_failed will recurse
             report = self.downloader.download_one(request, events=False)
+
+            if tried >= tries:
+                break
+
         if report.state is report.DOWNLOAD_SUCCEEDED:
             self.download_succeeded(report)
         elif report.state is report.DOWNLOAD_FAILED:
