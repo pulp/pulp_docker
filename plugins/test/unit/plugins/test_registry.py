@@ -640,7 +640,22 @@ class TestV2Repository(unittest.TestCase):
         with self.assertRaises(IOError) as assertion:
             registry.V2Repository._raise_path_error(report)
 
-        self.assertEqual(assertion.exception.message, report.error_msg)
+        self.assertEqual(assertion.exception.message,
+                         '404 Client Error: \'oops\' for url: http://foo/bar')
+
+    def test__raise_path_server_error(self):
+        """
+        For server errors a slightly different message should be used.
+        """
+        report = DownloadReport('http://foo/bar', '/a/b/c')
+        report.error_report = {'response_code': httplib.INTERNAL_SERVER_ERROR}
+        report.error_msg = 'oops'
+
+        with self.assertRaises(IOError) as assertion:
+            registry.V2Repository._raise_path_error(report)
+
+        self.assertEqual(assertion.exception.message,
+                         '500 Server Error: \'oops\' for url: http://foo/bar')
 
     def test__raise_path_error_unathorized(self):
         """
@@ -657,7 +672,8 @@ class TestV2Repository(unittest.TestCase):
 
         # not worrying about what the exact contents are; just that the function added its
         # own message
-        self.assertNotEqual(assertion.exception.message, report.error_msg)
+        self.assertEqual(assertion.exception.message,
+                         '401 Client Error: \'Unauthorized or Not Found\' for url http://foo/bar')
         self.assertTrue(len(assertion.exception.message) > 0)
 
     @mock.patch('pulp_docker.plugins.registry.HTTPThreadedDownloader')

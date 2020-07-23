@@ -545,6 +545,15 @@ class V2Repository(object):
         """
         if report.error_report.get('response_code') == httplib.UNAUTHORIZED:
             # docker hub returns 401 for repos that don't exist, so we cannot disambiguate.
-            raise IOError(_('Unauthorized or Not Found'))
+            raise IOError(_('401 Client Error: \'Unauthorized or Not Found\' for url {0}'.format(
+                report.url)))
         else:
-            raise IOError(report.error_msg)
+            code = report.error_report.get('response_code')
+            if code >= 400 and code < 500:
+                raise IOError('{0} Client Error: \'{1}\' for url: {2}'.format(
+                    code, report.error_msg, report.url))
+            elif code >= 500 and code < 600:
+                raise IOError('{0} Server Error: \'{1}\' for url: {2}'.format(
+                    code, report.error_msg, report.url))
+            else:
+                raise IOError('\'{0}\' for url {1}'.format(report.error_msg, report.url))
