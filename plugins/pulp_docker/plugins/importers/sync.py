@@ -454,16 +454,16 @@ class AuthDownloadStep(publish_step.DownloadStep):
             if auth_header is None:
                 raise IOError("401 responses are expected to contain authentication information")
             if "Basic" in auth_header:
-                self.downloader.session.headers = auth_util.update_basic_auth_header(
-                    self.downloader.session.headers,
+                self.downloader.extra_headers = auth_util.update_basic_auth_header(
+                    self.downloader.extra_headers,
                     self.basic_auth_username, self.basic_auth_password)
                 _logger.debug(_('Download unauthorized, retrying with basic authentication'))
             else:
                 token = auth_util.request_token(self.parent.index_repository.auth_downloader,
                                                 request, auth_header,
                                                 self.parent.index_repository.name)
-                self.downloader.session.headers = auth_util.update_token_auth_header(
-                    self.downloader.session.headers, token)
+                self.downloader.extra_headers = auth_util.update_token_auth_header(
+                    self.downloader.extra_headers, token)
                 _logger.debug("Download unauthorized, retrying with new bearer token.")
 
             # Events must be false or download_failed will recurse
