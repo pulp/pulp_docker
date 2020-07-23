@@ -90,7 +90,7 @@ def request_token(downloader, request, auth_header, repo_name):
     token_data = StringIO()
     token_request = DownloadRequest(token_url, token_data)
     _logger.debug("Requesting token from {url}".format(url=token_url))
-    downloader.session.headers.pop('Authorization', None)
+    downloader.extra_headers.pop('Authorization', None)
     report = downloader.download_one(token_request)
     if report.state == report.DOWNLOAD_FAILED:
         return report
