@@ -2,7 +2,6 @@
 This module contains the primary sync entry point for Docker v2 registries.
 """
 from gettext import gettext as _
-import errno
 import httplib
 import itertools
 import logging
@@ -12,6 +11,8 @@ from mongoengine import NotUniqueError
 
 from pulp.common.plugins import importer_constants
 from pulp.plugins.util import nectar_config, publish_step
+from pulp.plugins.util import misc
+
 from pulp.server.controllers import repository
 from pulp.server.exceptions import MissingValue, PulpCodedException
 
@@ -161,12 +162,8 @@ class SyncStep(publish_step.PluginStep):
         """
         for unit in self.v1_step_get_local_units.units_to_download:
             destination_dir = os.path.join(self.get_working_dir(), unit.image_id)
-            try:
-                os.makedirs(destination_dir, mode=0755)
-            except OSError, e:
-                # it's ok if the directory exists
-                if e.errno != errno.EEXIST:
-                    raise
+            misc.mkdir(destination_dir, mode=0775)
+
             # we already retrieved the ancestry files for the tagged images, so
             # some of these will already exist
             if not os.path.exists(os.path.join(destination_dir, 'ancestry')):

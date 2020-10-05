@@ -1,7 +1,6 @@
 from cStringIO import StringIO
 from gettext import gettext as _
 import copy
-import errno
 import httplib
 import json
 import logging
@@ -15,6 +14,8 @@ from nectar.listener import AggregatingEventListener
 from nectar.report import DownloadReport
 from nectar.request import DownloadRequest
 from pulp.server import exceptions as pulp_exceptions
+
+from pulp.plugins.util import misc
 
 from pulp_docker.common import constants, error_codes
 from pulp_docker.plugins import models
@@ -226,12 +227,8 @@ class V1Repository(object):
             path = self.ANCESTRY_PATH % image_id
             url = urlparse.urljoin(self.get_image_url(), path)
             destination = os.path.join(self.working_dir, image_id, 'ancestry')
-            try:
-                os.mkdir(os.path.split(destination)[0])
-            except OSError, e:
-                # it's ok if the directory already exists
-                if e.errno != errno.EEXIST:
-                    raise
+            misc.mkdir(os.path.split(destination)[0])
+
             request = DownloadRequest(url, destination)
             self.add_auth_header(request)
             requests.append(request)
