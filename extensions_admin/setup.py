@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='pulp_docker_extensions_admin',
-    version='3.2.7',
+    version='3.2.8',
     packages=find_packages(exclude=['test']),
     url='http://www.pulpproject.org',
     license='GPLv2+',
