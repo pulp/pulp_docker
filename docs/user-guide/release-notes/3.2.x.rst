@@ -1,6 +1,29 @@
 3.2 Release Notes
 =================
 
+3.2.8
+-----
+
+Bug Fixes:
+**********
+
+* Fixed a permissions-issue that blocked pulp2to3 migrations.
+* Improved error messaging for registry errors.
+
+See the full list of :fixedbugs_pulp_docker:`3.2.8`.
+
+
+3.2.7
+-----
+
+Bug Fixes:
+**********
+
+* Use Downloader.extra_headers instead of session.headers for changes in nectar.
+
+See the full list of :fixedbugs_pulp_docker:`3.2.7`.
+
+
 3.2.6
 -----
 
