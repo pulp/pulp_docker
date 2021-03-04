@@ -282,7 +282,7 @@ class DownloadManifestsStep(publish_step.PluginStep):
                                     constants.MEDIATYPE_SIGNED_MANIFEST_S1):
                     self._process_manifest(manifest, digest, available_blobs, tag=tag)
             except IOError as e:
-                if str(e) != 'Not Found':
+                if '404 Client Error' not in str(e):
                     raise
                 pass
         # Remember this tag for the SaveTagsStep.
