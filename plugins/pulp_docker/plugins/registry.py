@@ -411,7 +411,7 @@ class V2Repository(object):
                 # add manifest and digest
                 manifests.append((manifest, digest, response_headers.get(content_type_header)))
             except IOError as e:
-                if str(e) != 'Not Found':
+                if '404 Client Error' not in str(e):
                     raise
                 pass
 
