@@ -461,6 +461,9 @@ class AuthDownloadStep(publish_step.DownloadStep):
                                                 self.parent.index_repository.name)
                 self.downloader.extra_headers = auth_util.update_token_auth_header(
                     self.downloader.extra_headers, token)
+                # Remove auth from config to not overwrite bearer token in headers
+                self.downloader.config.basic_auth_username = None
+                self.downloader.config.basic_auth_password = None
                 _logger.debug("Download unauthorized, retrying with new bearer token.")
 
             # Events must be false or download_failed will recurse
